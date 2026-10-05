@@ -2,7 +2,7 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
@@ -10,11 +10,8 @@
   ],
   "description": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelog": [
-    "Separate the left-docked HUD into compact track, record, ranking and racer strips with transparent gaps and short slanted ends; tuck it into the top-left corner when native UI hides.",
-    "Replace the toolbar P with the supplied trophy SVG, matching native icon sizing and color.",
-    "Fix ghost hiding before the game draws each frame, including separate player nameplates.",
-    "Apply the spectator camera and watched car to the same buffered frame before rendering, preventing separation through fast turns.",
-    "Interpolate the camera around the car while preserving the driver’s viewing distance and zoom through loops; retain the existing 250 ms buffer.",
-    "Add a large centered 3–2–1–GO countdown synchronized to the round start; keep the Cup panel closed on initial game launch."
+    "Center and strengthen the ranking heading; remove the points-target subtitle and increase separation from track records.",
+    "Center spectator controls at the bottom in a symmetric trapezoid, with separate mirrored previous/next buttons and visible bracket shortcuts.",
+    "Keep direct racer selection in the main name, with personal best, buffered time and speed beneath it."
   ]
 }

@@ -32,7 +32,7 @@ export class CupUI {
     // editing, while leaving the browser's normal typing/selection/paste intact.
     for (const type of ['keydown', 'keyup', 'keypress']) window.addEventListener(type, e => {
       const active = this.shadow.activeElement;
-      if (!this.panel.hidden && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName) ||
+      if ((!this.panel.hidden || this.povHud.contains(active)) && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName) ||
         (active?.tagName === 'BUTTON' && ['Space', 'Enter'].includes(e.code))))
         e.stopImmediatePropagation();
     }, { capture: true });
@@ -369,7 +369,7 @@ export class CupUI {
       for (const r of winners) podium.append(this.racerName(r.id, this.name(r.id)));
       board.append(podium);
     }
-    const heading = h('div', undefined, 'ranking-heading'); heading.append(h('strong', s.phase === 'racing' ? 'ROUND RANKING' : 'CUP STANDINGS'), h('small', '100 PT CUP')); board.append(heading);
+    const heading = h('div', undefined, 'ranking-heading'); heading.append(h('strong', s.phase === 'racing' ? 'ROUND RANKING' : 'CUP STANDINGS')); board.append(heading);
     for (const [i,r] of racers.entries()) {
       const row = h('div', undefined, `score-row${i === 0 ? ' leader' : ''}${r.finalist ? ' finalist' : ''}${r.id === this.c.selfId ? ' self' : ''}`);
       const name = this.racerName(r.id, this.name(r.id)); name.title = this.name(r.id);
@@ -392,6 +392,7 @@ export class CupUI {
   }
   renderHud() {
     this.hud.replaceChildren(); this.povHud.replaceChildren(); this.povHud.hidden = true; this.hud.hidden = !this.c.state || !Cup.currentMatch(this.c.state) || this.open;
+    this.hud.classList.toggle('spectating', this.c.canSpectate());
     if (this.hud.hidden) return;
     const s = this.c.state, m = Cup.currentMatch(s), id = recordTrack(s), track = s.tracks.find(t => t.id === id);
     const title = h('div', undefined, 'hud-track'); title.append(h('strong', track?.name ?? s.name));
@@ -408,19 +409,30 @@ export class CupUI {
     if (this.c.canSpectate()) { this.povHud.hidden = false; this.povHud.append(this.spectatorControls()); }
   }
   spectatorControls() {
-    const c = this.c, box = h('section', undefined, 'pov');
-    box.append(h('small', 'RACER POV'));
-    if (c.watchId === null) box.append(h('strong', 'Waiting for racer'));
+    const c = this.c, box = h('section', undefined, 'pov'), racers = c.watchable();
+    box.setAttribute('aria-label', 'Spectator controls');
+    const previous = this.button('', () => c.cycleWatch(-1), 'pov-cycle previous');
+    const next = this.button('', () => c.cycleWatch(1), 'pov-cycle next');
+    for (const [button, label, arrow, key] of [[previous, 'Previous racer', '‹', '['], [next, 'Next racer', '›', ']']]) {
+      button.setAttribute('aria-label', `${label} (${key})`); button.setAttribute('aria-keyshortcuts', key);
+      button.title = `${label} (${key})`; button.disabled = racers.length < 2;
+      const icon = h('span', arrow, 'pov-arrow'), shortcut = h('span', key, 'pov-key');
+      icon.setAttribute('aria-hidden', 'true'); shortcut.setAttribute('aria-hidden', 'true'); button.append(icon, shortcut);
+    }
+    const main = h('div', undefined, 'pov-main'), name = h('div', undefined, 'pov-name');
+    const select = h('select'); select.setAttribute('aria-label', 'Spectate racer'); select.disabled = !racers.length;
+    if (!racers.length) select.append(h('option', 'Waiting for racer'));
+    for (const id of racers) { const option = h('option', this.name(id)); option.value = id; option.selected = id === c.watchId; select.append(option); }
+    select.title = racers.includes(c.watchId) ? this.name(c.watchId) : 'Choose racer';
+    select.addEventListener('change', () => { c.selectWatch(Number(select.value)); this.signature = ''; this.render(); });
+    name.append(select);
     const id = recordTrack(c.state), pb = c.state.records[id]?.pbs[c.watchId];
-    box.append(this.recordStrip('PB', pb, pb?.source === 'online' ? 'Online' : 'Profile', 'Watched racer’s best for this track, including runs outside this Cup. Shared by their mod; never inferred from their nickname.'));
-    const controls = h('div', undefined, 'controls');
-    controls.append(this.button('← [', () => c.cycleWatch(-1), 'quiet'));
-    const select = h('select'); select.setAttribute('aria-label', 'Spectate racer');
-    for (const id of c.watchable()) { const option = h('option', this.name(id)); option.value = id; option.selected = id === c.watchId; select.append(option); }
-    select.addEventListener('change', () => c.selectWatch(Number(select.value)));
-    controls.append(select, this.button('] →', () => c.cycleWatch(1), 'quiet'));
-    const stats = h('p', c.watchStatus, 'muted'); stats.dataset.povStats = '';
-    box.append(controls, stats); return box;
+    const record = h('div', undefined, 'pov-pb');
+    const best = !racers.includes(c.watchId) ? '—' : !pb ? 'Loading…' : pb.frames ? time(pb.frames) : pb.status === 'unavailable' ? 'Unavailable' : 'No record';
+    record.title = `Overall personal best for this track${pb?.source ? ` (${pb.source === 'online' ? 'online leaderboard' : 'saved profile'})` : ''}`;
+    record.append(h('span', 'PB'), h('strong', best));
+    const stats = h('p', c.watchStatus, 'pov-stats'); stats.dataset.povStats = '';
+    main.append(name, record, stats); box.append(previous, main, next); return box;
   }
   results() {
     const s = this.c.state;
