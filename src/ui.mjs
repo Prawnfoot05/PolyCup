@@ -2,11 +2,11 @@ import * as Cup from './cup.mjs';
 import { standings, recordTrack, sessionRecord } from './standings.mjs';
 import { CupToolbar } from './toolbar.mjs';
 import { CupInvite } from './invite.mjs';
+import { formatTime as time, formatGap } from './time.mjs';
 import css from './world-cup.css';
 const h = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
 const names = { registration: 'Registration', loading: 'Loading track',
   warmup: 'Warmup', countdown: 'Get ready', racing: 'Live round', 'between-rounds': 'Round results', complete: 'Cup results' };
-const time = frames => frames === undefined ? '—' : (frames / 1000).toFixed(3);
 export class CupUI {
   constructor(controller) {
     this.c = controller; this.open = true; this.tab = 'Tournament'; this.signature = '';
@@ -66,6 +66,17 @@ export class CupUI {
   name(id) { return Cup.player(this.c.state, id)?.name ?? `Player ${id}`; }
   render() {
     const c = this.c, s = c.state;
+    if (c.panelRequest.revision !== this.seenPanelRequest) {
+      this.seenPanelRequest = c.panelRequest.revision;
+      if (c.panelRequest.revision > 0) {
+        this.open = c.panelRequest.open;
+        if (this.open) {
+          this.tab = 'Tournament';
+          if (c.game && !c.info?.disposed) c.native?.clearInput?.(c.game);
+        } else this.shadow.activeElement?.blur();
+        if (c.panelRequest.message) this.showNotice(c.panelRequest.message, 6500);
+      }
+    }
     this.toolbar.sync(this.open);
     this.invite.update(c.connection, this.open);
     this.panel.hidden = !this.open;
@@ -111,17 +122,16 @@ export class CupUI {
           const exportButton = this.button('Export tournament', () => this.download(), 'quiet');
           exportButton.title = 'Download all results and race history. Autosaves stay on this device.';
           footer.append(exportButton);
-          footer.append(this.button('Leave Cup mode', () => {
-            if (!confirm('End Cup mode for this lobby? Export first to keep a portable copy.')) return;
-            c.transport.broadcast({ type: 'end-cup' }); c.state = null; c.auto = false;
-            if (c.info?.spectator) c.info.spectator.isEnabled = false;
+          footer.append(this.button('End Cup for everyone', () => {
+            if (!confirm('End this Cup for everyone and return to normal multiplayer? You can restore the autosave later.')) return;
+            c.endCup();
           }, 'quiet'));
           this.panel.append(footer);
         }
       }
       for (const e of this.shadow.querySelectorAll('[data-field]')) if (e.dataset.field in drafts) e.value = drafts[e.dataset.field];
-      if (focus) this.shadow.querySelector(`[data-field="${focus}"]`)?.focus();
-      if (inviteSelection && !this.invite.input.disabled) {
+      if (focus && this.open) this.shadow.querySelector(`[data-field="${focus}"]`)?.focus();
+      if (inviteSelection && this.open && !this.invite.input.disabled) {
         this.invite.input.focus(); this.invite.input.setSelectionRange(...inviteSelection);
       }
       this.renderHud();
@@ -132,7 +142,7 @@ export class CupUI {
       e.textContent = target ? `${Math.max(0, Math.ceil((target - c.now()) / 1000))}s` : '';
     }
     for (const e of this.shadow.querySelectorAll('[data-pov-stats]')) e.textContent = c.watchedPose ?
-      `${time(c.watchedPose.frames)} s · ${Math.round(c.watchedPose.speed)} km/h` : c.watchStatus;
+      `${time(c.watchedPose.frames)} · ${Math.round(c.watchedPose.speed)} km/h` : c.watchStatus;
   }
   welcome() {
     const content = h('div', undefined, 'body');
@@ -353,8 +363,8 @@ export class CupUI {
       const total = h('strong', r.finalist ? 'F' : String(r.score)); total.title = r.finalist ? 'Finalist: win an outright round to take the Cup' : `${r.score} of 100 points`;
       const gain = h('small', r.gain ? `+${r.gain}` : '', `point-gain${r.provisional ? ' projected' : ''}`); gain.title = r.provisional ? 'Provisional points if these finish positions hold' : 'Points gained this round';
       points.append(total, gain);
-      const result = r.dnf ? 'DNF' : r.frames === undefined ? '—' : r.delta > 0 ? `+${time(r.delta)}` : time(r.frames);
-      const timing = h('span', result, 'time'); timing.title = r.frames === undefined ? 'No finish recorded' : `Finish: ${time(r.frames)} s`;
+      const result = r.dnf ? 'DNF' : r.frames === undefined ? '—' : r.delta > 0 ? formatGap(r.delta) : time(r.frames);
+      const timing = h('span', result, 'time'); timing.title = r.frames === undefined ? 'No finish recorded' : `Finish: ${time(r.frames)}`;
       row.append(h('strong', r.position, 'position'), name, movement, points, timing); board.append(row);
     }
     return board;

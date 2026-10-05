@@ -9,12 +9,12 @@
     "0.6.3"
   ],
   "latest": {
-    "0.6.3": "0.2.2"
+    "0.6.3": "0.2.3"
   },
   "tags": [
     "Gameplay",
     "UI"
   ],
-  "icon_url": "https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist/0.2.2/icon.png",
-  "description": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels."
+  "icon_url": "https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist/0.2.3/icon.png",
+  "description": "Simple live Cups for 2â€“8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels."
 }

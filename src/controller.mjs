@@ -15,6 +15,8 @@ export class Controller {
     this.cameraBuffers = new Map(); this.subscriptions = new Map(); this.watchId = null;
     this.lastPose = 0; this.lastSubscribe = 0; this.watchStatus = ''; this.watchedPose = null;
     this.hideOtherGhosts = false;
+    this.syncSequence = 0; this.receivedSequence = -1;
+    this.panelRequest = { revision: 0, open: false, message: '' }; this.roundViewKey = '';
   }
   init(pml) { this.native = connectNative(pml, this); this.timer = setInterval(() => this.tick(), 100); }
   now() { return Date.now() + (this.isHost ? 0 : this.offset); }
@@ -39,6 +41,7 @@ export class Controller {
       this.isHost = this.connection instanceof this.native.Host;
       this.state = null; this.resetKey = ''; this.readyKey = ''; this.lastSaved = -1;
       this.offset = 0; this.bestRtt = Infinity; this.watchId = null; this.needsRebind = new Set();
+      this.syncSequence = 0; this.receivedSequence = -1; this.roundViewKey = ''; this.viewCupId = null;
       this.onChange();
     }
     if (!this.state) return;
@@ -163,7 +166,10 @@ export class Controller {
         this.lastHello = Date.now();
         if (!this.isHost) this.transport.send(0, { type: 'hello', version: Cup.VERSION, sentAt: Date.now() });
       }
-      if (!this.state) { this.onChange(); return; }
+      if (!this.state) {
+        if (this.isHost && Date.now() - this.lastBroadcast > 1000) this.broadcast();
+        this.onChange(); return;
+      }
       this.sendReady();
       this.refreshRecords();
       for (const [id, upload] of this.trackUploads) if (upload.until < Date.now()) this.trackUploads.delete(id);
@@ -189,6 +195,41 @@ export class Controller {
     this.lastSaved = -1; this.broadcast(); this.onChange();
   }
   requireHost() { if (!this.isHost || !this.connection) throw new Error('Host a PolyTrack multiplayer lobby first.'); }
+  requestPanel(open, message = '') {
+    this.panelRequest = { revision: this.panelRequest.revision + 1, open, message };
+  }
+  syncRoundPanel() {
+    const s = this.state, run = s?.runtime;
+    const key = JSON.stringify([s?.id, s?.phase, run?.id, run?.sessionId]);
+    if (key === this.roundViewKey) return;
+    this.roundViewKey = key;
+    if (run && ['loading', 'warmup', 'countdown', 'racing'].includes(s.phase)) {
+      this.requestPanel(false);
+    } else if (s && this.viewCupId !== s.id) {
+      this.requestPanel(true);
+    }
+    this.viewCupId = s?.id ?? null;
+  }
+  releaseCup(message) {
+    this.state = null; this.auto = false; this.nextAuto = null; this.loadingSession = undefined;
+    this.resetKey = ''; this.startKey = ''; this.readyKey = ''; this.error = '';
+    this.cameraBuffers.clear(); this.subscriptions.clear(); this.recordRequests.clear(); this.trackUploads.clear();
+    this.watchId = null; this.watchedPose = null; this.lastWatchPose = null; this.watchStatus = '';
+    if (this.pendingUpload) this.pendingUpload.error = 'The Cup ended.';
+    this.transferProgress = ''; this.roundViewKey = ''; this.viewCupId = null;
+    if (this.game && !this.info?.disposed) {
+      this.native?.release?.(this.game);
+      if (this.info?.spectator) this.info.spectator.isEnabled = false;
+      this.native?.visibility?.(this.game, null, this.selfId); this.filteredCars = false;
+    }
+    this.requestPanel(false, message);
+  }
+  endCup() {
+    this.requireHost(); if (!this.state) return;
+    this.save(); // Keep the last Cup available through Restore autosave.
+    this.releaseCup('Cup ended · Normal multiplayer');
+    this.broadcast(); this.onChange();
+  }
   acceptTrack(actor, code) {
     if (typeof code !== 'string' || code.length > 2000000) throw new Error('The track code is too large.');
     const track = this.native.parse(code.trim());
@@ -291,7 +332,7 @@ export class Controller {
       if (m.type === 'hello' && m.version === Cup.VERSION && Number.isFinite(m.sentAt)) {
         this.hello.add(id);
         this.transport.send(id, { type: 'hello-ack', version: Cup.VERSION, sentAt: m.sentAt, hostAt: Date.now() });
-        if (this.state) this.transport.send(id, { type: 'state', state: this.networkState() });
+        this.transport.send(id, this.syncMessage());
       } else if (m.type === 'ready' && this.hello.has(id)) this.markReady(id, m);
       else if (m.type === 'finish' && this.hello.has(id)) this.receiveFinish(id, m);
       else if (m.type === 'watch' && this.hello.has(id)) {
@@ -309,13 +350,13 @@ export class Controller {
       } else if (m.type === 'hello-ack' && Number.isFinite(m.sentAt) && Number.isFinite(m.hostAt)) {
         const rtt = Date.now() - m.sentAt;
         if (rtt >= 0 && rtt < this.bestRtt) { this.bestRtt = rtt; this.offset = m.hostAt + rtt / 2 - Date.now(); }
-      } else if (m.type === 'state' && validSnapshot(m.state)) {
-        if (!this.state || m.state.id !== this.state.id || m.state.revision >= this.state.revision) {
-          this.state = m.state; this.error = '';
-        }
-      } else if (m.type === 'end-cup') {
-        this.state = null;
-        if (this.info?.spectator) this.info.spectator.isEnabled = false;
+      } else if (m.type === 'state' && Number.isSafeInteger(m.sequence) && m.sequence > this.receivedSequence &&
+        (m.state === null || validSnapshot(m.state))) {
+        this.receivedSequence = m.sequence;
+        if (m.state === null) {
+          if (this.state) this.releaseCup('Organizer ended the Cup · Normal multiplayer');
+        } else { this.state = m.state; this.error = ''; }
+        this.syncRoundPanel();
       } else if (m.type === 'error') this.error = String(m.message).slice(0, 200);
     }
     this.onChange();
@@ -370,9 +411,12 @@ export class Controller {
     return state;
   }
   broadcast() {
-    if (!this.state) return;
-    this.transport.broadcast({ type: 'state', state: this.networkState() });
-    this.sentRevision = this.state.revision; this.lastBroadcast = Date.now();
+    this.transport.broadcast(this.syncMessage());
+    this.sentRevision = this.state?.revision; this.lastBroadcast = Date.now();
+  }
+  syncMessage() {
+    this.syncRoundPanel();
+    return { type: 'state', sequence: ++this.syncSequence, state: this.state ? this.networkState() : null };
   }
   runRound() {
     this.requireHost();

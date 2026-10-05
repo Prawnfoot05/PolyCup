@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Keep the native lobby invite code and a Copy button in the PolyCup header on every tab, including setup.\nShow copied feedback, invite expiry, loading and retry states without leaving PolyCup.\nRemove redundant instructions and leaderboard footers; enlarge record times, race gaps and small labels with lighter numeric text.\nToggle other racers' ghosts with G, rebindable in native Settings under PolyCup; keep H for Hide UI.\nShow the current ghost shortcut in Racers and a brief first-race hint; retain the driver's or watched racer's car."
+  "changelog": "Center the Cup menu and open it for joined players when the organizer creates Cup mode; keep personal panel toggles local.\nAutomatically hide menus during track loading, warmup and race starts.\nFormat finish, WR, TR and PB times as minutes:seconds.milliseconds; retain compact relative gaps.\nReplace dotted provisional-point borders with subdued badges and inset the slanted time cells.\nEnd Cup for everyone restores driving and POV camera state; periodic empty-state sync recovers missed end messages and rejects stale updates."
 }

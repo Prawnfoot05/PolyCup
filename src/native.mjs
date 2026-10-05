@@ -20,6 +20,9 @@ export function connectNative(pml, controller) {
     ghostKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupToggleGhosts).map(key=>key ? ve(key) : '').filter(Boolean),
     visibility: (g,ids,self) => { Cs.call(g); Xa.get(g).setVisible(ids===null||ids.includes(self));
       for(const [id,r] of as.get(g)) if(ids!==null&&!ids.includes(id)) r.car.setVisible(false); },
+    release: g => { const car=Xa.get(g); fs.get(g).isEnabled=false;
+      la.get(g).setCamera(car.hasFinished() || ua.get(g).getSettingBoolean(P.A.DefaultCameraMode) ? car.cameraOrbit : car.cameraCockpit);
+      car.audioVolume=1; for(const r of as.get(g).values()) r.car.audioVolume=vs.get(g); },
     follow: (g,p,id) => { const camera=fs.get(g).camera; camera.position.fromArray(p.position);
       camera.quaternion.fromArray(p.quaternion); camera.fov=p.fov; camera.updateProjectionMatrix();
       la.get(g).setCamera(camera); Xa.get(g).audioVolume=0;

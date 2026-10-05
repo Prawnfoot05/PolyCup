@@ -13,6 +13,25 @@ function race() {
 }
 const pose = (at = 1000) => ({ sessionId: 9, at, position: [0,1,2], quaternion: [0,0,0,1], fov: 75, frames: 1000, speed: 120,
   carPosition: [0,0,0], carQuaternion: [0,0,0,1], view: 0 });
+
+test('leaving Cup POV restores the selected native camera and normal car volumes', () => {
+  class Game { update(){} dispose(){} } class Library {}
+  const game={}, Xa=new WeakMap(), fs=new WeakMap(), la=new WeakMap(), ua=new WeakMap(), as=new WeakMap(), vs=new WeakMap();
+  let orbit=true, finished=false, camera;
+  const own={cameraOrbit:{name:'orbit'},cameraCockpit:{name:'cockpit'},hasFinished:()=>finished,audioVolume:0};
+  const spectator={isEnabled:true}, remote={car:{audioVolume:1}};
+  Xa.set(game,own);fs.set(game,spectator);la.set(game,{setCamera:value=>{camera=value;}});
+  ua.set(game,{getSettingBoolean:()=>orbit});as.set(game,new Map([[2,remote]]));vs.set(game,.4);
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','Xa','fs','la','ua','as','vs','P',
+    `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,Xa,fs,la,ua,as,vs,{A:{DefaultCameraMode:3}})};
+  const native=connectNative(pml,{});
+  for(const [setting,hasFinished,expected] of [[true,false,'orbit'],[false,false,'cockpit'],[false,true,'orbit']]) {
+    orbit=setting;finished=hasFinished;spectator.isEnabled=true;own.audioVolume=0;remote.car.audioVolume=1;
+    native.release(game);
+    assert.equal(camera.name,expected);assert.equal(spectator.isEnabled,false);
+    assert.equal(own.audioVolume,1);assert.equal(remote.car.audioVolume,.4);
+  }
+});
 test('library selection retains an exportable custom track for transfer and autosave', async () => {
   const c = new Controller(() => {}); c.isHost = true; c.connection = {}; c.state = Cup.newCup(); c.selfId=1; Cup.addPlayer(c.state,1,'Host'); c.broadcast = () => {};
   const id = 'a'.repeat(64), metadata = { name: 'Locally saved track' };

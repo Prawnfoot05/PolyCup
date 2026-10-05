@@ -2,18 +2,18 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
-  "description": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
+  "description": "Simple live Cups for 2\u00e2\u20ac\u201c8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelog": [
-    "Keep the native lobby invite code and a Copy button in the PolyCup header on every tab, including setup.",
-    "Show copied feedback, invite expiry, loading and retry states without leaving PolyCup.",
-    "Remove redundant instructions and leaderboard footers; enlarge record times, race gaps and small labels with lighter numeric text.",
-    "Toggle other racers' ghosts with G, rebindable in native Settings under PolyCup; keep H for Hide UI.",
-    "Show the current ghost shortcut in Racers and a brief first-race hint; retain the driver's or watched racer's car."
+    "Center the Cup menu and open it for joined players when the organizer creates Cup mode; keep personal panel toggles local.",
+    "Automatically hide menus during track loading, warmup and race starts.",
+    "Format finish, WR, TR and PB times as minutes:seconds.milliseconds; retain compact relative gaps.",
+    "Replace dotted provisional-point borders with subdued badges and inset the slanted time cells.",
+    "End Cup for everyone restores driving and POV camera state; periodic empty-state sync recovers missed end messages and rejects stale updates."
   ]
 }

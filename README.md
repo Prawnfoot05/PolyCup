@@ -1,12 +1,12 @@
 # PolyCup for PolyTrack 0.6.3
 
-A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.2**. Join, pick one track, race together, with controls integrated into the native game toolbar.
+A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.3**. Join, pick one track, race together, with controls integrated into the native game toolbar.
 
 ## PolyModLoader library distribution
 
 The `dist/` folder is a standard PolyModLoader package: a root `manifest.json`, versioned JavaScript, version metadata, description, and icon. It can be hosted and installed through PolyModLoader's **Mods** menu without this project's desktop installer. Everyone in an event still needs PolyModLoader for PolyTrack 0.6.3 and the same PolyCup version.
 
-**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.2`, click **Import**, then select PolyCup and choose **Load → Apply**:
+**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.3`, click **Import**, then select PolyCup and choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -72,6 +72,10 @@ Disconnects default to **DNF**, with organizer void available. A disconnect stop
 
 The native 16-person capacity includes racers, organizer and spectators. This mod does not remove that limit or provide host migration. The organizer stays connected. Autosave is local; eight large custom tracks may exceed browser storage, in which case use **Export tournament**.
 
+Creating Cup mode opens the centered PolyCup menu for everyone already connected. Opening or hiding your own panel stays local. Menus close automatically for track loading, warmup and race starts; F8 can reopen them.
+
+**Hide** dismisses only your panel. The organizer's **End Cup for everyone** asks for confirmation, returns everyone to normal multiplayer and shows a brief ended notice. Empty-state updates continue so clients can recover if they miss the first end message; older updates cannot revive an ended Cup. The last successful autosave remains available under **Restore autosave**.
+
 The **Lobby code** and **Copy** button remain available in the PolyCup header. Expired codes offer **Renew**; failed creation offers **Retry**. The code and invite permissions come from the native game.
 
 Press **G** to hide or show the other racers' ghosts locally. Rebind primary and secondary keys in **Settings → Controls → PolyCup → Toggle other players' ghosts**, then **Apply**. **H** still controls the native UI. The **Racers** tab also has a Hide/Show button displaying the current shortcut, and a brief hint appears when you first enter a race in each Cup. Your own car, or the racer you are spectating, stays visible. Visibility stays selected across rounds without changing other players' views or scoring; leaving Cup mode restores normal visibility.
@@ -113,7 +117,7 @@ Record strips distinguish loading, no record and service unavailable. PB identit
 
 Spectators follow a competitor’s actual driving-camera pose, including cockpit/chase switches. Use **[ / ]**, the buttons, or the racer selector to switch. The HUD includes that racer’s overall PB, buffered timer and speed. Camera and watched-car transforms travel together at up to 20 Hz with a **250 ms viewing buffer**; native physics, controls and scoring are unchanged. Network gaps can still cause pauses and low frame rates affect smoothness. Other cars retain native interpolation.
 
-This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.2** together.
+This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.3** together.
 
 Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separately and old JSON exports remain readable, but their bracket cannot be resumed as a Simple Cup. Older published builds remain in `dist/` for deliberate rollback.
 
@@ -127,7 +131,9 @@ Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separa
 
 ## Validation and limits
 
-Twenty-nine automated tests cover completion with every racer count from 2 through 8, ties/finalists, all eight point places, track rotation, disconnects, void/undo, saved identity rebinding, packet validation, and existing buffered POV behavior. A paired-controller test sends a multi-chunk custom track from a remote racer, with server-side checks for stale Cup IDs, spectator uploads, limits, ordering and incomplete transfers. Record tests cover PB identity binding, stale asynchronous responses, and TR persistence despite compact network history.
+Thirty-seven automated tests cover completion with every racer count from 2 through 8, ties/finalists, all eight point places, track rotation, disconnects, void/undo, saved identity rebinding, packet validation, and existing buffered POV behavior. A paired-controller test sends a multi-chunk custom track from a remote racer, with server-side checks for stale Cup IDs, spectator uploads, limits, ordering and incomplete transfers. Record tests cover PB identity binding, stale asynchronous responses, and TR persistence despite compact network history.
+
+The 0.2.3 lifecycle tests cover one host and two clients, missed end messages, recovery through periodic state and handshake replies, stale-message rejection, personal panel independence, automatic start transitions and camera/audio restoration. Visual checks cover centered panels at desktop and compact widths, minute-based lap/record times, subdued provisional gains and inset time cells. Native browser checks verify Cup creation, ending back to the normal UI and restoring the autosave.
 
 Browser acceptance uses the real PolyTrack 0.6.3/PML renderer and native track library; controlled eight-racer fixtures verify HUD layouts and recorded/provisional states. The 0.2.1 visual checks cover native toolbar attachment, keyboard opening, replacement after track changes, automatic HUD positioning, narrow layouts, native typography and readable hover/disabled controls. The 0.2.2 checks cover invite copy feedback, expiry/renewal, failure/retry, permissions, compact header layout, larger HUD text and removal of redundant subtext. The native Settings screen was used to rebind the ghost control and verify persistence after reload. Ghost visibility tests exercise the adapter, driver/spectator switching, replacement cars and restoration on exit. The brief shortcut hint is checked in a controlled race fixture. These fixtures do not establish an eight-computer Internet race. A prior three-instance desktop race verified native invite joining, two keyboard-driven finishes, scoring propagation and switchable POV. The 0.1.2 native-renderer test covered 1,643 simulated delayed/jittered frames without camera rewinds or model-position error. Those earlier checks are bounded evidence, not a full live acceptance of the new 0.2.0 flow.
 
