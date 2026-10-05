@@ -1,0 +1,11 @@
+{
+  "shortdesc": "Host eight-player live cups with semifinals, finalist scoring, track picks, and switchable racer POV spectating.",
+  "changelogs": {
+    "0.1.1": [
+      "Choose official, community, and locally saved custom tracks directly in the Tracks tab.",
+      "Show each connected player's real car skin beside their name using the native thumbnail renderer.",
+      "Give the disconnect rule label proper spacing and isolate text-field typing from game controls.",
+      "Eight-player cups, finalist scoring, sequential semifinals, and switchable racer POV spectating."
+    ]
+  }
+}

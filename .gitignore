@@ -1,0 +1,7 @@
+.research/
+node_modules/
+output/
+.playwright-cli/
+*.log
+*.zip
+*.zip.sha256

@@ -1,0 +1,20 @@
+{
+  "mod_id": "polytrack-world-cup",
+  "url": "https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist",
+  "name": "World Cup",
+  "authors": [
+    "Kiki"
+  ],
+  "game_versions": [
+    "0.6.3"
+  ],
+  "latest": {
+    "0.6.3": "0.1.1"
+  },
+  "tags": [
+    "Gameplay",
+    "UI"
+  ],
+  "icon_url": "https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist/0.1.1/icon.png",
+  "description": "Host eight-player live cups with semifinals, finalist scoring, track picks, and switchable racer POV spectating."
+}

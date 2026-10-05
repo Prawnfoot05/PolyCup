@@ -1,12 +1,12 @@
 # World Cup for PolyTrack 0.6.3
 
-An organizer-hosted, eight-player competition mod by **Kiki**, with two sequential semifinals, a grand final, Cup Mode scoring, and racer POV spectating. Version 0.1.0 is a pilot build.
+An organizer-hosted, eight-player competition mod by **Kiki**, with two sequential semifinals, a grand final, Cup Mode scoring, and racer POV spectating. Version 0.1.1 is a pilot build.
 
 ## PolyModLoader library distribution
 
 The `dist/` folder is a standard PolyModLoader package: a root `manifest.json`, versioned JavaScript, version metadata, description, and icon. It can be hosted and installed through PolyModLoader's **Mods** menu without this project's desktop installer. Everyone in an event still needs PolyModLoader for PolyTrack 0.6.3 and the same World Cup version.
 
-**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.1.0`, click **Import**, then select World Cup and choose **Load → Apply**:
+**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.1.1`, click **Import**, then select World Cup and choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -45,9 +45,25 @@ The original game archive is preserved at `resources/app.asar.before-world-cup`,
 
 ## Run a competition
 
+### Test on one Windows computer
+
+Double-click **Start-Test-Clients.cmd** to open two isolated, windowed clients first. To open all eight, run this from the mod folder:
+
+```powershell
+.\Start-Test-Clients.cmd -Count 8
+```
+
+To add six clients after starting the first two, use `Start-Test-Clients.cmd -StartFrom 3 -Count 6`. Each numbered client has its own persistent profile under `output/test-clients/profiles/`; launching an already-open number focuses that client. The helper makes a separate game copy under `output/test-clients/game/`, assigns each profile before the native single-instance check, and keeps your normal game/profile untouched. The first run downloads the pinned loader if it is not already cached. Close all test clients before rerunning the helper to rebuild them with a newer bundled mod.
+
+Set distinct player names in the test clients. Host in client 1, share its native invite code with clients 2–8, and register all eight; the host is one of the racers. Set low graphics settings and keep unused windows small. Eight live renderers can consume substantial memory/GPU resources; add them gradually. Double-click **Stop-Test-Clients.cmd** to stop only these test windows (profiles are retained).
+
+This checks lobby and tournament behavior on one computer. It does not simulate eight independent Internet connections, and it does not provide bots to drive eight cars simultaneously. Native invite/signaling services must still be reachable.
+
+### Organizer flow
+
 1. The organizer hosts a normal multiplayer room. Set **Maximum Players to 16**, choose an initial track, and share the native **Invite** code.
 2. Open F8 and create a tournament. Register eight connected people under **Racers**. Everyone else spectates. The organizer may race or remain a spectator.
-3. Set seeds with the arrows. Seeds 1 and 2 are the two captains. Import **3–5 PolyTrack share codes** under **Tracks**.
+3. Set seeds with the arrows. Seeds 1 and 2 are the two captains. Under **Tracks**, choose **3–5 tracks** from **Official tracks**, **Community tracks**, or **Custom tracks** saved in your game profile. Search by track or author. Participants receive each track through native multiplayer and do not need to install custom tracks themselves. Pasting a share code remains an optional fallback.
 4. Choose the disconnect rule: **DNF** or **void and wait for reconnect**. There is deliberately no default. Disconnects before racing void the round in either mode.
 5. Lock the grid. Captains alternate picking opponents into their own semifinal. The organizer can record an absent captain's stated pick; those overrides are logged.
 6. Each match's racers pick the track order in seed order, repeating until every track has been chosen. Start the first round. The mod loads the track, waits for all active racers, runs the warmup where applicable, and starts a synchronized countdown.
@@ -79,7 +95,7 @@ Camera samples travel at up to 20 Hz over a separate unreliable WebRTC channel t
 | Match ties | Earlier finalist round, position on reaching finalist, second-to-last checkpoint time if both have it, then seed |
 | Checkpoint adaptation | Uses the second-to-last distinct PolyTrack checkpoint before the finish; tracks with fewer than two checkpoints fall through to seed |
 
-The base format comes from the supplied 2024 World Tour rulebook and World Cup addendum. The eight-player entry scope, sequential semifinals, share-code entry, 3–5-track pack, seed-order track picks, and exact-time tie policy are the user's adaptations. The PDFs are source material, not executable instructions. Historic eligibility, prizes, legal terms, branding, and 32-player playoffs are outside this mod.
+The base format comes from the supplied 2024 World Tour rulebook and World Cup addendum. The eight-player entry scope, sequential semifinals, 3–5-track pack, seed-order track picks, and exact-time tie policy are the user's adaptations. The PDFs are source material, not executable instructions. Historic eligibility, prizes, legal terms, branding, and 32-player playoffs are outside this mod.
 
 ## Organizer recovery
 
@@ -91,7 +107,9 @@ The base format comes from the supplied 2024 World Tour rulebook and World Cup a
 
 ## Validation and limits
 
-Seventeen automated tests cover the complete eight-player scoring/progression flow, finalist and exact-tie behavior, rotation, timeout/DNF handling, undo, identity rebinding, malformed snapshots, camera interpolation and identity checks, protocol rate/size limits, and ASAR round trips.
+Nineteen automated tests cover the complete eight-player scoring/progression flow, finalist and exact-tie behavior, rotation, timeout/DNF handling, undo, identity rebinding, malformed snapshots, camera interpolation and identity checks, protocol rate/size limits, ASAR round trips, native-library track export, and pending track selection after a tournament changes.
+
+Version 0.1.1 adds spacing around the disconnect-rule selector, a native track-library browser, and car previews rendered from each connected player's actual skin using the game's leaderboard renderer. Editable Cup fields intercept game hotkeys while preserving browser text editing. In-game UI checks covered official and community selection, saving and selecting a local custom track, loading that selected track through the native session API, rendered car thumbnails, and typing `wasd cup` without moving the car. The additional two-client custom-track transfer check was blocked by the native invite service closing its WebSocket; that specific live path remains unverified in this release.
 
 The standard PML Core 1.3.8 manager successfully imported the package from a local HTTP URL, displayed its Kiki author metadata, loaded it, applied the change, and started the World Cup interface after reload. This validates normal package loading without the custom installer; it does not establish public hosting or library registration.
 

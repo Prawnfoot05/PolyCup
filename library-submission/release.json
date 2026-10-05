@@ -1,0 +1,9 @@
+{
+  "mod_id": "polytrack-world-cup",
+  "version": "0.1.1",
+  "game_versions": [
+    "0.6.3"
+  ],
+  "dependencies": [],
+  "changelog": "Choose official, community, and locally saved custom tracks directly in the Tracks tab.\nShow each connected player's real car skin beside their name using the native thumbnail renderer.\nGive the disconnect rule label proper spacing and isolate text-field typing from game controls.\nEight-player cups, finalist scoring, sequential semifinals, and switchable racer POV spectating."
+}

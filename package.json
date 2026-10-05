@@ -1,0 +1,14 @@
+{
+  "name": "polytrack-world-cup",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "dev": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}
