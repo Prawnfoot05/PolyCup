@@ -14,6 +14,24 @@ function race() {
 const pose = (at = 1000) => ({ sessionId: 9, at, position: [0,1,2], quaternion: [0,0,0,1], fov: 75, frames: 1000, speed: 120,
   carPosition: [0,0,0], carQuaternion: [0,0,0,1], view: 0 });
 
+test('native presentation is reversible and scoped to the current game and ended-session backdrop', () => {
+  class Game { update(){} dispose(){} } class Library {}
+  const node=()=>({classList:{values:new Set(),toggle(key,on){if(on)this.values.add(key);else this.values.delete(key);}}});
+  const game={}, other={}, ui=node(), otherUI=node(), backdrop=node(), endScreen={};
+  const _a=new WeakMap([[game,{element:ui}],[other,{element:otherUI}]]), ss=new WeakMap([[game,false]]);
+  const Oa=new WeakMap(), Hr=new WeakMap([[endScreen,backdrop]]);
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','_a','ss','Oa','Hr',
+    `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,_a,ss,Oa,Hr)};
+  const native=connectNative(pml,{}), classes=n=>[...n.classList.values];
+  native.presentation(game,true,true); assert.deepEqual(classes(ui),['polycup-watching']);
+  native.presentation(game,true,false); assert.deepEqual(classes(ui),[]);
+  ss.set(game,true); Oa.set(game,endScreen);
+  native.presentation(game,true,true);
+  assert.deepEqual(classes(ui),['polycup-session-ended']); assert.deepEqual(classes(backdrop),['polycup-session-ended']);
+  native.presentation(game,false,false); assert.deepEqual(classes(ui),[]); assert.deepEqual(classes(backdrop),[]);
+  assert.deepEqual(classes(otherUI),[]); assert.equal(ss.get(game),true); assert.equal(Oa.get(game),endScreen);
+});
+
 test('native Game.update applies Cup transforms and visibility before the draw, after native resets', () => {
   const events=[], model={visible:true,x:0}, camera={x:0};
   const renderer={update(){events.push('draw');assert.equal(model.visible,false);assert.equal(model.x,25);assert.equal(camera.x,30);}};
@@ -158,7 +176,8 @@ test('ghost filtering keeps the driver or watched racer, follows new cars, and r
   const others=new Map([3,5,7,8].map(id=>[id,{car:car()}])); Xa.set(game,own);as.set(game,others);
   // Native overlap rules deliberately keep one idle lobby car invisible.
   const Cs=function(){for(const [id,r] of as.get(this)) r.car.setVisible(id!==8);};
-  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','Xa','as','Cs',`let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,Xa,as,Cs)};
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','Xa','as','Cs',
+    `let bs=()=>{},Ss=()=>{};const ss=new WeakMap(),_a=new WeakMap(),Oa=new WeakMap(),Hr=new WeakMap();return ${code}`)(class{},class{},Game,Library,Xa,as,Cs)};
   const c=new Controller(()=>{}); c.native=connectNative(pml,c);c.game=game;c.connection={};c.state=race();c.selfId=1;c.isHost=true;
   c.info={sessionId:9,spectator:{isEnabled:true}};c.lobby=[1,3,5,7,8].map(id=>({id}));
   c.transport.broadcast=c.transport.send=c.cameraTransport.send=()=>{throw new Error('Visibility must not send race data');};

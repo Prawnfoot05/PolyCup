@@ -123,11 +123,15 @@ export class Controller {
     this.watchId = id; this.lastSubscribe = 0; this.watchedPose = null; this.lastWatchPose = null; this.onChange();
   }
   beforeRender(game) {
-    if (game !== this.game || this.info?.disposed) return;
+    if (game !== this.game) return;
+    const spectating = !this.info?.disposed && this.canSpectate() && this.watchable().length > 0;
+    // Native session-end screens still render after the session stops accepting
+    // controls. Update their presentation before the disposed-session guard.
+    this.native.presentation?.(game, !!this.state, spectating);
+    if (this.info?.disposed) return;
     if (!this.state) { if(this.filteredCars) this.native.visibility(game,null,this.selfId); this.filteredCars=false; return; }
     const now = this.now(), active = Cup.activeIds(this.state);
     if (this.canSpectate() && !this.watchable().includes(this.watchId)) this.selectWatch(this.watchable()[0]);
-    const spectating = this.canSpectate() && this.watchable().length > 0;
     if (!spectating && this.followingGame === game) {
       this.native.release(game); this.followingGame = null; this.lastWatchPose = null;
     }
@@ -249,6 +253,7 @@ export class Controller {
     this.followingGame = null; this.manualWatchRound = null;
     if (this.pendingUpload) this.pendingUpload.error = 'The Cup ended.';
     this.transferProgress = ''; this.roundViewKey = ''; this.viewCupId = null;
+    if (this.game) this.native?.presentation?.(this.game, false, false);
     if (this.game && !this.info?.disposed) {
       this.native?.release?.(this.game);
       if (this.info?.spectator) this.info.spectator.isEnabled = false;

@@ -22,6 +22,12 @@ export function connectNative(pml, controller) {
   const api = pml.getFromPolyTrack(`({
     Host: ii, Client: vc, Game: Is, TrackLibrary: du,
     renderer: g => la.get(g),
+    presentation: (g, cup, watching) => {
+      const ended=!!ss.get(g), ui=_a.get(g)?.element, backdrop=Hr.get(Oa.get(g));
+      ui?.classList.toggle('polycup-watching', !!cup && !!watching && !ended);
+      ui?.classList.toggle('polycup-session-ended', !!cup && ended);
+      backdrop?.classList.toggle('polycup-session-ended', !!cup && ended);
+    },
     records: g => ({ server: jd.get(da.get(g)), profiles: ha.get(g), store: da.get(g) }),
     carThumbnail: style => kr.F(style, new Sr.A()),
     clearInput: g => { const c=qa.get(g); if(c) for(const key of ['up','right','down','left','reset']) c[key]=false;

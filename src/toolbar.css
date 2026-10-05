@@ -11,3 +11,10 @@
 .game-toolbar-ui.polycup-toolbar > .button-container > .button { white-space:nowrap; }
 .game-toolbar-ui .polycup-toolbar-button { pointer-events:inherit; }
 .game-toolbar-ui .polycup-toolbar-button > .polycup-trophy { filter:brightness(0) invert(1); }
+.game-ui.polycup-watching > :is(.time-announcer-ui, .hint-ui, .timer-ui, .checkpoint-ui, .speedometer-ui),
+.game-ui.polycup-session-ended > .player-list-ui,
+.session-end-ui.polycup-session-ended {
+  /* Keep native results and callbacks intact; suppress only their presentation.
+     The ordinary Players panel stays available during an active session. */
+  display: none !important;
+}

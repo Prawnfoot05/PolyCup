@@ -123,3 +123,32 @@ test('final result data includes every racer, winner and actual points and match
   assert.deepEqual(resultRows(c.networkState()),rows);
   assert.deepEqual(resultRows(setup()),[]);
 });
+
+test('finish UI follows automatic/manual POV and restores for the next driving round', () => {
+  for (const retired of [false,true]) {
+    const c=room(), views=[];
+    c.native.presentation=(game,cup,watching)=>views.push([game===c.game,cup,!!watching]);
+    c.beforeRender(c.game); assert.deepEqual(views.at(-1),[true,true,false]);
+    if(retired) Cup.markDNF(c.state,1); else Cup.recordFinish(c.state,1,25000,30000);
+    const recorded=JSON.stringify(c.state);
+    c.native.autoSpectate=()=>false; c.beforeRender(c.game); assert.equal(views.at(-1)[2],false);
+    c.watchRemaining(); c.beforeRender(c.game); assert.equal(views.at(-1)[2],true);
+    assert.equal(JSON.stringify(c.state),recorded);
+    Cup.completeRound(c.state); Cup.beginRound(c.state); c.state.phase='countdown';
+    c.beforeRender(c.game); assert.equal(views.at(-1)[2],false);
+  }
+  const c=room(), views=[];
+  c.native.presentation=(g,cup,watching)=>views.push(!!watching);
+  Cup.recordFinish(c.state,1,25000,30000); c.beforeRender(c.game); assert.equal(views.at(-1),true);
+  c.lobby=[{id:1}]; c.beforeRender(c.game); assert.equal(views.at(-1),false);
+});
+
+test('native results presentation updates after session end and restores even when Cup ends during loading', () => {
+  const c=room(), views=[];
+  c.native.presentation=(g,cup,watching)=>views.push([cup,!!watching]);
+  c.info.disposed=true; c.state.phase='loading';
+  c.beforeRender({}); assert.equal(views.length,0);
+  c.beforeRender(c.game); assert.deepEqual(views.at(-1),[true,false]);
+  c.releaseCup('Ended'); assert.deepEqual(views.at(-1),[false,false]);
+  c.beforeRender(c.game); assert.deepEqual(views.at(-1),[false,false]);
+});
