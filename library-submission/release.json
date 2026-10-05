@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Center the Cup menu and open it for joined players when the organizer creates Cup mode; keep personal panel toggles local.\nAutomatically hide menus during track loading, warmup and race starts.\nFormat finish, WR, TR and PB times as minutes:seconds.milliseconds; retain compact relative gaps.\nReplace dotted provisional-point borders with subdued badges and inset the slanted time cells.\nEnd Cup for everyone restores driving and POV camera state; periodic empty-state sync recovers missed end messages and rejects stale updates."
+  "changelog": "Fix ghost hiding before the game draws each frame, including separate player nameplates.\nApply the spectator camera and watched car to the same buffered frame before rendering, preventing separation through fast turns.\nInterpolate the camera around the car while preserving the driver’s viewing distance and zoom through loops; retain the existing 250 ms buffer.\nAdd a large centered 3–2–1–GO countdown synchronized to the round start; keep the Cup panel closed on initial game launch."
 }

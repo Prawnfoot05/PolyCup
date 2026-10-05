@@ -24,6 +24,26 @@ function mixRotation(a, b, t) {
 }
 const mixPosition = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 
+function rotateVector(v, q) {
+  // Native rotations can be slightly off unit length (the game approximates trig).
+  const norm=Math.hypot(...q), [x,y,z,w] = q.map(n=>n/norm), [vx,vy,vz] = v;
+  const tx = 2 * (y*vz-z*vy), ty = 2 * (z*vx-x*vz), tz = 2 * (x*vy-y*vx);
+  return [vx+w*tx+y*tz-z*ty, vy+w*ty+z*tx-x*tz, vz+w*tz+x*ty-y*tx];
+}
+function cameraOffset(p) {
+  const delta = p.position.map((v,i) => v-p.carPosition[i]);
+  return rotateVector(delta, p.quaternion.map((v,i) => i===3 ? v : -v));
+}
+function mixCameraPosition(a, b, t, carPosition, quaternion) {
+  const start = cameraOffset(a), end = cameraOffset(b), local = mixPosition(start,end,t);
+  // Interpolate around the car in camera space, not along a world-space chord.
+  // This retains the driver's view and zoom without shortening the orbit in loops.
+  const distance = Math.hypot(...start)*(1-t)+Math.hypot(...end)*t, length = Math.hypot(...local);
+  const direction = length>1e-8 ? local : (t<.5 ? start : end), magnitude = Math.hypot(...direction);
+  const offset = rotateVector(magnitude>1e-8 ? direction.map(v => v*distance/magnitude) : direction,quaternion);
+  return carPosition.map((v,i) => v+offset[i]);
+}
+
 // Redraw only the remote car's visual transform. Never set a physics/network car
 // state: doing so would feed our viewing delay back into native interpolation.
 export function renderCarPose(car, pose) {
@@ -61,9 +81,10 @@ export class CameraBuffer {
     // A respawn is a cut, not a flight through scenery.
     if (a.view !== b.view || Math.hypot(...a.carPosition.map((v, i) => b.carPosition[i] - v)) > 40 ||
       Math.hypot(...a.position.map((v, i) => b.position[i] - v)) > 40) return t < 1 ? a : b;
-    return { ...a, at, position: mixPosition(a.position, b.position, t),
-      quaternion: mixRotation(a.quaternion, b.quaternion, t), fov: a.fov + (b.fov - a.fov) * t,
-      carPosition: mixPosition(a.carPosition, b.carPosition, t), carQuaternion: mixRotation(a.carQuaternion, b.carQuaternion, t),
+    const carPosition = mixPosition(a.carPosition, b.carPosition, t), quaternion = mixRotation(a.quaternion,b.quaternion,t);
+    return { ...a, at, position: mixCameraPosition(a,b,t,carPosition,quaternion),
+      quaternion, fov: a.fov + (b.fov - a.fov) * t,
+      carPosition, carQuaternion: mixRotation(a.carQuaternion, b.carQuaternion, t),
       frames: Math.round(a.frames + (b.frames - a.frames) * t), speed: a.speed + (b.speed - a.speed) * t };
   }
   playback(now, sessionId, tick) {

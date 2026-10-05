@@ -1,12 +1,12 @@
 # PolyCup for PolyTrack 0.6.3
 
-A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.3**. Join, pick one track, race together, with controls integrated into the native game toolbar.
+A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.4**. Join, pick one track, race together, with controls integrated into the native game toolbar.
 
 ## PolyModLoader library distribution
 
 The `dist/` folder is a standard PolyModLoader package: a root `manifest.json`, versioned JavaScript, version metadata, description, and icon. It can be hosted and installed through PolyModLoader's **Mods** menu without this project's desktop installer. Everyone in an event still needs PolyModLoader for PolyTrack 0.6.3 and the same PolyCup version.
 
-**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.3`, click **Import**, then select PolyCup and choose **Load → Apply**:
+**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.4`, click **Import**, then select PolyCup and choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -105,7 +105,9 @@ All panel text uses PolyTrack’s bundled italic ForcedSquare font, native kerni
 
 Redundant setup instructions and leaderboard footers are removed. WR/TR/PB times use 24 px normal-weight text; race gaps use 20 px, and small labels use at least 18 px. Rules remain available in a collapsed section.
 
-The PolyCup launcher sits after the existing in-game toolbar buttons and follows native scaling and auto-hide. Outside the game, a fallback launcher remains available; F8 works in either location. The race panel reserves space while the top toolbar is visible, then slides up to a 16-pixel corner margin after its fade-out. It clears space immediately when the toolbar returns and follows track changes, wrapping and bottom-docked layouts. It highlights the leader, shows actual credited **+points** in green, rank changes after scoring, **F** for finalists and a separate Cup winner strip. During racing, finished racers appear first; points have a dashed outline and are **provisional**. The mod does not claim to know the track position of unfinished racers. Finish gaps are relative to the fastest recorded finish; the exact finish time is in the cell tooltip.
+The panel starts closed on game launch and opens when the organizer creates a Cup. A centered **3 → 2 → 1 → GO** signal uses the shared start timestamp for each round; it clears 0.6 seconds after the start and never captures driving input.
+
+The PolyCup launcher sits after the existing in-game toolbar buttons and follows native scaling and auto-hide. Outside the game, a fallback launcher remains available; F8 works in either location. The race panel reserves space while the top toolbar is visible, then slides up to a 16-pixel corner margin after its fade-out. It clears space immediately when the toolbar returns and follows track changes, wrapping and bottom-docked layouts. It highlights the leader, shows actual credited **+points** in green, rank changes after scoring, **F** for finalists and a separate Cup winner strip. During racing, finished racers appear first; point gains are subdued while **provisional**. The mod does not claim to know the track position of unfinished racers. Finish gaps are relative to the fastest recorded finish; the exact finish time is in the cell tooltip.
 
 - **WR:** current overall leaderboard record. Official and community tracks use PolyTrack’s verified leaderboard; custom tracks use their public leaderboard. Queried through the game’s own API, cached for two minutes, and shown as unavailable if the service cannot answer.
 - **TR:** fastest scored run on the current track across this Cup. Warmups are excluded. Voiding or undoing a round removes its contribution. A current-round best is provisional until that round is scored.
@@ -115,9 +117,9 @@ Record strips distinguish loading, no record and service unavailable. PB identit
 
 ## Spectating
 
-Spectators follow a competitor’s actual driving-camera pose, including cockpit/chase switches. Use **[ / ]**, the buttons, or the racer selector to switch. The HUD includes that racer’s overall PB, buffered timer and speed. Camera and watched-car transforms travel together at up to 20 Hz with a **250 ms viewing buffer**; native physics, controls and scoring are unchanged. Network gaps can still cause pauses and low frame rates affect smoothness. Other cars retain native interpolation.
+Spectators follow a competitor’s actual driving-camera pose, including cockpit/chase switches. Use **[ / ]**, the buttons, or the racer selector to switch. The HUD includes that racer’s overall PB, buffered timer and speed. Camera and watched-car transforms travel together at up to 20 Hz with a **250 ms viewing buffer**, and both are applied before the frame is drawn. Interpolation preserves the driver’s camera-to-car distance and zoom through fast turns and loops; native physics, controls and scoring are unchanged. Network gaps can still cause pauses and low frame rates affect smoothness. Other cars retain native interpolation.
 
-This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.3** together.
+This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.4** together.
 
 Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separately and old JSON exports remain readable, but their bracket cannot be resumed as a Simple Cup. Older published builds remain in `dist/` for deliberate rollback.
 
@@ -131,7 +133,9 @@ Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separa
 
 ## Validation and limits
 
-Thirty-seven automated tests cover completion with every racer count from 2 through 8, ties/finalists, all eight point places, track rotation, disconnects, void/undo, saved identity rebinding, packet validation, and existing buffered POV behavior. A paired-controller test sends a multi-chunk custom track from a remote racer, with server-side checks for stale Cup IDs, spectator uploads, limits, ordering and incomplete transfers. Record tests cover PB identity binding, stale asynchronous responses, and TR persistence despite compact network history.
+Forty-two automated tests cover completion with every racer count from 2 through 8, ties/finalists, all eight point places, track rotation, disconnects, void/undo, saved identity rebinding, packet validation, and existing buffered POV behavior. A paired-controller test sends a multi-chunk custom track from a remote racer, with server-side checks for stale Cup IDs, spectator uploads, limits, ordering and incomplete transfers. Record tests cover PB identity binding, stale asynchronous responses, and TR persistence despite compact network history.
+
+The 0.2.4 regression checks verify visibility and buffered transforms at the renderer draw boundary. Native browser checks used two real remote-car models, toggled G to hide and restore bodies and nameplates, and followed more than 6,600 looping frames with a constant six-unit camera distance and unchanged native car state, including target switching. Additional checks cover normalized native rotations, the synchronized 3–2–1–GO sequence and closed startup panels. The loop trajectory was controlled test data, not a new multi-computer network test. Earlier post-update checks did not catch the draw-order bug.
 
 The 0.2.3 lifecycle tests cover one host and two clients, missed end messages, recovery through periodic state and handshake replies, stale-message rejection, personal panel independence, automatic start transitions and camera/audio restoration. Visual checks cover centered panels at desktop and compact widths, minute-based lap/record times, subdued provisional gains and inset time cells. Native browser checks verify Cup creation, ending back to the normal UI and restoring the autosave.
 

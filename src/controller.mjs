@@ -112,7 +112,7 @@ export class Controller {
     if (!this.canSpectate() || !this.watchable().includes(id)) return;
     this.watchId = id; this.lastSubscribe = 0; this.watchedPose = null; this.lastWatchPose = null; this.onChange();
   }
-  afterGame(game) {
+  beforeRender(game) {
     if (game !== this.game || this.info?.disposed) return;
     if (!this.state) { if(this.filteredCars) this.native.visibility(game,null,this.selfId); this.filteredCars=false; return; }
     const now = this.now(), active = Cup.activeIds(this.state);

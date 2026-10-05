@@ -3,13 +3,14 @@ import { standings, recordTrack, sessionRecord } from './standings.mjs';
 import { CupToolbar } from './toolbar.mjs';
 import { CupInvite } from './invite.mjs';
 import { formatTime as time, formatGap } from './time.mjs';
+import { roundStartCue } from './countdown.mjs';
 import css from './world-cup.css';
 const h = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
 const names = { registration: 'Registration', loading: 'Loading track',
   warmup: 'Warmup', countdown: 'Get ready', racing: 'Live round', 'between-rounds': 'Round results', complete: 'Cup results' };
 export class CupUI {
   constructor(controller) {
-    this.c = controller; this.open = true; this.tab = 'Tournament'; this.signature = '';
+    this.c = controller; this.open = false; this.tab = 'Tournament'; this.signature = '';
     this.trackCategory = 'official'; this.trackQuery = ''; this.carThumbnails = new Map();
     const root = h('div'); root.id = 'polytrack-world-cup'; document.body.append(root);
     this.shadow = root.attachShadow({ mode: 'open' });
@@ -21,6 +22,9 @@ export class CupUI {
     this.invite = new CupInvite();
     this.notice = h('div', undefined, 'notice'); this.notice.hidden = true;
     this.notice.setAttribute('role', 'status'); this.shadow.append(this.notice);
+    this.startCue = h('div', undefined, 'start-countdown'); this.startCue.hidden = true;
+    this.startCue.setAttribute('role','status'); this.startCue.setAttribute('aria-live','assertive');
+    this.shadow.append(this.startCue);
     for (const type of ['keydown', 'keyup', 'keypress']) this.panel.addEventListener(type, e => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) e.stopPropagation();
     });
@@ -80,6 +84,7 @@ export class CupUI {
     this.toolbar.sync(this.open);
     this.invite.update(c.connection, this.open);
     this.panel.hidden = !this.open;
+    this.renderStartCue();
     if (!this.open && s?.runtime && ['warmup', 'countdown', 'racing'].includes(s.phase) &&
       Cup.activeIds(s).includes(c.selfId) && this.ghostHintCup !== s.id) {
       const keys = c.game && !c.info?.disposed ? c.native?.ghostKeys?.(c.game) ?? [] : [];
@@ -148,6 +153,17 @@ export class CupUI {
     const content = h('div', undefined, 'body');
     content.append(h('h2', 'Multiplayer required'), h('p', 'Host or join a multiplayer lobby.'));
     this.panel.append(content);
+  }
+  renderStartCue() {
+    const c=this.c, value=roundStartCue(c.state,c.info?.disposed ? null : c.info?.sessionId,c.now());
+    if (value===this.startCueValue) return;
+    this.startCueValue=value;this.startCue.hidden=!value;this.startCue.replaceChildren();
+    if (!value) return;
+    const signal=h('div',undefined,`start-signal${value==='GO'?' go':''}`);
+    signal.append(h('span',value,'start-number'));
+    const lights=h('div',undefined,'start-lights');lights.setAttribute('aria-hidden','true');
+    for(let i=0;i<3;i++) lights.append(h('i',undefined,value==='GO'||i<4-Number(value)?'lit':''));
+    signal.append(lights);this.startCue.append(signal);
   }
   setup() {
     const body = h('div', undefined, 'body');

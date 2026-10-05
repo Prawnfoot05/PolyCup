@@ -1,9 +1,27 @@
 // Version-specific access is isolated here. These symbols were inspected in PML v0.6.3-1.
 import { renderCarPose } from './spectator.mjs';
+
+export function registerCarVisibility(pml, insertType) {
+  // PolyTrack keeps the nameplate outside the car model's scene group.
+  pml.registerGlobalMixin({ type: insertType,
+    token: '(0, l.gn)(this, me, "f").visible = e;',
+    func: 'if (!e && Ae.get(this)) Ae.get(this).visible = false;' });
+}
+
+export function beforeGameRender(renderer, prepare, update) {
+  const descriptor = Object.getOwnPropertyDescriptor(renderer, 'update'), original = renderer.update;
+  renderer.update = function (...args) { prepare(); return original.apply(this, args); };
+  try { return update(); }
+  finally {
+    if (descriptor) Object.defineProperty(renderer, 'update', descriptor); else delete renderer.update;
+  }
+}
+
 export function connectNative(pml, controller) {
   if (pml.polyVersion !== '0.6.3') throw new Error('PolyCup requires PolyTrack 0.6.3.');
   const api = pml.getFromPolyTrack(`({
     Host: ii, Client: vc, Game: Is, TrackLibrary: du,
+    renderer: g => la.get(g),
     records: g => ({ server: jd.get(da.get(g)), profiles: ha.get(g), store: da.get(g) }),
     carThumbnail: style => kr.F(style, new Sr.A()),
     clearInput: g => { const c=qa.get(g); if(c) for(const key of ['up','right','down','left','reset']) c[key]=false;
@@ -82,9 +100,9 @@ export function connectNative(pml, controller) {
   const original = api.Game.prototype.update;
   api.Game.prototype.update = function (...args) {
     controller.observeGame(this);
-    const result = original.apply(this, args);
-    controller.afterGame(this);
-    return result;
+    // Game.update draws the frame itself. Apply visibility and the buffered POV
+    // after native car updates, but before that draw can consume their transforms.
+    return beforeGameRender(api.renderer(this), () => controller.beforeRender(this), () => original.apply(this, args));
   };
   const dispose = api.Game.prototype.dispose;
   api.Game.prototype.dispose = function (...args) {

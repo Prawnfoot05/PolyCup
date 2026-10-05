@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Controller, validSnapshot } from '../src/controller.mjs';
 import * as Cup from '../src/cup.mjs';
 import { CameraBuffer, validPose, renderCarPose } from '../src/spectator.mjs';
-import { CupTransport, connectNative } from '../src/native.mjs';
+import { CupTransport, connectNative, beforeGameRender } from '../src/native.mjs';
 import { pack, unpack } from '../scripts/asar.mjs';
 function race() {
   const s = Cup.newCup();
@@ -13,6 +13,58 @@ function race() {
 }
 const pose = (at = 1000) => ({ sessionId: 9, at, position: [0,1,2], quaternion: [0,0,0,1], fov: 75, frames: 1000, speed: 120,
   carPosition: [0,0,0], carQuaternion: [0,0,0,1], view: 0 });
+
+test('native Game.update applies Cup transforms and visibility before the draw, after native resets', () => {
+  const events=[], model={visible:true,x:0}, camera={x:0};
+  const renderer={update(){events.push('draw');assert.equal(model.visible,false);assert.equal(model.x,25);assert.equal(camera.x,30);}};
+  const originalDraw=renderer.update;
+  class Game { update(){events.push('native');model.visible=true;model.x=50;renderer.update();return 'complete';} dispose(){} }
+  class Library {}
+  const game=new Game(),la=new WeakMap([[game,renderer]]);
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','la',`let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,la)};
+  connectNative(pml,{observeGame(){events.push('observe');},beforeRender(){events.push('prepare');model.visible=false;model.x=25;camera.x=30;}});
+  for(let i=0;i<3;i++) assert.equal(game.update(),'complete');
+  assert.deepEqual(events,Array.from({length:3},()=>['observe','native','prepare','draw']).flat());
+  assert.equal(renderer.update,originalDraw);
+});
+
+test('temporary renderer hooks restore own and inherited methods when preparing or drawing fails', () => {
+  for(const own of [true,false]) for(const fail of ['prepare','draw']) {
+    const original=function(){if(fail==='draw')throw new Error('draw failure');};
+    const renderer=own?{update:original}:Object.create({update:original});
+    assert.throws(()=>beforeGameRender(renderer,()=>{if(fail==='prepare')throw new Error('prepare failure');},()=>renderer.update()),new RegExp(fail+' failure'));
+    assert.equal(renderer.update,original);assert.equal(Object.hasOwn(renderer,'update'),own);
+  }
+});
+
+test('rapid full loops retain camera distance and framing while preserving driver zoom and FOV', () => {
+  const b=new CameraBuffer();
+  // Two complete loops in 800 ms, with translation and a gradual driver zoom.
+  for(let at=1000;at<=1800;at+=50){
+    const angle=(at-1000)*Math.PI/200, distance=6+(at-1000)/800;
+    const carPosition=[(at-1000)/20,8*Math.cos(angle),8*Math.sin(angle)];
+    b.push({...pose(at),frames:at,carPosition,position:[carPosition[0],carPosition[1]-distance*Math.sin(angle),carPosition[2]+distance*Math.cos(angle)],
+      quaternion:[Math.sin(angle/2),0,0,Math.cos(angle/2)],carQuaternion:[Math.sin(angle/2),0,0,Math.cos(angle/2)],fov:75+(at-1000)/80});
+  }
+  for(let at=1000;at<=1800;at+=5){
+    const p=b.sample(at,9),delta=p.position.map((v,i)=>v-p.carPosition[i]),distance=6+(at-1000)/800;
+    assert.ok(Math.abs(Math.hypot(...delta)-distance)<1e-9,`distance at ${at}`);
+    const [x,,,w]=p.quaternion;
+    assert.ok(Math.abs(delta[1]+distance*2*x*w)<1e-9,`vertical framing at ${at}`);
+    assert.ok(Math.abs(delta[2]-distance*(1-2*x*x))<1e-9,`forward framing at ${at}`);
+    assert.equal(p.fov,75+(at-1000)/80);
+  }
+});
+
+test('near-unit native quaternions cannot scale the spectator camera offset', () => {
+  const b=new CameraBuffer();
+  b.push({...pose(1000),position:[0,0,6],quaternion:[0,0,0,.9999]});
+  b.push({...pose(1100),position:[0,-6,0],quaternion:[Math.SQRT1_2*.9999,0,0,Math.SQRT1_2*.9999]});
+  for(let at=1001;at<1100;at++){
+    const p=b.sample(at,9);
+    assert.ok(Math.abs(Math.hypot(...p.position)-6)<1e-9);
+  }
+});
 
 test('leaving Cup POV restores the selected native camera and normal car volumes', () => {
   class Game { update(){} dispose(){} } class Library {}
@@ -82,7 +134,7 @@ test('disconnect choices produce DNF or a void, and stop automatic rounds', () =
 });
 test('camera samples interpolate, reject stale sessions and invalid packets, and cut on respawn', () => {
   const b = new CameraBuffer(); assert.ok(b.push(pose()));
-  assert.ok(b.push({ ...pose(1100), position: [10,1,2], frames: 1100, quaternion: [0,0,0,-1] }));
+  assert.ok(b.push({ ...pose(1100), position: [10,1,2], carPosition:[10,0,0], frames: 1100, quaternion: [0,0,0,-1] }));
   assert.deepEqual(b.sample(1050,9).position, [5,1,2]); assert.equal(b.sample(1050,9).frames,1050);
   assert.deepEqual(b.playback(1300,9,0).position,[5,1,2]);
   assert.equal(b.playback(3000,9,1700),null);
@@ -111,16 +163,16 @@ test('ghost filtering keeps the driver or watched racer, follows new cars, and r
   c.info={sessionId:9,spectator:{isEnabled:true}};c.lobby=[1,3,5,7,8].map(id=>({id}));
   c.transport.broadcast=c.transport.send=c.cameraTransport.send=()=>{throw new Error('Visibility must not send race data');};
   const saved=JSON.stringify(c.state);
-  c.afterGame(game);assert.equal(own.visible,true);assert.equal(others.get(3).car.visible,true);
-  c.toggleGhosts();c.afterGame(game);assert.equal(own.visible,true);assert.ok([...others.values()].every(r=>!r.car.visible));
-  others.set(3,{car:car()});c.afterGame(game);assert.equal(others.get(3).car.visible,false);
-  c.toggleGhosts();c.afterGame(game);assert.equal(others.get(3).car.visible,true);
+  c.beforeRender(game);assert.equal(own.visible,true);assert.equal(others.get(3).car.visible,true);
+  c.toggleGhosts();c.beforeRender(game);assert.equal(own.visible,true);assert.ok([...others.values()].every(r=>!r.car.visible));
+  others.set(3,{car:car()});c.beforeRender(game);assert.equal(others.get(3).car.visible,false);
+  c.toggleGhosts();c.beforeRender(game);assert.equal(others.get(3).car.visible,true);
   c.toggleGhosts();c.selfId=8;c.lastWatchPose=pose();c.native.camera=()=>pose();c.native.follow=()=>{};
-  c.afterGame(game);assert.equal(own.visible,false);assert.equal(c.watchId,1);
-  c.cycleWatch(1);c.afterGame(game);assert.equal(c.watchId,3);assert.equal(others.get(3).car.visible,true);assert.equal(others.get(5).car.visible,false);
-  c.cycleWatch(1);c.afterGame(game);assert.equal(others.get(3).car.visible,false);assert.equal(others.get(5).car.visible,true);
+  c.beforeRender(game);assert.equal(own.visible,false);assert.equal(c.watchId,1);
+  c.cycleWatch(1);c.beforeRender(game);assert.equal(c.watchId,3);assert.equal(others.get(3).car.visible,true);assert.equal(others.get(5).car.visible,false);
+  c.cycleWatch(1);c.beforeRender(game);assert.equal(others.get(3).car.visible,false);assert.equal(others.get(5).car.visible,true);
   assert.equal(JSON.stringify(c.state),saved);
-  c.state=null;c.afterGame(game);assert.equal(own.visible,true);assert.equal(others.get(3).car.visible,true);assert.equal(others.get(8).car.visible,false);
+  c.state=null;c.beforeRender(game);assert.equal(own.visible,true);assert.equal(others.get(3).car.visible,true);assert.equal(others.get(8).car.visible,false);
 });
 test('buffered POV stays monotonic under packet jitter, loss, and reordering with camera and car aligned', () => {
   const b = new CameraBuffer(), queue = [];
@@ -136,7 +188,7 @@ test('buffered POV stays monotonic under packet jitter, loss, and reordering wit
     const p = b.playback(now, 9, now);
     if (!p) continue;
     assert.equal(p.position[0], p.carPosition[0]);
-    assert.deepEqual(p.position.map((v, i) => v - p.carPosition[i]), [0, 2, 5]);
+    assert.ok(Math.hypot(...p.position.map((v, i) => v-p.carPosition[i]-[0,2,5][i]))<1e-9);
     if (previous !== null && now > 300) {
       const step = p.position[0] - previous;
       assert.ok(step >= -1e-9, `camera rewound at ${now}`);
@@ -205,7 +257,7 @@ test('spectator playback uses the buffered stream independent of native car play
   c.bufferCamera(1,{...pose(1000), frames:1000, position:[0,0,0],carPosition:[0,0,0]});
   c.bufferCamera(1,{...pose(1100), frames:1100, position:[10,0,0],carPosition:[10,0,0]});
   let shown; c.native={visibility(){},follow(g,p,id){shown={p,id};},remoteFrame(){throw new Error('native timeline must not drive POV');}};
-  c.afterGame(c.game);
+  c.beforeRender(c.game);
   assert.equal(shown.id,1); assert.equal(shown.p.position[0],5); assert.equal(shown.p.carPosition[0],5);
 });
 test('transport binds messages to native peer identity, drops oversized/flooded packets, and uses separate camera channel', () => {

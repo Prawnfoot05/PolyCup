@@ -1,7 +1,9 @@
 import { Controller } from './controller.mjs';
 import { CupUI } from './ui.mjs';
-const { PolyMod } = await import(new URL('PolyTypes.js', document.baseURI).href);
+import { registerCarVisibility } from './native.mjs';
+const { PolyMod, MixinType } = await import(new URL('PolyTypes.js', document.baseURI).href);
 class PolyCup extends PolyMod {
+  preInit = pml => registerCarVisibility(pml, MixinType.INSERT);
   init = pml => {
     this.controller = new Controller(() => this.ui?.render());
     try {

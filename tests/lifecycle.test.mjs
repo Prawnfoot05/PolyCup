@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import { Controller } from '../src/controller.mjs';
 import * as Cup from '../src/cup.mjs';
 import { formatTime, formatGap } from '../src/time.mjs';
+import { roundStartCue } from '../src/countdown.mjs';
+
+test('center start cue uses the shared round timestamp, tolerates a late phase update, and clears on cancellation', () => {
+  const state={phase:'countdown',runtime:{sessionId:7,startsAt:10000}};
+  for(const [now,expected] of [[6999,''],[7000,'3'],[7999,'3'],[8000,'2'],[9000,'1'],[9999,'1'],[10000,'GO'],[10599,'GO'],[10600,'']])
+    assert.equal(roundStartCue(state,7,now),expected);
+  assert.equal(roundStartCue(state,6,9000),'');
+  state.phase='racing';assert.equal(roundStartCue(state,7,10100),'GO');assert.equal(roundStartCue(state,7,12000),'');
+  for(const phase of ['loading','warmup','between-rounds','complete']){state.phase=phase;assert.equal(roundStartCue(state,7,9000),'');}
+  state.phase='countdown';state.runtime.startsAt=null;assert.equal(roundStartCue(state,7,0),'');
+  state.runtime=null;assert.equal(roundStartCue(state,7,9000),'');assert.equal(roundStartCue(null,7,9000),'');
+});
 
 function room() {
   const people = [1, 2, 3].map(id => ({ id, nickname: `Player ${id}` }));

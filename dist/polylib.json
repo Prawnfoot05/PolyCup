@@ -1,12 +1,11 @@
 {
-  "shortdesc": "Simple live Cups for 2â€“8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
+  "shortdesc": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelogs": {
-    "0.2.3": [
-      "Center the Cup menu and open it for joined players when the organizer creates Cup mode; keep personal panel toggles local.",
-      "Automatically hide menus during track loading, warmup and race starts.",
-      "Format finish, WR, TR and PB times as minutes:seconds.milliseconds; retain compact relative gaps.",
-      "Replace dotted provisional-point borders with subdued badges and inset the slanted time cells.",
-      "End Cup for everyone restores driving and POV camera state; periodic empty-state sync recovers missed end messages and rejects stale updates."
+    "0.2.4": [
+      "Fix ghost hiding before the game draws each frame, including separate player nameplates.",
+      "Apply the spectator camera and watched car to the same buffered frame before rendering, preventing separation through fast turns.",
+      "Interpolate the camera around the car while preserving the driver’s viewing distance and zoom through loops; retain the existing 250 ms buffer.",
+      "Add a large centered 3–2–1–GO countdown synchronized to the round start; keep the Cup panel closed on initial game launch."
     ]
   }
 }

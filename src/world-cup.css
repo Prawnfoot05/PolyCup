@@ -53,6 +53,16 @@ label input,label textarea { display:block; width:100%; margin-top:7px; } textar
 .roster-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
 .roster-heading h2 { margin:0; } .roster-heading button { font-size:18px; }
 .notice { position:fixed; z-index:100102; bottom:120px; left:50%; transform:translateX(-50%); padding:10px 20px; background:#112052; clip-path:var(--cut); font-size:22px; pointer-events:none; max-width:calc(100vw - 32px); text-align:center; }
+.start-countdown { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:100103; pointer-events:none; user-select:none; }
+.start-signal { width:clamp(160px,19vw,230px); padding:14px 32px 17px; text-align:center; color:var(--gold); background:#112052f2; clip-path:polygon(24px 0,100% 0,calc(100% - 24px) 100%,0 100%); animation:start-pulse .18s ease-out; }
+.start-number { display:block; font:italic clamp(76px,8vw,104px)/1 ForcedSquare,Arial,sans-serif; }
+.start-lights { display:flex; gap:7px; margin-top:5px; }
+.start-lights i { flex:1; height:6px; background:#3a5075; transform:skewX(-12deg); }
+.start-lights .lit { background:currentColor; }
+.start-signal.go { background:#78e1b6; color:#112052; animation:start-go .6s ease-out both; }
+@keyframes start-pulse { from { transform:scale(1.12); opacity:.5; } to { transform:scale(1); opacity:1; } }
+@keyframes start-go { 0% { transform:scale(1.12); } 25% { transform:scale(1); opacity:1; } 100% { transform:scale(1.04); opacity:0; } }
+@media(prefers-reduced-motion:reduce) { .start-signal,.start-signal.go { animation:none; } }
 .badge { padding:4px 12px; background:var(--blue); clip-path:var(--cut); font-size:18px; }
 .controls { display:flex; gap:9px; flex-wrap:wrap; margin-top:18px; } .setup-stats { display:flex; gap:25px; font:italic 25px/1 ForcedSquare,Arial,sans-serif; color:var(--gold); margin:25px 0; }
 .ready-list { margin:18px 0; } .ready-pick { color:#78e1b6; font-size:18px; max-width:45%; overflow-wrap:anywhere; }
