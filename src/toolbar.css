@@ -1,0 +1,12 @@
+/* Only the toolbar containing our button receives the wrapping layout. All
+   button visuals and UI scaling remain owned by PolyTrack's native stylesheet. */
+.game-toolbar-ui.polycup-toolbar {
+  max-width:calc(100% - 2 * var(--safe-area-horizontal,0px) - 8px);
+}
+.game-toolbar-ui.polycup-toolbar > .button-container {
+  display:flex;
+  flex-wrap:wrap;
+  row-gap:4px;
+}
+.game-toolbar-ui.polycup-toolbar > .button-container > .button { white-space:nowrap; }
+.game-toolbar-ui .polycup-toolbar-button { pointer-events:inherit; }

@@ -1,12 +1,12 @@
 # PolyCup for PolyTrack 0.6.3
 
-A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.0** replaces the former PolyCup bracket: join, pick one track, race together.
+A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.1**. Join, pick one track, race together, with controls integrated into the native game toolbar.
 
 ## PolyModLoader library distribution
 
 The `dist/` folder is a standard PolyModLoader package: a root `manifest.json`, versioned JavaScript, version metadata, description, and icon. It can be hosted and installed through PolyModLoader's **Mods** menu without this project's desktop installer. Everyone in an event still needs PolyModLoader for PolyTrack 0.6.3 and the same PolyCup version.
 
-**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.0`, click **Import**, then select PolyCup and choose **Load → Apply**:
+**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.1`, click **Import**, then select PolyCup and choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -35,7 +35,7 @@ If you used the bundled desktop installer below, use **Restore-Original.cmd** wi
 1. Close the copy of PolyTrack you want to modify.
 2. Put this entire `polytrack-world-cup` folder beside `PolyTrack.exe` (inside the game folder).
 3. Double-click `Install-PolyCup.cmd`. It downloads the pinned official **PolyModLoader v0.6.3-1**, verifies its SHA-256, and installs the bundled mod.
-4. Launch `PolyTrack.exe`. Press **F8** to open PolyCup.
+4. Launch `PolyTrack.exe`. Use the **PolyCup** button after the native in-game toolbar buttons, or press **F8**, to open the controls.
 
 The installer uses the Node runtime already inside PolyTrack. No separate Node installation, tournament server, or account is required. Every participant and spectator installs the same mod version. Internet access and PolyTrack's existing multiplayer signaling/relay infrastructure are still required.
 
@@ -62,7 +62,7 @@ This checks lobby and tournament behavior on one computer. It does not simulate 
 ### Organizer flow
 
 1. Host a normal multiplayer room, set **Maximum Players to 16** for spectator space, and share the native invite code.
-2. Press **F8 → Create Cup**. Each participating player clicks **Join as racer**. The organizer may race or remain a spectator.
+2. Click **PolyCup → Create Cup** in the native toolbar, or press **F8**. Each participating player clicks **Join as racer**. The organizer may race or remain a spectator.
 3. Each racer chooses **one track** from their own Official, Community or Custom collection. Share codes remain an optional fallback. Custom picks are sent to the organizer automatically; other players do not need them installed. Picks can be changed until the start. Duplicate picks count once.
 4. With any **2–8 racers** ready, click **Shuffle tracks & start Cup**. The track order is shuffled once and shared with everyone. There are no seeds, captains or semifinals.
 5. Rounds advance automatically after five seconds. The organizer can switch this off, void a round, give unfinished racers DNF, undo results, or reconnect a racer through **Racers**.
@@ -93,9 +93,9 @@ Final standings with unresolved equal scores retain join order for display; that
 
 ## Race HUD and records
 
-All panel text uses PolyTrack’s bundled ForcedSquare font, with the same Arial/sans-serif fallback as the native UI. Visible branding is PolyCup; the stable loader ID and old installer shortcuts remain compatible.
+All panel text uses PolyTrack’s bundled italic ForcedSquare font, native kerning and letter spacing, with the same Arial/sans-serif fallback. Panels, tabs, fields and buttons use the native slanted geometry and navy palette; hover and disabled text stay readable. Visible branding is PolyCup; the stable loader ID and old installer shortcuts remain compatible.
 
-The race panel reserves space below the native toolbar. It highlights the leader, shows actual credited **+points** in green, rank changes after scoring, **F** for finalists and a separate Cup winner strip. During racing, finished racers appear first; points have a dashed outline and are **provisional**. The mod does not claim to know the track position of unfinished racers. Finish gaps are relative to the fastest recorded finish; the exact finish time is in the cell tooltip.
+The PolyCup launcher sits after the existing in-game toolbar buttons and follows native scaling and auto-hide. Outside the game, a fallback launcher remains available; F8 works in either location. The race panel reserves space while the top toolbar is visible, then slides up to a 16-pixel corner margin after its fade-out. It clears space immediately when the toolbar returns and follows track changes, wrapping and bottom-docked layouts. It highlights the leader, shows actual credited **+points** in green, rank changes after scoring, **F** for finalists and a separate Cup winner strip. During racing, finished racers appear first; points have a dashed outline and are **provisional**. The mod does not claim to know the track position of unfinished racers. Finish gaps are relative to the fastest recorded finish; the exact finish time is in the cell tooltip.
 
 - **WR:** current overall leaderboard record. Official and community tracks use PolyTrack’s verified leaderboard; custom tracks use their public leaderboard. Queried through the game’s own API, cached for two minutes, and shown as unavailable if the service cannot answer.
 - **TR:** fastest scored run on the current track across this Cup. Warmups are excluded. Voiding or undoing a round removes its contribution. A current-round best is provisional until that round is scored.
@@ -107,7 +107,7 @@ Record strips distinguish loading, no record and service unavailable. PB identit
 
 Spectators follow a competitor’s actual driving-camera pose, including cockpit/chase switches. Use **[ / ]**, the buttons, or the racer selector to switch. The HUD includes that racer’s overall PB, buffered timer and speed. Camera and watched-car transforms travel together at up to 20 Hz with a **250 ms viewing buffer**; native physics, controls and scoring are unchanged. Network gaps can still cause pauses and low frame rates affect smoothness. Other cars retain native interpolation.
 
-This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.0** together.
+This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.1** together.
 
 Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separately and old JSON exports remain readable, but their bracket cannot be resumed as a Simple Cup. Older published builds remain in `dist/` for deliberate rollback.
 
@@ -123,7 +123,7 @@ Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separa
 
 Twenty-nine automated tests cover completion with every racer count from 2 through 8, ties/finalists, all eight point places, track rotation, disconnects, void/undo, saved identity rebinding, packet validation, and existing buffered POV behavior. A paired-controller test sends a multi-chunk custom track from a remote racer, with server-side checks for stale Cup IDs, spectator uploads, limits, ordering and incomplete transfers. Record tests cover PB identity binding, stale asynchronous responses, and TR persistence despite compact network history.
 
-Browser acceptance uses the real PolyTrack 0.6.3/PML renderer and native track library; controlled eight-racer fixtures verify HUD layouts and recorded/provisional states. These fixtures do not establish an eight-computer Internet race. A prior three-instance desktop race verified native invite joining, two keyboard-driven finishes, scoring propagation and switchable POV. The 0.1.2 native-renderer test covered 1,643 simulated delayed/jittered frames without camera rewinds or model-position error. Those earlier checks are bounded evidence, not a full live acceptance of the new 0.2.0 flow.
+Browser acceptance uses the real PolyTrack 0.6.3/PML renderer and native track library; controlled eight-racer fixtures verify HUD layouts and recorded/provisional states. The 0.2.1 visual checks cover native toolbar attachment, keyboard opening, replacement after track changes, automatic HUD positioning, narrow layouts, native typography and readable hover/disabled controls. These fixtures do not establish an eight-computer Internet race. A prior three-instance desktop race verified native invite joining, two keyboard-driven finishes, scoring propagation and switchable POV. The 0.1.2 native-renderer test covered 1,643 simulated delayed/jittered frames without camera rewinds or model-position error. Those earlier checks are bounded evidence, not a full live acceptance of the new 0.2.0 flow.
 
 Live leaderboard requests and the invite service failed in the browser test environment. The fallback states were verified; successful live WR/online-PB fetching remains unverified here. Adapter tests verify profile/online PB selection and the WR response path with controlled service responses.
 

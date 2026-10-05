@@ -1,5 +1,6 @@
 import * as Cup from './cup.mjs';
 import { standings, recordTrack, sessionRecord } from './standings.mjs';
+import { CupToolbar } from './toolbar.mjs';
 import css from './world-cup.css';
 const h = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
 const names = { registration: 'Registration', loading: 'Loading track',
@@ -15,6 +16,7 @@ export class CupUI {
     this.toggle = this.button('PolyCup · F8', () => { this.open = !this.open; this.signature = ''; this.render(); }, 'launcher');
     this.panel = h('section', undefined, 'panel'); this.panel.setAttribute('aria-label', 'Simple Cup');
     this.hud = h('aside', undefined, 'hud'); this.povHud = h('aside', undefined, 'pov-hud'); this.shadow.append(this.toggle, this.panel, this.hud, this.povHud);
+    this.toolbar = new CupToolbar({ fallback: this.toggle, hud: this.hud, toggle: () => this.toggle.click() });
     for (const type of ['keydown', 'keyup', 'keypress']) this.panel.addEventListener(type, e => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) e.stopPropagation();
     });
@@ -42,9 +44,7 @@ export class CupUI {
   name(id) { return Cup.player(this.c.state, id)?.name ?? `Player ${id}`; }
   render() {
     const c = this.c, s = c.state;
-    const toolbar = document.querySelector('.game-toolbar-ui');
-    const bottom = toolbar?.getBoundingClientRect().bottom ?? 0;
-    if (bottom > 0 && bottom < innerHeight / 2) this.hud.style.setProperty('--pwc-hud-top', `${Math.max(96,Math.ceil(bottom) + 12)}px`);
+    this.toolbar.sync(this.open);
     this.panel.hidden = !this.open;
     const key = JSON.stringify([this.open, this.tab, s?.id, s?.revision, c.isHost, c.selfId,
       c.lobby.map(p => [p.id, p.nickname, c.hello.has(p.id), p.carStyle?.serialize()]), c.error, !!c.connection, c.auto, c.watchId, c.watchStatus, c.transferProgress]);

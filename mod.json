@@ -2,20 +2,18 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
-  "description": "Simple live Cups for 2\u20138 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
+  "description": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelog": [
-    "Replace seeding, captains and semifinals with one shared Cup for any 2\u20138 racers.",
-    "Racers join themselves and choose one native-library track each; duplicate picks collapse and the order is shuffled.",
-    "100-point target; 10/8/6/5/4/3/2/1 scoring; the first finalist to win a later round wins the Cup.",
-    "Lower race HUD with clearer point gains, finalist markers, rank movement and car skins.",
-    "Add overall WR, scored Cup session record (TR), and the watched racer\u2019s overall PB.",
-    "Preserve buffered POV spectating and organizer void, undo, reconnect and export controls.",
-    "Use PolyCup branding throughout the current release and PolyTrack\u2019s bundled ForcedSquare typography."
+    "Integrate PolyCup into the native in-game toolbar, including native scaling, hover styling and auto-hide.",
+    "Move the race leaderboard into the top corner when the native toolbar disappears; reserve space when it returns.",
+    "Keep buttons readable across hover, focus and disabled states; fix disappearing dark-text labels.",
+    "Match native italic ForcedSquare typography, kerning, navy surfaces and slanted panel, tab, button and field shapes.",
+    "Preserve the Simple Cup format, records, car skins and buffered POV spectating."
   ]
 }

@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Replace seeding, captains and semifinals with one shared Cup for any 2–8 racers.\nRacers join themselves and choose one native-library track each; duplicate picks collapse and the order is shuffled.\n100-point target; 10/8/6/5/4/3/2/1 scoring; the first finalist to win a later round wins the Cup.\nLower race HUD with clearer point gains, finalist markers, rank movement and car skins.\nAdd overall WR, scored Cup session record (TR), and the watched racer’s overall PB.\nPreserve buffered POV spectating and organizer void, undo, reconnect and export controls.\nUse PolyCup branding throughout the current release and PolyTrack’s bundled ForcedSquare typography."
+  "changelog": "Integrate PolyCup into the native in-game toolbar, including native scaling, hover styling and auto-hide.\nMove the race leaderboard into the top corner when the native toolbar disappears; reserve space when it returns.\nKeep buttons readable across hover, focus and disabled states; fix disappearing dark-text labels.\nMatch native italic ForcedSquare typography, kerning, navy surfaces and slanted panel, tab, button and field shapes.\nPreserve the Simple Cup format, records, car skins and buffered POV spectating."
 }
