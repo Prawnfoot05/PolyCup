@@ -401,8 +401,10 @@ export class CupUI {
     sub.append(picker, h('strong', `ROUND ${(round - 1) % 4 + 1}/4`)); title.append(sub);
     const status = h('div', undefined, 'hud-phase'); status.append(h('span', names[s.phase])); const clock = h('strong'); clock.dataset.clock = ''; status.append(clock); title.append(status);
     const records = s.records[id], tr = sessionRecord(s,id);
-    this.hud.append(title, this.recordStrip('WR', records?.wr, records?.wr?.name, 'Overall leaderboard record. Official/community tracks use verified records; custom tracks use their public leaderboard.'),
-      this.recordStrip('TR', tr ?? { status: 'missing' }, tr?.ids.map(id => this.name(id)).join(' / '), 'Fastest scored run on this track in this Cup, including current round provisionally. Voided rounds are excluded.'), this.scoreboard());
+    const summary = h('div', undefined, 'hud-summary');
+    summary.append(title, this.recordStrip('WR', records?.wr, records?.wr?.name, 'Overall leaderboard record. Official/community tracks use verified records; custom tracks use their public leaderboard.'),
+      this.recordStrip('TR', tr ?? { status: 'missing' }, tr?.ids.map(id => this.name(id)).join(' / '), 'Fastest scored run on this track in this Cup, including current round provisionally. Voided rounds are excluded.'));
+    this.hud.append(summary, this.scoreboard());
     if (this.c.canSpectate()) { this.povHud.hidden = false; this.povHud.append(this.spectatorControls()); }
   }
   spectatorControls() {

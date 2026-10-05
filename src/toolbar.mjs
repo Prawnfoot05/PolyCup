@@ -1,4 +1,5 @@
 import css from './toolbar.css';
+import trophy from '../assets/toolbar-trophy.svg';
 
 // Keep the launcher inside the native toolbar: native scaling, clipping, hover
 // animation and auto-hide then apply without copying any game UI implementation.
@@ -9,7 +10,7 @@ export class CupToolbar {
     this.button.type = 'button'; this.button.className = 'button polycup-toolbar-button';
     this.button.title = 'PolyCup (F8)'; this.button.setAttribute('aria-keyshortcuts', 'F8');
     const icon = document.createElement('img');
-    icon.className = 'button-icon'; icon.src = new URL('images/icon.svg', document.baseURI).href;
+    icon.className = 'button-icon polycup-trophy'; icon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(trophy)}`;
     icon.alt = ''; icon.draggable = false;
     this.button.append(icon, document.createTextNode(' PolyCup'));
     this.button.addEventListener('click', toggle);
@@ -59,7 +60,7 @@ export class CupToolbar {
     const rect = toolbar?.getBoundingClientRect();
     const visible = toolbar && (toolbar.classList.contains('visible') || Number(getComputedStyle(toolbar).opacity) > .01);
     const top = visible && rect.height > 0 && rect.top < innerHeight / 2
-      ? Math.max(16, Math.ceil(rect.bottom) + 12) : 16;
+      ? Math.max(0, Math.ceil(rect.bottom) + 8) : 0;
     if (top !== this.lastTop) {
       // Clear the returning toolbar immediately; animate only the move back up.
       this.hud.classList.toggle('settling', top < this.lastTop);

@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Fix ghost hiding before the game draws each frame, including separate player nameplates.\nApply the spectator camera and watched car to the same buffered frame before rendering, preventing separation through fast turns.\nInterpolate the camera around the car while preserving the driver’s viewing distance and zoom through loops; retain the existing 250 ms buffer.\nAdd a large centered 3–2–1–GO countdown synchronized to the round start; keep the Cup panel closed on initial game launch."
+  "changelog": "Separate the left-docked HUD into compact track, record, ranking and racer strips with transparent gaps and short slanted ends; tuck it into the top-left corner when native UI hides.\nReplace the toolbar P with the supplied trophy SVG, matching native icon sizing and color.\nFix ghost hiding before the game draws each frame, including separate player nameplates.\nApply the spectator camera and watched car to the same buffered frame before rendering, preventing separation through fast turns.\nInterpolate the camera around the car while preserving the driver’s viewing distance and zoom through loops; retain the existing 250 ms buffer.\nAdd a large centered 3–2–1–GO countdown synchronized to the round start; keep the Cup panel closed on initial game launch."
 }

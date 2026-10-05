@@ -10,3 +10,4 @@
 }
 .game-toolbar-ui.polycup-toolbar > .button-container > .button { white-space:nowrap; }
 .game-toolbar-ui .polycup-toolbar-button { pointer-events:inherit; }
+.game-toolbar-ui .polycup-toolbar-button > .polycup-trophy { filter:brightness(0) invert(1); }
