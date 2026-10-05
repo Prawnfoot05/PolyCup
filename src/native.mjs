@@ -36,6 +36,7 @@ export function connectNative(pml, controller) {
       view:c===car.cameraCockpit?1:0 }; },
     remoteCar: (g,id) => as.get(g).get(id)?.car,
     ghostKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupToggleGhosts).map(key=>key ? ve(key) : '').filter(Boolean),
+    autoSpectate: g => ua.get(g).getSettingBoolean(P.A.PolyCupAutoSpectate),
     visibility: (g,ids,self) => { Cs.call(g); Xa.get(g).setVisible(ids===null||ids.includes(self));
       for(const [id,r] of as.get(g)) if(ids!==null&&!ids.includes(id)) r.car.setVisible(false); },
     release: g => { const car=Xa.get(g); fs.get(g).isEnabled=false;

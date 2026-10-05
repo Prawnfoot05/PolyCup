@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Set the finalist target to 140 points; an outright win in a later round still wins the Cup.\nUse each track WR to schedule approximately four minutes of racing, rounded to whole races and fixed at Cup start.\nUse four rounds when a WR is missing or unavailable; preserve the schedule across repeats, saves, reconnects and undo."
+  "changelog": "Race again with fresh scores and reshuffled tracks, or choose new tracks while keeping the racers.\nAutomatically spectate remaining racers after finishing or retiring; opt out in the regular PolyCup settings.\nPractice for 1.5 times the WR on each track's first visit, with a 30-second minimum and 90-second fallback. Everyone Ready ends practice early; repeat visits skip practice.\nCelebrate the winner with their car, view final standings and save a shareable results PNG."
 }

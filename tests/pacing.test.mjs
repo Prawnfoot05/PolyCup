@@ -28,7 +28,7 @@ test('WR pacing rounds to four minutes and permits short and long track lengths'
   }
 });
 
-test('unequal track visits repeat without a Cup cap, preserve points and warm up at each boundary', () => {
+test('unequal track visits repeat without a Cup cap, preserve points and only warm up on the first visit', () => {
   const s = registration();
   for (const [n, frames] of [[1, 25000], [2, 30000], [3, 60000]]) s.records[id(n)] = { pbs: {}, wr: wr(frames) };
   Cup.lockRegistration(s, () => .999);
@@ -42,7 +42,7 @@ test('unequal track visits repeat without a Cup cap, preserve points and warm up
     const expected = { trackId: id(track), round: visitRound, rounds: [10, 8, 4][track - 1] };
     assert.deepEqual(Cup.trackProgress(s), expected);
     Cup.beginRound(s); assert.equal(s.runtime.trackId, expected.trackId);
-    assert.equal(s.runtime.warmup, visitRound === 1);
+    assert.equal(s.runtime.warmup, visitRound === 1 && i < 22);
     assert.deepEqual(Cup.trackProgress(s, s.runtime.round - 1), expected);
     s.phase = 'countdown'; Cup.startRace(s, 0); Cup.completeRound(s);
     assert.equal(s.phase, 'between-rounds'); assert.equal(s.matches[0].scores[1], 80);

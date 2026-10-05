@@ -8,6 +8,8 @@ class PolyCup extends PolyMod {
     this.controller = new Controller(() => this.ui?.render());
     try {
       this.controller.init(pml);
+      pml.registerSettingCategory('PolyCup');
+      pml.registerSetting('Spectate after finishing', 'PolyCupAutoSpectate', 'boolean', true);
       pml.registerBindCategory('PolyCup');
       pml.registerKeybind("Toggle other players' ghosts", 'PolyCupToggleGhosts', 'keydown', 'KeyG', null,
         event => this.ui?.ghostHotkey(event));

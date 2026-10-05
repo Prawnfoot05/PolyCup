@@ -98,12 +98,22 @@ export class Controller {
       this.broadcast();
     }
   }
-  canSpectate() { return !!this.state && !Cup.activeIds(this.state).includes(this.selfId); }
+  canSpectate() {
+    if (!Cup.mayWatch(this.state, this.selfId)) return false;
+    if (!Cup.activeIds(this.state).includes(this.selfId)) return true;
+    return this.manualWatchRound === this.state.runtime?.id ||
+      (this.game && (this.native?.autoSpectate?.(this.game) ?? true));
+  }
+  watchRemaining() {
+    if (!Cup.roundDone(this.state, this.selfId)) return;
+    this.manualWatchRound = this.state.runtime.id; this.onChange();
+  }
   toggleGhosts() {
     if (!this.state) return;
     this.hideOtherGhosts = !this.hideOtherGhosts; this.onChange();
   }
-  watchable() { return this.state ? Cup.activeIds(this.state).filter(id => this.lobby.some(p => p.id === id)) : []; }
+  watchable() { return this.state && this.state.phase !== 'complete' ? Cup.activeIds(this.state)
+    .filter(id => !Cup.roundDone(this.state, id) && this.lobby.some(p => p.id === id)) : []; }
   cycleWatch(delta) {
     const ids = this.watchable(); if (!this.canSpectate() || !ids.length) return;
     const i = ids.indexOf(this.watchId); this.selectWatch(ids[(i + delta + ids.length) % ids.length]);
@@ -117,15 +127,19 @@ export class Controller {
     if (!this.state) { if(this.filteredCars) this.native.visibility(game,null,this.selfId); this.filteredCars=false; return; }
     const now = this.now(), active = Cup.activeIds(this.state);
     if (this.canSpectate() && !this.watchable().includes(this.watchId)) this.selectWatch(this.watchable()[0]);
-    const viewed = active.includes(this.selfId) ? this.selfId : this.watchId;
+    const spectating = this.canSpectate() && this.watchable().length > 0;
+    if (!spectating && this.followingGame === game) {
+      this.native.release(game); this.followingGame = null; this.lastWatchPose = null;
+    }
+    const viewed = spectating ? this.watchId : this.selfId;
     this.native.visibility(game,this.hideOtherGhosts ? active.filter(id => id === viewed) : active,this.selfId); this.filteredCars=true;
-    if (active.includes(this.selfId) && now - this.lastPose >= 50 && !this.info.spectator.isEnabled) {
+    if (active.includes(this.selfId) && !Cup.roundDone(this.state, this.selfId) && now - this.lastPose >= 50 && !this.info.spectator.isEnabled) {
       this.lastPose = now;
       const pose = { ...this.native.camera(game), at: now };
       if (this.isHost) this.relayCamera(this.selfId, pose);
       else this.cameraTransport.send(0, { type: 'camera', pose });
     }
-    if (!this.canSpectate()) { this.watchedPose = null; return; }
+    if (!spectating) { this.watchedPose = null; return; }
     if (!this.isHost && Date.now() - this.lastSubscribe > 1000) {
       if (this.transport.send(0, { type: 'watch', value: this.watchId })) this.lastSubscribe = Date.now();
     }
@@ -137,12 +151,13 @@ export class Controller {
     else if (!this.lastWatchPose || this.lastWatchPose.sessionId !== this.info.sessionId)
       this.lastWatchPose = { ...this.native.camera(game), carPosition: undefined, carQuaternion: undefined };
     this.native.follow(game, this.lastWatchPose, this.watchId);
+    this.followingGame = game;
   }
   receiveCamera(id, message) {
     if (message.type !== 'camera' || !validPose(message.pose) || !this.state ||
       Math.abs(message.pose.at - this.now()) > 5000 || message.pose.sessionId !== this.info?.sessionId) return;
     if (this.isHost) {
-      if (this.hello.has(id) && Cup.activeIds(this.state).includes(id)) this.relayCamera(id, message.pose);
+      if (this.hello.has(id) && Cup.activeIds(this.state).includes(id) && !Cup.roundDone(this.state, id)) this.relayCamera(id, message.pose);
     } else if (id === 0 && message.racerId === this.watchId) this.bufferCamera(message.racerId, message.pose);
   }
   bufferCamera(id, pose) {
@@ -151,7 +166,7 @@ export class Controller {
   }
   relayCamera(id, pose) {
     this.bufferCamera(id, pose);
-    for (const [spectator, watched] of this.subscriptions) if (watched === id && !Cup.activeIds(this.state).includes(spectator))
+    for (const [spectator, watched] of this.subscriptions) if (watched === id && Cup.mayWatch(this.state, spectator))
       this.cameraTransport.send(spectator, { type: 'camera', racerId: id, pose });
   }
   tick() {
@@ -198,6 +213,22 @@ export class Controller {
   requestPanel(open, message = '') {
     this.panelRequest = { revision: this.panelRequest.revision + 1, open, message };
   }
+  async rematch(newTracks = false) {
+    this.requireHost();
+    if (this.state?.phase !== 'complete') throw new Error('Finish the Cup before starting a rematch.');
+    if (!newTracks) {
+      this.requireStartRacers();
+      if (this.state.tracks.some(t => !this.tracks.has(t.id))) throw new Error('A rematch track is missing. Choose new tracks instead.');
+    }
+    this.save();
+    this.state = Cup.rematch(this.state, newTracks); this.startingCup = null;
+    if (newTracks) this.tracks.clear();
+    this.trackUploads.clear(); this.recordRequests.clear(); this.cameraBuffers.clear(); this.subscriptions.clear();
+    this.watchId = null; this.lastWatchPose = null; this.manualWatchRound = null;
+    this.auto = true; this.nextAuto = null; this.loadingSession = undefined; this.lastSaved = -1; this.error = '';
+    this.broadcast(); this.onChange();
+    if (!newTracks) await this.startCup();
+  }
   syncRoundPanel() {
     const s = this.state, run = s?.runtime;
     const key = JSON.stringify([s?.id, s?.phase, run?.id, run?.sessionId]);
@@ -215,6 +246,7 @@ export class Controller {
     this.resetKey = ''; this.startKey = ''; this.readyKey = ''; this.error = '';
     this.cameraBuffers.clear(); this.subscriptions.clear(); this.recordRequests.clear(); this.trackUploads.clear();
     this.watchId = null; this.watchedPose = null; this.lastWatchPose = null; this.watchStatus = '';
+    this.followingGame = null; this.manualWatchRound = null;
     if (this.pendingUpload) this.pendingUpload.error = 'The Cup ended.';
     this.transferProgress = ''; this.roundViewKey = ''; this.viewCupId = null;
     if (this.game && !this.info?.disposed) {
@@ -324,6 +356,10 @@ export class Controller {
       Cup.addPlayer(this.state, actor, p.nickname);
     } else if (m.type === 'leave') { Cup.removePlayer(this.state, actor); this.pruneTrackData(); }
     else if (m.type === 'dnf' && m.value === this.state.runtime?.id) Cup.markDNF(this.state, actor);
+    else if (m.type === 'practice-ready') {
+      if (!Cup.practiceReady(this.state, actor, m.value)) return;
+      this.advanceClock();
+    }
     else return;
     this.broadcast();
   }
@@ -336,12 +372,12 @@ export class Controller {
       } else if (m.type === 'ready' && this.hello.has(id)) this.markReady(id, m);
       else if (m.type === 'finish' && this.hello.has(id)) this.receiveFinish(id, m);
       else if (m.type === 'watch' && this.hello.has(id)) {
-        if (this.state && !Cup.activeIds(this.state).includes(id) && Cup.activeIds(this.state).includes(m.value)) this.subscriptions.set(id, m.value);
+        if (Cup.mayWatch(this.state, id) && this.watchable().includes(m.value)) this.subscriptions.set(id, m.value);
         else this.subscriptions.delete(id);
       }
       else if (m.type === 'pb' && this.hello.has(id)) this.receivePB(id, m);
       else if (['track-begin', 'track-chunk', 'track-end'].includes(m.type)) this.receiveTrack(id, m);
-      else if (['join', 'leave', 'dnf'].includes(m.type)) {
+      else if (['join', 'leave', 'dnf', 'practice-ready'].includes(m.type)) {
         try { this.handleAction(id, m); } catch (e) { this.transport.send(id, { type: 'error', message: e.message }); }
       }
     } else if (id === 0) {
@@ -507,8 +543,8 @@ export class Controller {
     if (!run) return;
     if (s.phase === 'loading' && run.sessionId !== null && Cup.activeIds(s).every(id => run.ready.includes(id))) {
       s.phase = run.warmup ? 'warmup' : 'countdown';
-      run.startsAt = this.now() + (run.warmup ? Cup.RULES.warmupMs : 3000); Cup.touch(s); this.broadcast();
-    } else if (s.phase === 'warmup' && this.now() >= run.startsAt) {
+      run.startsAt = this.now() + (run.warmup ? Cup.currentMatch(s).trackWarmups?.[run.trackId] ?? Cup.RULES.warmupMs : 3000); Cup.touch(s); this.broadcast();
+    } else if (s.phase === 'warmup' && (this.now() >= run.startsAt || Cup.activeIds(s).every(id => run.practiceReady?.includes(id)))) {
       s.phase = 'countdown'; run.startsAt = this.now() + 3000; Cup.touch(s); this.broadcast();
     } else if (s.phase === 'countdown' && this.now() >= run.startsAt) {
       Cup.startRace(s, run.startsAt); this.broadcast();
@@ -580,6 +616,8 @@ export function validSnapshot(s) {
     Array.isArray(m.order) && m.order.length >= 1 && m.order.length <= 8 && m.order.every(trackId) && new Set(m.order).size === m.order.length &&
     (m.trackRounds === undefined || Object.keys(m.trackRounds).length === m.order.length &&
       m.order.every(id => num(m.trackRounds[id]) && m.trackRounds[id] >= 1 && m.trackRounds[id] <= Cup.RULES.trackDrivingMs)) &&
+    (m.trackWarmups === undefined || obj(m.trackWarmups) && Object.keys(m.trackWarmups).length === m.order.length &&
+      m.order.every(id => num(m.trackWarmups[id]) && m.trackWarmups[id] >= 30000 && m.trackWarmups[id] <= 5400000)) &&
     times(m.scores) && m.players.every(id => num(m.scores[id]) && m.scores[id] <= m.target) && obj(m.finalists) &&
     Object.entries(m.finalists).every(([id,f]) => m.players.includes(Number(id)) && obj(f) && num(f.round) && num(f.position) && (f.checkpoint === null || num(f.checkpoint))) &&
     Array.isArray(m.roundsLog) && m.roundsLog.every(round);
@@ -592,7 +630,7 @@ export function validSnapshot(s) {
   if (!['loading','warmup','countdown','racing'].includes(s.phase)) return r === null;
   return obj(r) && text(r.id) && num(r.round) && trackId(r.trackId) &&
     (r.sessionId === null || num(r.sessionId)) && typeof r.warmup === 'boolean' &&
-    ids(r.ready) && ids(r.dnfs) && times(r.finishes) && times(r.checkpoints) &&
+    ids(r.ready) && (r.practiceReady === undefined || ids(r.practiceReady)) && ids(r.dnfs) && times(r.finishes) && times(r.checkpoints) &&
     (r.startsAt === null || Number.isFinite(r.startsAt)) && (r.deadline === null || Number.isFinite(r.deadline));
 }
 function validWR(wr) {

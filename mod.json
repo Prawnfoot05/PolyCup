@@ -2,7 +2,7 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
@@ -10,8 +10,9 @@
   ],
   "description": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelog": [
-    "Set the finalist target to 140 points; an outright win in a later round still wins the Cup.",
-    "Use each track WR to schedule approximately four minutes of racing, rounded to whole races and fixed at Cup start.",
-    "Use four rounds when a WR is missing or unavailable; preserve the schedule across repeats, saves, reconnects and undo."
+    "Race again with fresh scores and reshuffled tracks, or choose new tracks while keeping the racers.",
+    "Automatically spectate remaining racers after finishing or retiring; opt out in the regular PolyCup settings.",
+    "Practice for 1.5 times the WR on each track's first visit, with a 30-second minimum and 90-second fallback. Everyone Ready ends practice early; repeat visits skip practice.",
+    "Celebrate the winner with their car, view final standings and save a shareable results PNG."
   ]
 }

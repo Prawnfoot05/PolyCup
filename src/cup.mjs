@@ -1,5 +1,5 @@
 // Competition state is owned by the native multiplayer host. No game internals here.
-export const VERSION = '0.2.8';
+export const VERSION = '0.2.9';
 export const RULES = Object.freeze({ points: [10, 8, 6, 5, 4, 3, 2, 1], target: 140, trackDrivingMs: 240000, fallbackRounds: 4, warmupMs: 15000, finishTimeoutMs: 10000 });
 const copy = value => structuredClone(value);
 const requireThat = (ok, message) => { if (!ok) throw new Error(message); };
@@ -16,6 +16,20 @@ export function activeIds(state) {
   return m ? m.players.filter(id => !m.winners.includes(id)) : [];
 }
 export function player(state, id) { return state.roster.find(p => p.id === id); }
+export function roundDone(state, id) {
+  return state?.phase === 'racing' && !!state.runtime &&
+    (id in state.runtime.finishes || state.runtime.dnfs.includes(id));
+}
+export function mayWatch(state, id) {
+  return !!state && state.phase !== 'complete' && (!activeIds(state).includes(id) || roundDone(state, id));
+}
+export function rematch(state, newTracks = false) {
+  requireThat(state.phase === 'complete', 'Finish the Cup before starting a rematch.');
+  const next = newCup(state.name);
+  next.roster = copy(state.roster); next.disconnectPolicy = state.disconnectPolicy;
+  if (!newTracks) { next.tracks = copy(state.tracks); next.picks = copy(state.picks); }
+  return next;
+}
 export function note(state, message) {
   state.audit.push({ at: new Date().toISOString(), message: safeName(message) });
   state.audit = state.audit.slice(-500);
@@ -53,14 +67,26 @@ export function lockRegistration(state, random = Math.random) {
   const players = state.roster.map(p => p.id);
   // Freeze the host's schedule before racing. Live WR updates cannot alter it.
   const trackRounds = Object.fromEntries(order.map(id => [id, roundsForRecord(state.records[id]?.wr)]));
+  const trackWarmups = Object.fromEntries(order.map(id => [id, practiceForRecord(state.records[id]?.wr)]));
   state.matches = [{ name: 'Simple Cup', players, target: RULES.target, winnerCount: 1, order,
-    trackRounds, rounds: 0, winners: [], scores: Object.fromEntries(players.map(id => [id, 0])), finalists: {}, roundsLog: [], ranking: [] }];
+    trackRounds, trackWarmups, rounds: 0, winners: [], scores: Object.fromEntries(players.map(id => [id, 0])), finalists: {}, roundsLog: [], ranking: [] }];
   state.matchIndex = 0; state.phase = 'between-rounds'; touch(state);
 }
 export function roundsForRecord(wr) {
   // Native record frames are milliseconds. Use at least one complete race.
   return wr?.status === 'ready' && Number.isSafeInteger(wr.frames) && wr.frames > 0 && wr.frames <= 3600000
     ? Math.max(1, Math.round(RULES.trackDrivingMs / wr.frames)) : RULES.fallbackRounds;
+}
+export function practiceForRecord(wr) {
+  const duration = wr?.status === 'ready' && Number.isSafeInteger(wr.frames) && wr.frames > 0 && wr.frames <= 3600000
+    ? wr.frames : RULES.trackDrivingMs / RULES.fallbackRounds;
+  return Math.max(30000, Math.ceil(duration * 1.5));
+}
+export function practiceReady(state, id, roundId) {
+  if (state.phase !== 'warmup' || state.runtime?.id !== roundId || !activeIds(state).includes(id)) return false;
+  const ready = state.runtime.practiceReady ??= [];
+  if (ready.includes(id)) return false;
+  ready.push(id); touch(state); return true;
 }
 export function trackProgress(state, completedRounds = currentMatch(state)?.rounds ?? 0) {
   const m = currentMatch(state);
@@ -80,8 +106,9 @@ export function beginRound(state) {
   requireThat(state.phase === 'between-rounds', 'Finish setup or the current round first.');
   const m = currentMatch(state);
   const visit = trackProgress(state);
+  const firstVisit = !m.roundsLog.some(r => r.trackId === visit.trackId);
   state.runtime = { id: crypto.randomUUID(), round: m.rounds + 1, trackId: visit.trackId,
-    warmup: visit.round === 1, sessionId: null, ready: [],
+    warmup: visit.round === 1 && (m.trackWarmups === undefined || firstVisit), sessionId: null, ready: [], practiceReady: [],
     startsAt: null, deadline: null, finishes: {}, dnfs: [], checkpoints: {} };
   state.phase = 'loading'; touch(state);
 }

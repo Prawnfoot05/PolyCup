@@ -30,8 +30,8 @@ test('every lobby size completes at the first later finalist win and scores all 
     assert.equal(s.results.length,n); assert.equal(s.matches.length,1);
   }
 });
-test('track rotation preserves four rounds per track and repeat warmups', () => {
-  const s=grid(); for(let i=0;i<13;i++) {
+test('legacy saves preserve four rounds per track and repeat warmups', () => {
+  const s=grid(); delete s.matches[0].trackWarmups; for(let i=0;i<13;i++) {
     Cup.beginRound(s); assert.equal(s.runtime.trackId,s.tracks[Math.floor(i/4)%3].id); assert.equal(s.runtime.warmup,i%4===0);
     s.phase='countdown'; Cup.startRace(s,0); Cup.completeRound(s);
   }

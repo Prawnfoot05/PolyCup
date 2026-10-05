@@ -142,3 +142,23 @@ button.pov-cycle.next { clip-path:polygon(0 0,calc(100% - 8px) 0,100% 100%,8px 1
 @media(max-width:650px) { .ready-list { grid-template-columns:1fr; } }
 .hud.settling { transition:top .18s ease-out; }
 @media(prefers-reduced-motion:reduce) { .hud.settling,button::after { transition:none; } }
+.practice-hud { position:fixed; right:18px; bottom:112px; z-index:100099; max-width:calc(100vw - 36px); }
+.practice-controls { display:flex; align-items:center; justify-content:flex-end; gap:12px; padding:6px 8px 6px 18px; background:var(--deep); clip-path:var(--cut); font-size:22px; }
+.practice-controls > span { color:var(--muted); } .practice-controls > strong { min-width:42px; text-align:right; font-weight:400; }
+.practice-controls button { min-width:112px; }
+.finish-cue { position:fixed; z-index:100104; inset:0; display:grid; place-items:center; background:#19204266; }
+.champion-card { width:min(540px,calc(100vw - 40px)); padding:28px 32px; text-align:center; background:var(--deep); border-top:5px solid var(--gold); clip-path:polygon(16px 0,100% 0,calc(100% - 16px) 100%,0 100%); animation:start-pulse .25s ease-out; }
+.champion-card h2 { color:var(--gold); text-transform:uppercase; font-size:30px; }
+.champion-card .racer-name { display:flex; flex-direction:column; gap:4px; font-size:38px; margin-bottom:24px; }
+.champion-card .racer-name > span { max-width:100%; }
+.champion-card .car-skin { width:168px; height:120px; flex-basis:120px; image-rendering:auto; }
+.final-standings h2 { text-align:center; text-transform:uppercase; font-weight:700; }
+.final-row { display:flex; align-items:center; gap:14px; margin-top:4px; min-height:40px; padding:4px 10px 4px 18px; background:#212b58; clip-path:var(--cut); }
+.final-row > strong { width:24px; font-weight:400; }
+.final-row .car-skin { width:44px; height:32px; flex-basis:44px; }
+.final-row.champion { background:var(--gold); color:var(--deep); }
+.winner-label { font-size:18px; text-transform:uppercase; }
+.final-score { display:flex; align-items:center; justify-content:center; align-self:stretch; min-width:76px; background:#e9f1f8; color:#152238; clip-path:var(--cut); padding:4px 16px; margin-right:4px; font-size:26px; }
+.result-controls { flex-shrink:0; justify-content:center; margin:0; padding:12px 24px; border-top:1px solid #3a5075; } .race-history { margin-top:24px; color:var(--muted); font-size:18px; }
+@media(max-width:650px) { .final-row { gap:8px; } .winner-label { display:none; } .final-score { min-width:62px; } }
+@media(prefers-reduced-motion:reduce) { .champion-card { animation:none; } }

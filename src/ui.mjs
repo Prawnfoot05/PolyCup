@@ -4,6 +4,7 @@ import { CupToolbar } from './toolbar.mjs';
 import { CupInvite } from './invite.mjs';
 import { formatTime as time, formatGap } from './time.mjs';
 import { roundStartCue } from './countdown.mjs';
+import { resultRows, resultsImage } from './results.mjs';
 import css from './world-cup.css';
 const h = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
 const names = { registration: 'Registration', loading: 'Loading track',
@@ -11,7 +12,7 @@ const names = { registration: 'Registration', loading: 'Loading track',
 export class CupUI {
   constructor(controller) {
     this.c = controller; this.open = false; this.tab = 'Tournament'; this.signature = '';
-    this.trackCategory = 'official'; this.trackQuery = ''; this.carThumbnails = new Map();
+    this.trackCategory = 'official'; this.trackQuery = ''; this.carThumbnails = new Map(); this.playerThumbnails = new Map();
     const root = h('div'); root.id = 'polytrack-world-cup'; document.body.append(root);
     this.shadow = root.attachShadow({ mode: 'open' });
     const style = h('style', css); this.shadow.append(style);
@@ -27,6 +28,10 @@ export class CupUI {
     this.startCue = h('div', undefined, 'start-countdown'); this.startCue.hidden = true;
     this.startCue.setAttribute('role','status'); this.startCue.setAttribute('aria-live','assertive');
     this.shadow.append(this.startCue);
+    this.practiceHud = h('aside', undefined, 'practice-hud'); this.practiceHud.hidden = true;
+    this.finishCue = h('section', undefined, 'finish-cue'); this.finishCue.hidden = true;
+    this.finishCue.setAttribute('aria-label', 'Cup winner'); this.finishCue.setAttribute('role', 'dialog');
+    this.shadow.append(this.practiceHud, this.finishCue);
     for (const type of ['keydown', 'keyup', 'keypress']) this.panel.addEventListener(type, e => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) e.stopPropagation();
     });
@@ -34,11 +39,11 @@ export class CupUI {
     // editing, while leaving the browser's normal typing/selection/paste intact.
     for (const type of ['keydown', 'keyup', 'keypress']) window.addEventListener(type, e => {
       const active = this.shadow.activeElement;
-      if ((!this.panel.hidden || this.povHud.contains(active)) && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName) ||
+      if ((!this.panel.hidden || this.povHud.contains(active) || this.practiceHud.contains(active) || this.finishCue.contains(active)) && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName) ||
         (active?.tagName === 'BUTTON' && ['Space', 'Enter'].includes(e.code))))
         e.stopImmediatePropagation();
     }, { capture: true });
-    this.panel.addEventListener('focusin', e => {
+    for (const panel of [this.panel, this.povHud, this.practiceHud, this.finishCue]) panel.addEventListener('focusin', e => {
       if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName) && this.c.game)
         this.c.native?.clearInput(this.c.game);
     });
@@ -77,12 +82,13 @@ export class CupUI {
       if (c.panelRequest.revision > 0) {
         this.open = c.panelRequest.open;
         if (this.open) {
-          this.tab = 'Tournament';
+          this.tab = s?.phase === 'complete' ? 'Results' : 'Tournament';
           if (c.game && !c.info?.disposed) c.native?.clearInput?.(c.game);
         } else this.shadow.activeElement?.blur();
         if (c.panelRequest.message) this.showNotice(c.panelRequest.message, 6500);
       }
     }
+    this.renderCompletion();
     this.toolbar.sync(this.open);
     this.invite.update(c.connection, this.open);
     this.panel.hidden = !this.open;
@@ -96,14 +102,14 @@ export class CupUI {
     }
     const key = JSON.stringify([this.open, this.tab, s?.id, s?.revision, c.isHost, c.selfId,
       c.lobby.map(p => [p.id, p.nickname, c.hello.has(p.id), p.carStyle?.serialize()]), c.error, !!c.connection, c.auto, c.watchId, c.watchStatus, c.transferProgress, c.hideOtherGhosts,
-      c.game && !c.info?.disposed ? c.native?.ghostKeys?.(c.game) : null, !!c.startingCup]);
+      c.game && !c.info?.disposed ? c.native?.ghostKeys?.(c.game) : null, !!c.startingCup, c.canSpectate()]);
     if (key !== this.signature) {
       // Preserve a partially entered track code/name when unrelated lobby updates arrive.
       const focus = this.shadow.activeElement?.dataset?.field;
       const inviteSelection = this.shadow.activeElement === this.invite.input
         ? [this.invite.input.selectionStart, this.invite.input.selectionEnd] : null;
       const drafts = Object.fromEntries([...this.shadow.querySelectorAll('[data-field]')].map(e => [e.dataset.field, e.value]));
-      this.signature = key; this.panel.replaceChildren();
+      this.signature = key; this.panel.replaceChildren(); this.resultControls = null;
       const header = h('header');
       const title = h('div', undefined, 'header-title'); title.append(h('h1', 'PolyCup'));
       if (s) title.append(h('p', `${s.name} / ${names[s.phase]}`));
@@ -124,6 +130,7 @@ export class CupUI {
         else if (this.tab === 'Tracks') this.trackPack();
         else if (this.tab === 'Results') this.results();
         else this.tournament();
+        if (this.resultControls) this.panel.append(this.resultControls);
         if (c.isHost) {
           const footer = h('footer');
           const exportButton = this.button('Export tournament', () => this.download(), 'quiet');
@@ -233,6 +240,10 @@ export class CupUI {
     const group = h('span', undefined, 'racer-name grow'), image = h('img', undefined, 'car-skin');
     image.alt = ''; image.title = `${name}'s car`; image.draggable = false;
     image.src = new URL('images/car_thumbnail_placeholder.png', document.baseURI).href;
+    this.thumbnail(id).then(url => { if (url && image.isConnected) image.src = url; });
+    group.append(image, h('span', name)); return group;
+  }
+  async thumbnail(id) {
     const style = this.c.lobby.find(p => p.id === id)?.carStyle;
     if (style) {
       const key = style.serialize();
@@ -240,9 +251,9 @@ export class CupUI {
         if (this.carThumbnails.size >= 64) this.carThumbnails.delete(this.carThumbnails.keys().next().value);
         this.carThumbnails.set(key, this.c.native.carThumbnail(style).catch(() => null));
       }
-      this.carThumbnails.get(key).then(url => { if (url && image.isConnected) image.src = url; });
+      this.playerThumbnails.set(id, this.carThumbnails.get(key));
     }
-    group.append(image, h('span', name)); return group;
+    return this.playerThumbnails.get(id) ?? null;
   }
   joinControls() {
     const box = h('div', undefined, 'controls'), joined = !!Cup.player(this.c.state, this.c.selfId);
@@ -306,6 +317,7 @@ export class CupUI {
   }
   tournament() {
     const c = this.c, s = c.state, m = Cup.currentMatch(s);
+    if (s.phase === 'complete') { this.results(); return; }
     if (s.phase === 'registration') {
       const ready = s.roster.filter(p => s.picks[p.id]).length;
       const stats = h('div', undefined, 'setup-stats'); stats.append(h('span', `${s.roster.length}/8 racers`), h('span', `${ready}/${s.roster.length} tracks chosen`)); this.body.append(stats);
@@ -326,6 +338,7 @@ export class CupUI {
       rules.append(h('p', `2–8 racers · ${Cup.RULES.target} points to become a finalist. Win a later round outright to win the Cup.`),
         h('p', 'Points: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. Duplicate picks count once.'),
         h('p', 'Rounds per track: about 4 minutes ÷ WR time, fixed at Cup start. No WR: 4 rounds. Tracks repeat until a finalist wins.'),
+        h('p', 'First visit practice: 1.5× WR, at least 30 seconds; 90 seconds without a WR. Everyone Ready ends practice early. Repeat visits skip practice.'),
         h('p', 'The organizer must stay connected. Use 16 lobby slots for spectator space.'));
       this.body.append(rules);
     } else {
@@ -334,7 +347,11 @@ export class CupUI {
         const status = h('p', `Round ${s.runtime.round} / ${s.tracks.find(t => t.id === s.runtime.trackId)?.name} `);
         const clock = h('strong'); clock.dataset.clock = ''; status.append(clock); this.body.append(status);
         if (s.phase === 'loading') this.body.append(h('p', `Loaded: ${s.runtime.ready.length}/${Cup.activeIds(s).length}`, 'muted'));
-        if (s.phase === 'racing' && Cup.activeIds(s).includes(c.selfId)) this.body.append(this.button('Retire this round (DNF)', () => c.action('dnf', s.runtime.id), 'quiet'));
+        if (s.phase === 'warmup') this.body.append(this.practiceControls());
+        if (s.phase === 'racing' && Cup.activeIds(s).includes(c.selfId) && !Cup.roundDone(s, c.selfId))
+          this.body.append(this.button('Retire this round (DNF)', () => { c.action('dnf', s.runtime.id); this.open = false; }, 'quiet'));
+        if (Cup.roundDone(s, c.selfId) && !c.canSpectate() && c.watchable().length)
+          this.body.append(this.button('Watch remaining racers', () => { c.watchRemaining(); this.open = false; }));
       }
       if (c.isHost) {
         const controls = h('div', undefined, 'controls');
@@ -393,6 +410,7 @@ export class CupUI {
   }
   renderHud() {
     this.hud.replaceChildren(); this.povHud.replaceChildren(); this.povRecordHud.replaceChildren();
+    this.practiceHud.replaceChildren(); this.practiceHud.hidden = true;
     this.povHud.hidden = true; this.povRecordHud.hidden = true; this.hud.hidden = !this.c.state || !Cup.currentMatch(this.c.state) || this.open;
     this.hud.classList.toggle('spectating', this.c.canSpectate());
     if (this.hud.hidden) return;
@@ -409,7 +427,12 @@ export class CupUI {
     summary.append(title, this.recordStrip('WR', records?.wr, records?.wr?.name, 'Overall leaderboard record. Official/community tracks use verified records; custom tracks use their public leaderboard.'),
       this.recordStrip('TR', tr ?? { status: 'missing' }, tr?.ids.map(id => this.name(id)).join(' / '), 'Fastest scored run on this track in this Cup, including current round provisionally. Voided rounds are excluded.'));
     this.hud.append(summary, this.scoreboard());
-    if (this.c.canSpectate()) {
+    if (s.phase === 'warmup') { this.practiceHud.hidden = false; this.practiceHud.append(this.practiceControls()); }
+    else if (Cup.roundDone(s, this.c.selfId) && !this.c.canSpectate() && this.c.watchable().length) {
+      this.practiceHud.hidden = false;
+      this.practiceHud.append(this.button('Watch remaining racers', () => this.c.watchRemaining()));
+    }
+    if (this.c.canSpectate() && this.c.watchable().length) {
       this.povHud.hidden = false; this.povHud.append(this.spectatorControls());
       this.povRecordHud.hidden = false; this.povRecordHud.append(this.spectatorRecord());
     }
@@ -444,9 +467,26 @@ export class CupUI {
   }
   results() {
     const s = this.c.state;
-    this.body.append(h('h2', this.c.isHost ? 'Race history' : 'Latest round'));
+    if (s.phase === 'complete') {
+      const board = h('div', undefined, 'final-standings');
+      board.append(h('h2', 'Final standings'));
+      for (const r of resultRows(s)) {
+        const row = h('div', undefined, `final-row${r.winner ? ' champion' : ''}`);
+        const score = h('span', r.score, 'final-score'); score.title = 'Cup points';
+        row.append(h('strong', r.place), this.racerName(r.id, r.name));
+        if (r.winner) row.append(h('span', 'Winner', 'winner-label'));
+        row.append(score); board.append(row);
+      }
+      this.body.append(board);
+      const controls = h('div', undefined, 'controls result-controls');
+      if (this.c.isHost) controls.append(this.button('Race again', () => this.c.rematch(), 'primary'),
+        this.button('Choose new tracks', () => this.c.rematch(true)));
+      controls.append(this.button('Save results image', () => this.downloadImage(), 'quiet')); this.resultControls = controls;
+    }
+    const history = h('details', undefined, 'race-history');
+    history.append(h('summary', this.c.isHost ? 'Race history' : 'Latest round'));
+    const parent = this.body; this.body.append(history); this.body = history;
     if (!s.matches.length) this.body.append(h('p', 'No scored rounds yet.', 'muted'));
-    if (s.results.length) for (const r of s.results) this.body.append(h('p', `${r.place}. ${this.name(r.id)}`, 'result'));
     for (const m of s.matches) {
       this.body.append(h('h3', m.name));
       if (!m.roundsLog.length) this.body.append(h('p', 'No scored rounds yet.', 'muted'));
@@ -454,6 +494,40 @@ export class CupUI {
         this.body.append(h('p', `Round ${r.round}: ${m.players.map(id => `${this.name(id)} ${r.finishes[id] === undefined ? 'DNF' : time(r.finishes[id])}`).join(' / ')}${r.tiedFirst ? ' · Tied first: no finalist win' : ''}`, 'history'));
       }
     }
+    this.body = parent;
+  }
+  practiceControls() {
+    const c = this.c, s = c.state, run = s.runtime, box = h('div', undefined, 'practice-controls');
+    const ready = run.practiceReady ?? [], ids = Cup.activeIds(s);
+    const count = h('span', `${ready.length}/${ids.length} ready`), clock = h('strong'); clock.dataset.clock = '';
+    box.append(count, clock);
+    if (ids.includes(c.selfId)) {
+      const button = this.button(ready.includes(c.selfId) ? 'Ready ✓' : 'Ready', () => c.action('practice-ready', run.id), 'primary');
+      button.disabled = ready.includes(c.selfId); box.append(button);
+    }
+    return box;
+  }
+  renderCompletion() {
+    const s = this.c.state, winner = s?.phase === 'complete' ? resultRows(s).find(r => r.winner) : null;
+    if (!winner) { clearTimeout(this.finishTimer); this.finishCue.hidden = true; this.finishKey = null; return; }
+    const key = `${s.id}:${Cup.currentMatch(s).rounds}:${winner.id}`;
+    if (this.finishKey === key) return;
+    this.finishKey = key; this.open = false; this.finishCue.hidden = false; this.finishCue.replaceChildren();
+    const card = h('div', undefined, 'champion-card');
+    card.append(h('h2', 'Cup winner'), this.racerName(winner.id, winner.name),
+      this.button('View results', () => this.showResults(key), 'primary'));
+    this.finishCue.append(card); clearTimeout(this.finishTimer);
+    this.finishTimer = setTimeout(() => this.showResults(key), 4000);
+  }
+  showResults(key) {
+    if (this.finishKey !== key || this.c.state?.phase !== 'complete') return;
+    clearTimeout(this.finishTimer); this.finishCue.hidden = true;
+    this.open = true; this.tab = 'Results'; this.signature = ''; this.render();
+  }
+  async downloadImage() {
+    const state = structuredClone(this.c.state), blob = await resultsImage(state, id => this.thumbnail(id));
+    const url = URL.createObjectURL(blob), a = h('a'); a.href = url; a.download = 'polycup-results.png'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   download() {
     const data = JSON.stringify(this.c.exportData(), null, 2), url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
