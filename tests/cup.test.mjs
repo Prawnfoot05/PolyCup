@@ -24,8 +24,8 @@ test('2–8 racers each choose one track, duplicates collapse and shuffled order
 test('every lobby size completes at the first later finalist win and scores all eight places', () => {
   for (let n=2;n<=8;n++) {
     const s=grid(n); race(s); assert.deepEqual(Object.values(s.matches[0].scores),Cup.RULES.points.slice(0,n));
-    for(let i=1;i<10;i++) race(s);
-    assert.equal(s.matches[0].scores[1],100); assert.deepEqual(s.matches[0].winners,[]);
+    for(let i=1;i<14;i++) race(s);
+    assert.equal(s.matches[0].scores[1],140); assert.deepEqual(s.matches[0].winners,[]);
     race(s); assert.equal(s.phase,'complete'); assert.deepEqual(s.matches[0].winners,[1]);
     assert.equal(s.results.length,n); assert.equal(s.matches.length,1);
   }
@@ -45,8 +45,8 @@ test('DNF and stale, late, duplicate, spectator finishes cannot score', () => {
   assert.deepEqual(s.matches[0].scores,{1:10,2:8,3:0,4:0});
 });
 test('exact tied first shares points and cannot decide the Cup; later outright win can', () => {
-  const s=grid(); for(let i=0;i<11;i++) race(s,[1,2,3,4],[30000,30000,31000,32000]);
-  assert.deepEqual(s.matches[0].winners,[]); assert.equal(s.matches[0].scores[1],100); assert.equal(s.matches[0].scores[2],100);
+  const s=grid(); for(let i=0;i<15;i++) race(s,[1,2,3,4],[30000,30000,31000,32000]);
+  assert.deepEqual(s.matches[0].winners,[]); assert.equal(s.matches[0].scores[1],140); assert.equal(s.matches[0].scores[2],140);
   race(s,[2,1,3,4]); assert.equal(s.phase,'complete'); assert.deepEqual(s.matches[0].winners,[2]);
 });
 test('void and undo remove session records and restore finalist state', () => {
@@ -54,11 +54,11 @@ test('void and undo remove session records and restore finalist state', () => {
   assert.equal(s.records[first].tr.frames,30000); Cup.beginRound(s); s.phase='countdown'; Cup.startRace(s,0); Cup.recordFinish(s,2,1000,1000);
   assert.equal(sessionRecord(s,first).frames,1000); Cup.voidRound(s); assert.equal(sessionRecord(s,first).frames,30000);
   Cup.undoRound(s); assert.equal(s.records[first].tr,null); assert.equal(s.matches[0].rounds,0);
-  for(let i=0;i<11;i++) race(s); Cup.undoRound(s); assert.equal(s.phase,'between-rounds'); assert.equal(s.matches[0].scores[1],100);
-  assert.deepEqual(s.matches[0].winners,[]); Cup.undoRound(s); assert.equal(s.matches[0].scores[1],90); assert.equal(s.matches[0].finalists[1],undefined);
+  for(let i=0;i<15;i++) race(s); Cup.undoRound(s); assert.equal(s.phase,'between-rounds'); assert.equal(s.matches[0].scores[1],140);
+  assert.deepEqual(s.matches[0].winners,[]); Cup.undoRound(s); assert.equal(s.matches[0].scores[1],130); assert.equal(s.matches[0].finalists[1],undefined);
 });
 test('HUD gains reflect actual score caps, ties, provisional finishes and rank movement', () => {
-  const s=grid(); s.matches[0].scores[1]=96; race(s,[2,1,3,4]);
+  const s=grid(); s.matches[0].scores[1]=136; race(s,[2,1,3,4]);
   const rows=standings(s); assert.equal(rows.find(r=>r.id===1).gain,4); assert.equal(rows.find(r=>r.id===1).finalist,true);
   Cup.beginRound(s); s.phase='countdown'; Cup.startRace(s,0); Cup.recordFinish(s,3,1000,1000); Cup.recordFinish(s,4,1000,1000);
   const live=standings(s); assert.equal(live[0].gain,10); assert.equal(live[1].gain,10); assert.equal(live[0].position,live[1].position); assert.ok(live[0].provisional);

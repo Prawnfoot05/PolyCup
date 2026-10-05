@@ -96,7 +96,7 @@ export class CupUI {
     }
     const key = JSON.stringify([this.open, this.tab, s?.id, s?.revision, c.isHost, c.selfId,
       c.lobby.map(p => [p.id, p.nickname, c.hello.has(p.id), p.carStyle?.serialize()]), c.error, !!c.connection, c.auto, c.watchId, c.watchStatus, c.transferProgress, c.hideOtherGhosts,
-      c.game && !c.info?.disposed ? c.native?.ghostKeys?.(c.game) : null]);
+      c.game && !c.info?.disposed ? c.native?.ghostKeys?.(c.game) : null, !!c.startingCup]);
     if (key !== this.signature) {
       // Preserve a partially entered track code/name when unrelated lobby updates arrive.
       const focus = this.shadow.activeElement?.dataset?.field;
@@ -311,8 +311,8 @@ export class CupUI {
       const stats = h('div', undefined, 'setup-stats'); stats.append(h('span', `${s.roster.length}/8 racers`), h('span', `${ready}/${s.roster.length} tracks chosen`)); this.body.append(stats);
       this.body.append(this.joinControls());
       if (c.isHost) {
-        const start = this.button('Shuffle tracks & start Cup', () => { c.startCup(); this.open = false; }, 'primary');
-        start.disabled = s.roster.length < 2 || ready !== s.roster.length; this.body.append(start);
+        const start = this.button(c.startingCup ? 'Preparing tracks…' : 'Shuffle tracks & start Cup', () => c.startCup(), 'primary');
+        start.disabled = !!c.startingCup || s.roster.length < 2 || ready !== s.roster.length; this.body.append(start);
         if (s.roster.length < 2) this.body.append(h('p', 'At least 2 racers required.', 'muted'));
         else if (ready !== s.roster.length) this.body.append(h('p', 'Waiting for track picks.', 'muted'));
       } else this.body.append(h('p', 'Waiting for organizer.', 'muted'));
@@ -323,8 +323,9 @@ export class CupUI {
       }
       this.body.append(list);
       const rules = h('details', undefined, 'cup-rules'); rules.append(h('summary', 'Rules'));
-      rules.append(h('p', '2–8 racers · 100 points to become a finalist. Win a later round outright to win the Cup.'),
-        h('p', 'Points: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. Four rounds per track. Duplicate picks count once.'),
+      rules.append(h('p', `2–8 racers · ${Cup.RULES.target} points to become a finalist. Win a later round outright to win the Cup.`),
+        h('p', 'Points: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. Duplicate picks count once.'),
+        h('p', 'Rounds per track: about 4 minutes ÷ WR time, fixed at Cup start. No WR: 4 rounds. Tracks repeat until a finalist wins.'),
         h('p', 'The organizer must stay connected. Use 16 lobby slots for spectator space.'));
       this.body.append(rules);
     } else {
@@ -376,7 +377,7 @@ export class CupUI {
       const movement = h('small', r.movement > 0 ? `▲${r.movement}` : r.movement < 0 ? `▼${-r.movement}` : '', r.movement < 0 ? 'movement down' : 'movement up');
       movement.title = 'Places gained or lost in Cup standings this round';
       const points = h('span', undefined, 'points');
-      const total = h('strong', r.finalist ? 'F' : String(r.score)); total.title = r.finalist ? 'Finalist: win an outright round to take the Cup' : `${r.score} of 100 points`;
+      const total = h('strong', r.finalist ? 'F' : String(r.score)); total.title = r.finalist ? 'Finalist: win an outright round to take the Cup' : `${r.score} of ${Cup.currentMatch(s).target} points`;
       const gain = h('small', r.gain ? `+${r.gain}` : '', `point-gain${r.provisional ? ' projected' : ''}`); gain.title = r.provisional ? 'Provisional points if these finish positions hold' : 'Points gained this round';
       points.append(total, gain);
       const result = r.dnf ? 'DNF' : r.frames === undefined ? '—' : r.delta > 0 ? formatGap(r.delta) : time(r.frames);
@@ -398,9 +399,10 @@ export class CupUI {
     const s = this.c.state, m = Cup.currentMatch(s), id = recordTrack(s), track = s.tracks.find(t => t.id === id);
     const title = h('div', undefined, 'hud-track'); title.append(h('strong', track?.name ?? s.name));
     const sub = h('div', undefined, 'hud-meta'), round = s.runtime?.round ?? Math.max(1,m.rounds);
+    const visit = Cup.trackProgress(s, round - 1);
     const picked = s.roster.filter(p => s.picks[p.id] === id).map(p => p.name).join(', ');
     const picker = h('span', `Picked by ${picked}`); picker.title = picked;
-    sub.append(picker, h('strong', `ROUND ${(round - 1) % 4 + 1}/4`)); title.append(sub);
+    sub.append(picker, h('strong', `ROUND ${visit.round}/${visit.rounds}`)); title.append(sub);
     const status = h('div', undefined, 'hud-phase'); status.append(h('span', names[s.phase])); const clock = h('strong'); clock.dataset.clock = ''; status.append(clock); title.append(status);
     const records = s.records[id], tr = sessionRecord(s,id);
     const summary = h('div', undefined, 'hud-summary');

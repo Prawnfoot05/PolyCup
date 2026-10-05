@@ -1,6 +1,6 @@
 // Competition state is owned by the native multiplayer host. No game internals here.
-export const VERSION = '0.2.7';
-export const RULES = Object.freeze({ points: [10, 8, 6, 5, 4, 3, 2, 1], target: 100, roundsPerTrack: 4, warmupMs: 15000, finishTimeoutMs: 10000 });
+export const VERSION = '0.2.8';
+export const RULES = Object.freeze({ points: [10, 8, 6, 5, 4, 3, 2, 1], target: 140, trackDrivingMs: 240000, fallbackRounds: 4, warmupMs: 15000, finishTimeoutMs: 10000 });
 const copy = value => structuredClone(value);
 const requireThat = (ok, message) => { if (!ok) throw new Error(message); };
 const safeName = value => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 64);
@@ -51,19 +51,37 @@ export function lockRegistration(state, random = Math.random) {
   const order = state.tracks.map(t => t.id);
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   const players = state.roster.map(p => p.id);
+  // Freeze the host's schedule before racing. Live WR updates cannot alter it.
+  const trackRounds = Object.fromEntries(order.map(id => [id, roundsForRecord(state.records[id]?.wr)]));
   state.matches = [{ name: 'Simple Cup', players, target: RULES.target, winnerCount: 1, order,
-    rounds: 0, winners: [], scores: Object.fromEntries(players.map(id => [id, 0])), finalists: {}, roundsLog: [], ranking: [] }];
+    trackRounds, rounds: 0, winners: [], scores: Object.fromEntries(players.map(id => [id, 0])), finalists: {}, roundsLog: [], ranking: [] }];
   state.matchIndex = 0; state.phase = 'between-rounds'; touch(state);
 }
-export function nextTrack(state) {
-  const m = currentMatch(state);
-  return m?.order[Math.floor(m.rounds / RULES.roundsPerTrack) % m.order.length] ?? null;
+export function roundsForRecord(wr) {
+  // Native record frames are milliseconds. Use at least one complete race.
+  return wr?.status === 'ready' && Number.isSafeInteger(wr.frames) && wr.frames > 0 && wr.frames <= 3600000
+    ? Math.max(1, Math.round(RULES.trackDrivingMs / wr.frames)) : RULES.fallbackRounds;
 }
+export function trackProgress(state, completedRounds = currentMatch(state)?.rounds ?? 0) {
+  const m = currentMatch(state);
+  if (!m?.order.length) return null;
+  // Saves created before 0.2.8 retain their original four-round rotation.
+  const count = id => m.trackRounds?.[id] ?? RULES.fallbackRounds;
+  const cycle = m.order.reduce((sum, id) => sum + count(id), 0);
+  let offset = completedRounds % cycle;
+  for (const trackId of m.order) {
+    const rounds = count(trackId);
+    if (offset < rounds) return { trackId, round: offset + 1, rounds };
+    offset -= rounds;
+  }
+}
+export function nextTrack(state) { return trackProgress(state)?.trackId ?? null; }
 export function beginRound(state) {
   requireThat(state.phase === 'between-rounds', 'Finish setup or the current round first.');
   const m = currentMatch(state);
-  state.runtime = { id: crypto.randomUUID(), round: m.rounds + 1, trackId: nextTrack(state),
-    warmup: m.rounds % RULES.roundsPerTrack === 0, sessionId: null, ready: [],
+  const visit = trackProgress(state);
+  state.runtime = { id: crypto.randomUUID(), round: m.rounds + 1, trackId: visit.trackId,
+    warmup: visit.round === 1, sessionId: null, ready: [],
     startsAt: null, deadline: null, finishes: {}, dnfs: [], checkpoints: {} };
   state.phase = 'loading'; touch(state);
 }

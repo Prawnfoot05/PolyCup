@@ -1,10 +1,10 @@
 {
   "shortdesc": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelogs": {
-    "0.2.7": [
-      "Slim the bottom-center spectator dock to 44 pixels, with the racer name on a white inset trapezoid.",
-      "Use square arrow-only previous/next buttons; retain bracket shortcuts and direct racer selection.",
-      "Move the watched racer personal best into a short bottom-right card and remove live time/speed from the dock."
+    "0.2.8": [
+      "Set the finalist target to 140 points; an outright win in a later round still wins the Cup.",
+      "Use each track WR to schedule approximately four minutes of racing, rounded to whole races and fixed at Cup start.",
+      "Use four rounds when a WR is missing or unavailable; preserve the schedule across repeats, saves, reconnects and undo."
     ]
   }
 }

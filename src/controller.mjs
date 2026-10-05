@@ -9,7 +9,7 @@ export class Controller {
     this.resetKey = ''; this.startKey = ''; this.readyKey = ''; this.lastBroadcast = 0;
     this.transport = new CupTransport((id, m) => this.receive(id, m), () => { this.lastBroadcast = 0; });
     this.trackUploads = new Map(); this.pendingUpload = null; this.transferProgress = '';
-    this.recordRequests = new Map(); this.lastRecordPoll = 0;
+    this.recordRequests = new Map(); this.lastRecordPoll = 0; this.startingCup = null;
     this.lastTick = 0; this.lastHello = 0; this.lastSaved = -1; this.auto = false;
     this.cameraTransport = new CupTransport((id, m) => this.receiveCamera(id, m), () => {}, { channelId: 43, realtime: true });
     this.cameraBuffers = new Map(); this.subscriptions = new Map(); this.watchId = null;
@@ -39,7 +39,7 @@ export class Controller {
       this.transport.dispose(); this.cameraTransport.dispose(); this.cameraBuffers.clear(); this.subscriptions.clear();
       this.hello.clear(); this.connection = info.connection; this.trackUploads.clear(); this.recordRequests.clear();
       this.isHost = this.connection instanceof this.native.Host;
-      this.state = null; this.resetKey = ''; this.readyKey = ''; this.lastSaved = -1;
+      this.state = null; this.startingCup = null; this.resetKey = ''; this.readyKey = ''; this.lastSaved = -1;
       this.offset = 0; this.bestRtt = Infinity; this.watchId = null; this.needsRebind = new Set();
       this.syncSequence = 0; this.receivedSequence = -1; this.roundViewKey = ''; this.viewCupId = null;
       this.onChange();
@@ -190,7 +190,7 @@ export class Controller {
     } catch (error) { this.auto = false; this.fail(error); }
   }
   create(name) {
-    this.requireHost(); this.state = Cup.newCup(name); this.tracks.clear(); this.error = '';
+    this.requireHost(); this.state = Cup.newCup(name); this.startingCup = null; this.tracks.clear(); this.error = '';
     this.needsRebind = new Set(); this.trackUploads.clear(); this.recordRequests.clear(); this.auto = true;
     this.lastSaved = -1; this.broadcast(); this.onChange();
   }
@@ -211,7 +211,7 @@ export class Controller {
     this.viewCupId = s?.id ?? null;
   }
   releaseCup(message) {
-    this.state = null; this.auto = false; this.nextAuto = null; this.loadingSession = undefined;
+    this.state = null; this.startingCup = null; this.auto = false; this.nextAuto = null; this.loadingSession = undefined;
     this.resetKey = ''; this.startKey = ''; this.readyKey = ''; this.error = '';
     this.cameraBuffers.clear(); this.subscriptions.clear(); this.recordRequests.clear(); this.trackUploads.clear();
     this.watchId = null; this.watchedPose = null; this.lastWatchPose = null; this.watchStatus = '';
@@ -397,11 +397,42 @@ export class Controller {
     const r = s.records[m.trackId] ??= { pbs: {} };
     if (JSON.stringify(r.pbs[actor]) !== JSON.stringify(pb)) { r.pbs[actor] = pb; Cup.touch(s); this.broadcast(); }
   }
-  startCup() {
+  async worldRecordForStart(trackId, game = this.game, timeoutMs = 5000) {
+    let timer;
+    try {
+      const wr = await Promise.race([
+        Promise.resolve().then(() => this.native.worldRecord(game, trackId)),
+        new Promise(resolve => { timer = setTimeout(() => resolve({ status: 'unavailable' }), timeoutMs); })
+      ]);
+      return validWR(wr) ? wr : { status: 'unavailable' };
+    } catch { return { status: 'unavailable' }; }
+    finally { clearTimeout(timer); }
+  }
+  async startCup() {
     this.requireHost();
+    if (this.startingCup) return;
+    if (this.state?.phase !== 'registration') throw new Error('The Cup has already started.');
+    const state = this.state, connection = this.connection, game = this.game;
+    const setup = () => JSON.stringify([state.roster, state.picks]);
+    const before = setup();
+    // Validate before any requests, then again after they settle in case a racer left.
+    Cup.lockRegistration(structuredClone(state));
+    this.requireStartRacers();
+    const request = {}; this.startingCup = request; this.error = ''; this.onChange();
+    try {
+      const records = await Promise.all(state.tracks.map(async t => [t.id, await this.worldRecordForStart(t.id, game)]));
+      if (this.startingCup !== request || this.state !== state || this.connection !== connection || state.phase !== 'registration') return;
+      if (setup() !== before) throw new Error('Racers or track picks changed. Start the Cup again.');
+      this.requireStartRacers();
+      for (const [id, wr] of records) (state.records[id] ??= { pbs: {} }).wr = wr;
+      Cup.lockRegistration(state); this.trackUploads.clear(); this.broadcast(); this.runRound();
+    } finally {
+      if (this.startingCup === request) { this.startingCup = null; this.onChange(); }
+    }
+  }
+  requireStartRacers() {
     if (this.state.roster.some(p => this.needsRebind?.has(p.id) || !this.lobby.some(l => l.id === p.id) || p.id !== this.selfId && (!this.hello.has(p.id) || !this.transport.has(p.id))))
       throw new Error('Every racer must be connected with the current mod before starting.');
-    Cup.lockRegistration(this.state); this.trackUploads.clear(); this.broadcast(); this.runRound();
   }
   networkState() {
     const state = Cup.publicState(this.state);
@@ -508,7 +539,7 @@ export class Controller {
     const s = data.state;
     if (s.runtime) { s.runtime = null; s.phase = 'between-rounds'; }
     Cup.detachIdentities(s);
-    this.state = s; this.tracks = tracks; this.auto = false; this.nextAuto = null;
+    this.state = s; this.startingCup = null; this.tracks = tracks; this.auto = false; this.nextAuto = null;
     this.needsRebind = new Set(s.roster.map(p => p.id));
     this.loadingSession = undefined; this.lastSaved = -1;
     Cup.note(s, 'Restored save. Organizer must reconnect saved racer identities.'); Cup.touch(s);
@@ -539,15 +570,17 @@ export function validSnapshot(s) {
   for (const [id,r] of Object.entries(s.records)) {
     if (!trackId(id) || !obj(r) || !obj(r.pbs) || Object.keys(r.pbs).length > 8) return false;
     for (const [id,p] of Object.entries(r.pbs)) if (!ids([Number(id)]) || !validPB(p)) return false;
-    if (r.wr && (!obj(r.wr) || !['ready','missing','unavailable'].includes(r.wr.status) ||
-      r.wr.status === 'ready' && (!frames(r.wr.frames) || !text(r.wr.name)))) return false;
+    if (r.wr && !validWR(r.wr)) return false;
     if (r.tr && (!obj(r.tr) || !frames(r.tr.frames) || !ids(r.tr.ids))) return false;
   }
   const round = r => obj(r) && num(r.round) && trackId(r.trackId) && times(r.finishes) && times(r.points) && ids(r.dnfs) && ids(r.winners) && ids(r.beforeRanking);
   const match = m => obj(m) && text(m.name) && ids(m.players) && m.players.length >= 2 && ids(m.winners) && ids(m.ranking) &&
-    m.target === 100 && m.winnerCount === 1 && m.winners.length <= 1 && num(m.rounds) &&
+    (m.target === 100 && m.trackRounds === undefined || m.target === Cup.RULES.target && obj(m.trackRounds)) &&
+    m.winnerCount === 1 && m.winners.length <= 1 && num(m.rounds) &&
     Array.isArray(m.order) && m.order.length >= 1 && m.order.length <= 8 && m.order.every(trackId) && new Set(m.order).size === m.order.length &&
-    times(m.scores) && m.players.every(id => num(m.scores[id]) && m.scores[id] <= 100) && obj(m.finalists) &&
+    (m.trackRounds === undefined || Object.keys(m.trackRounds).length === m.order.length &&
+      m.order.every(id => num(m.trackRounds[id]) && m.trackRounds[id] >= 1 && m.trackRounds[id] <= Cup.RULES.trackDrivingMs)) &&
+    times(m.scores) && m.players.every(id => num(m.scores[id]) && m.scores[id] <= m.target) && obj(m.finalists) &&
     Object.entries(m.finalists).every(([id,f]) => m.players.includes(Number(id)) && obj(f) && num(f.round) && num(f.position) && (f.checkpoint === null || num(f.checkpoint))) &&
     Array.isArray(m.roundsLog) && m.roundsLog.every(round);
   if (!Array.isArray(s.matches) || s.matches.length > 1 || !s.matches.every(match) ||
@@ -561,6 +594,11 @@ export function validSnapshot(s) {
     (r.sessionId === null || num(r.sessionId)) && typeof r.warmup === 'boolean' &&
     ids(r.ready) && ids(r.dnfs) && times(r.finishes) && times(r.checkpoints) &&
     (r.startsAt === null || Number.isFinite(r.startsAt)) && (r.deadline === null || Number.isFinite(r.deadline));
+}
+function validWR(wr) {
+  return !!wr && !Array.isArray(wr) && ['ready','missing','unavailable'].includes(wr.status) &&
+    (wr.status !== 'ready' || Number.isSafeInteger(wr.frames) && wr.frames > 0 && wr.frames <= 3600000 &&
+      typeof wr.name === 'string' && wr.name.length <= 128);
 }
 export function validPB(p) {
   return !!p && ['ready','missing','unavailable'].includes(p.status) &&
