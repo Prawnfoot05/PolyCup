@@ -17,7 +17,9 @@ export class CupUI {
     const style = h('style', css); this.shadow.append(style);
     this.toggle = this.button('PolyCup · F8', () => { this.open = !this.open; this.signature = ''; this.render(); }, 'launcher');
     this.panel = h('section', undefined, 'panel'); this.panel.setAttribute('aria-label', 'Simple Cup');
-    this.hud = h('aside', undefined, 'hud'); this.povHud = h('aside', undefined, 'pov-hud'); this.shadow.append(this.toggle, this.panel, this.hud, this.povHud);
+    this.hud = h('aside', undefined, 'hud'); this.povHud = h('aside', undefined, 'pov-hud');
+    this.povRecordHud = h('aside', undefined, 'pov-record-hud');
+    this.shadow.append(this.toggle, this.panel, this.hud, this.povHud, this.povRecordHud);
     this.toolbar = new CupToolbar({ fallback: this.toggle, hud: this.hud, toggle: () => this.toggle.click() });
     this.invite = new CupInvite();
     this.notice = h('div', undefined, 'notice'); this.notice.hidden = true;
@@ -146,8 +148,6 @@ export class CupUI {
       const target = s?.phase === 'racing' ? run?.deadline : run?.startsAt;
       e.textContent = target ? `${Math.max(0, Math.ceil((target - c.now()) / 1000))}s` : '';
     }
-    for (const e of this.shadow.querySelectorAll('[data-pov-stats]')) e.textContent = c.watchedPose ?
-      `${time(c.watchedPose.frames)} · ${Math.round(c.watchedPose.speed)} km/h` : c.watchStatus;
   }
   welcome() {
     const content = h('div', undefined, 'body');
@@ -359,7 +359,7 @@ export class CupUI {
       select.addEventListener('change', () => c.change(s => { s.disconnectPolicy = select.value; Cup.touch(s); }));
       label.append(select); advanced.append(label); this.body.append(advanced);
     }
-    if (c.canSpectate() && c.watchable().length) this.body.append(this.spectatorControls());
+    if (c.canSpectate() && c.watchable().length) this.body.append(this.spectatorControls(), this.spectatorRecord());
   }
   scoreboard() {
     const s = this.c.state, board = h('div', undefined, 'scoreboard'), rows = standings(s);
@@ -391,7 +391,8 @@ export class CupUI {
     strip.append(h('strong', label), h('span', status, 'record-holder'), h('strong', record?.frames ? time(record.frames) : '—', 'record-time')); return strip;
   }
   renderHud() {
-    this.hud.replaceChildren(); this.povHud.replaceChildren(); this.povHud.hidden = true; this.hud.hidden = !this.c.state || !Cup.currentMatch(this.c.state) || this.open;
+    this.hud.replaceChildren(); this.povHud.replaceChildren(); this.povRecordHud.replaceChildren();
+    this.povHud.hidden = true; this.povRecordHud.hidden = true; this.hud.hidden = !this.c.state || !Cup.currentMatch(this.c.state) || this.open;
     this.hud.classList.toggle('spectating', this.c.canSpectate());
     if (this.hud.hidden) return;
     const s = this.c.state, m = Cup.currentMatch(s), id = recordTrack(s), track = s.tracks.find(t => t.id === id);
@@ -406,18 +407,20 @@ export class CupUI {
     summary.append(title, this.recordStrip('WR', records?.wr, records?.wr?.name, 'Overall leaderboard record. Official/community tracks use verified records; custom tracks use their public leaderboard.'),
       this.recordStrip('TR', tr ?? { status: 'missing' }, tr?.ids.map(id => this.name(id)).join(' / '), 'Fastest scored run on this track in this Cup, including current round provisionally. Voided rounds are excluded.'));
     this.hud.append(summary, this.scoreboard());
-    if (this.c.canSpectate()) { this.povHud.hidden = false; this.povHud.append(this.spectatorControls()); }
+    if (this.c.canSpectate()) {
+      this.povHud.hidden = false; this.povHud.append(this.spectatorControls());
+      this.povRecordHud.hidden = false; this.povRecordHud.append(this.spectatorRecord());
+    }
   }
   spectatorControls() {
     const c = this.c, box = h('section', undefined, 'pov'), racers = c.watchable();
     box.setAttribute('aria-label', 'Spectator controls');
     const previous = this.button('', () => c.cycleWatch(-1), 'pov-cycle previous');
     const next = this.button('', () => c.cycleWatch(1), 'pov-cycle next');
-    for (const [button, label, arrow, key] of [[previous, 'Previous racer', '‹', '['], [next, 'Next racer', '›', ']']]) {
+    for (const [button, label, key] of [[previous, 'Previous racer', '['], [next, 'Next racer', ']']]) {
       button.setAttribute('aria-label', `${label} (${key})`); button.setAttribute('aria-keyshortcuts', key);
       button.title = `${label} (${key})`; button.disabled = racers.length < 2;
-      const icon = h('span', arrow, 'pov-arrow'), shortcut = h('span', key, 'pov-key');
-      icon.setAttribute('aria-hidden', 'true'); shortcut.setAttribute('aria-hidden', 'true'); button.append(icon, shortcut);
+      const icon = h('span', undefined, 'pov-arrow'); icon.setAttribute('aria-hidden', 'true'); button.append(icon);
     }
     const main = h('div', undefined, 'pov-main'), name = h('div', undefined, 'pov-name');
     const select = h('select'); select.setAttribute('aria-label', 'Spectate racer'); select.disabled = !racers.length;
@@ -426,13 +429,16 @@ export class CupUI {
     select.title = racers.includes(c.watchId) ? this.name(c.watchId) : 'Choose racer';
     select.addEventListener('change', () => { c.selectWatch(Number(select.value)); this.signature = ''; this.render(); });
     name.append(select);
-    const id = recordTrack(c.state), pb = c.state.records[id]?.pbs[c.watchId];
+    main.append(name); box.append(previous, main, next); return box;
+  }
+  spectatorRecord() {
+    const c = this.c, id = recordTrack(c.state), watching = c.watchable().includes(c.watchId);
+    const pb = watching ? c.state.records[id]?.pbs[c.watchId] : null;
     const record = h('div', undefined, 'pov-pb');
-    const best = !racers.includes(c.watchId) ? '—' : !pb ? 'Loading…' : pb.frames ? time(pb.frames) : pb.status === 'unavailable' ? 'Unavailable' : 'No record';
-    record.title = `Overall personal best for this track${pb?.source ? ` (${pb.source === 'online' ? 'online leaderboard' : 'saved profile'})` : ''}`;
+    const best = !watching ? '—' : !pb ? 'Loading…' : pb.frames ? time(pb.frames) : pb.status === 'unavailable' ? 'Unavailable' : 'No record';
+    record.title = `${watching ? `${this.name(c.watchId)} — ` : ''}Overall personal best for this track${pb?.source ? ` (${pb.source === 'online' ? 'online leaderboard' : 'saved profile'})` : ''}`;
     record.append(h('span', 'PB'), h('strong', best));
-    const stats = h('p', c.watchStatus, 'pov-stats'); stats.dataset.povStats = '';
-    main.append(name, record, stats); box.append(previous, main, next); return box;
+    return record;
   }
   results() {
     const s = this.c.state;

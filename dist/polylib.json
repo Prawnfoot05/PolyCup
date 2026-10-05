@@ -1,10 +1,10 @@
 {
   "shortdesc": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelogs": {
-    "0.2.6": [
-      "Center and strengthen the ranking heading; remove the points-target subtitle and increase separation from track records.",
-      "Center spectator controls at the bottom in a symmetric trapezoid, with separate mirrored previous/next buttons and visible bracket shortcuts.",
-      "Keep direct racer selection in the main name, with personal best, buffered time and speed beneath it."
+    "0.2.7": [
+      "Slim the bottom-center spectator dock to 44 pixels, with the racer name on a white inset trapezoid.",
+      "Use square arrow-only previous/next buttons; retain bracket shortcuts and direct racer selection.",
+      "Move the watched racer personal best into a short bottom-right card and remove live time/speed from the dock."
     ]
   }
 }

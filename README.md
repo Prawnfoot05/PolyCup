@@ -1,12 +1,12 @@
 # PolyCup for PolyTrack 0.6.3
 
-A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.6**. Join, pick one track, race together, with controls integrated into the native game toolbar.
+A simple live Cup for **2–8 racers**, hosted by the organizer’s game. By **Kiki**. Version **0.2.7**. Join, pick one track, race together, with controls integrated into the native game toolbar.
 
 ## PolyModLoader library distribution
 
 The `dist/` folder is a standard PolyModLoader package: a root `manifest.json`, versioned JavaScript, version metadata, description, and icon. It can be hosted and installed through PolyModLoader's **Mods** menu without this project's desktop installer. Everyone in an event still needs PolyModLoader for PolyTrack 0.6.3 and the same PolyCup version.
 
-**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.6`, click **Import**, then select PolyCup and choose **Load → Apply**:
+**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.2.7`, click **Import**, then select PolyCup and choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -117,9 +117,9 @@ Record strips distinguish loading, no record and service unavailable. PB identit
 
 ## Spectating
 
-Spectators follow a competitor’s actual driving-camera pose, including cockpit/chase switches. Use **[ / ]**, the buttons, or the racer selector to switch. The spectator dock sits at the bottom center: a symmetric trapezoid holds the racer selector, overall PB, buffered timer and speed, with separate mirrored previous/next buttons on either side. Camera and watched-car transforms travel together at up to 20 Hz with a **250 ms viewing buffer**, and both are applied before the frame is drawn. Interpolation preserves the driver’s camera-to-car distance and zoom through fast turns and loops; native physics, controls and scoring are unchanged. Network gaps can still cause pauses and low frame rates affect smoothness. Other cars retain native interpolation.
+Spectators follow a competitor’s actual driving-camera pose, including cockpit/chase switches. Use **[ / ]**, the buttons, or the racer selector to switch. The 44-pixel spectator dock sits flush at the bottom center: a white inset trapezoid holds only the racer selector, with square arrow-only previous/next buttons on either side. Bracket shortcuts remain in the button tooltips. Overall PB sits in a short bottom-right card; on narrow windows it rises just above the dock to avoid overlap. Camera and watched-car transforms travel together at up to 20 Hz with a **250 ms viewing buffer**, and both are applied before the frame is drawn. Interpolation preserves the driver’s camera-to-car distance and zoom through fast turns and loops; native physics, controls and scoring are unchanged. Network gaps can still cause pauses and low frame rates affect smoothness. Other cars retain native interpolation.
 
-This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.6** together.
+This renders the race in the spectator’s own game; it is not screen capture or a copy of the driver’s UI. No screen, microphone or webcam capture is used. All participants and spectators must update to **0.2.7** together.
 
 Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separately and old JSON exports remain readable, but their bracket cannot be resumed as a Simple Cup. Older published builds remain in `dist/` for deliberate rollback.
 
@@ -134,6 +134,8 @@ Version 0.2.0 uses a new save format. Old PolyCup autosaves are preserved separa
 ## Validation and limits
 
 Forty-two automated tests cover completion with every racer count from 2 through 8, ties/finalists, all eight point places, track rotation, disconnects, void/undo, saved identity rebinding, packet validation, and existing buffered POV behavior. A paired-controller test sends a multi-chunk custom track from a remote racer, with server-side checks for stale Cup IDs, spectator uploads, limits, ordering and incomplete transfers. Record tests cover PB identity binding, stale asynchronous responses, and TR persistence despite compact network history.
+
+The 0.2.7 visual pass checks the 44-pixel name-only dock, white inset, square arrow-only controls and separate 34-pixel PB card. Native browser checks cover next-racer/PB synchronization, direct selection, bracket shortcuts, long names, missing/unavailable PBs and compact-screen separation. The spectator overlays hide while the Cup panel is open.
 
 The 0.2.6 visual pass checks the centered bold ranking heading, 26-pixel record separation, eight-racer driving layout, and centered spectator dock at desktop and compact widths. Native browser checks cover clicking next, bracket shortcuts, Enter activation, direct racer selection, long names, available/missing/unavailable PBs, and disabled controls while waiting for racers. The displayed records and roster in these layout checks are controlled fixtures.
 

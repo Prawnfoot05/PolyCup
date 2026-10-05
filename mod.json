@@ -2,7 +2,7 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
@@ -10,8 +10,8 @@
   ],
   "description": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelog": [
-    "Center and strengthen the ranking heading; remove the points-target subtitle and increase separation from track records.",
-    "Center spectator controls at the bottom in a symmetric trapezoid, with separate mirrored previous/next buttons and visible bracket shortcuts.",
-    "Keep direct racer selection in the main name, with personal best, buffered time and speed beneath it."
+    "Slim the bottom-center spectator dock to 44 pixels, with the racer name on a white inset trapezoid.",
+    "Use square arrow-only previous/next buttons; retain bracket shortcuts and direct racer selection.",
+    "Move the watched racer personal best into a short bottom-right card and remove live time/speed from the dock."
   ]
 }
