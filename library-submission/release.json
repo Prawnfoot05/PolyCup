@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Smooth racer POV with a 250 ms buffer shared by the camera and watched car's visual transform.\nRemove backward camera jumps and avoid inheriting native remote-car playback corrections.\nInterpolate rotations, cut on cockpit/chase switches and teleports, and hold during missing packets without changing physics or scoring.\nRetains the native track picker, car-skin previews, and input fixes from 0.1.1."
+  "changelog": "Replace seeding, captains and semifinals with one shared Cup for any 2–8 racers.\nRacers join themselves and choose one native-library track each; duplicate picks collapse and the order is shuffled.\n100-point target; 10/8/6/5/4/3/2/1 scoring; the first finalist to win a later round wins the Cup.\nLower race HUD with clearer point gains, finalist markers, rank movement and car skins.\nAdd overall WR, scored Cup session record (TR), and the watched racer’s overall PB.\nPreserve buffered POV spectating and organizer void, undo, reconnect and export controls.\nUse PolyCup branding throughout the current release and PolyTrack’s bundled ForcedSquare typography."
 }

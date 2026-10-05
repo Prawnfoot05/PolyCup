@@ -1,8 +1,9 @@
 import * as Cup from './cup.mjs';
+import { standings, recordTrack, sessionRecord } from './standings.mjs';
 import css from './world-cup.css';
 const h = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
-const names = { registration: 'Registration', 'group-picks': 'Captain picks', 'track-picks': 'Track picks', loading: 'Loading track',
-  warmup: 'Warmup', countdown: 'Get ready', racing: 'Live round', 'between-rounds': 'Round results', 'match-complete': 'Match complete', complete: 'World Cup results' };
+const names = { registration: 'Registration', loading: 'Loading track',
+  warmup: 'Warmup', countdown: 'Get ready', racing: 'Live round', 'between-rounds': 'Round results', complete: 'Cup results' };
 const time = frames => frames === undefined ? '—' : (frames / 1000).toFixed(3);
 export class CupUI {
   constructor(controller) {
@@ -11,9 +12,9 @@ export class CupUI {
     const root = h('div'); root.id = 'polytrack-world-cup'; document.body.append(root);
     this.shadow = root.attachShadow({ mode: 'open' });
     const style = h('style', css); this.shadow.append(style);
-    this.toggle = this.button('World Cup · F8', () => { this.open = !this.open; this.signature = ''; this.render(); }, 'launcher');
-    this.panel = h('section', undefined, 'panel'); this.panel.setAttribute('aria-label', 'World Cup tournament');
-    this.hud = h('aside', undefined, 'hud'); this.shadow.append(this.toggle, this.panel, this.hud);
+    this.toggle = this.button('PolyCup · F8', () => { this.open = !this.open; this.signature = ''; this.render(); }, 'launcher');
+    this.panel = h('section', undefined, 'panel'); this.panel.setAttribute('aria-label', 'Simple Cup');
+    this.hud = h('aside', undefined, 'hud'); this.povHud = h('aside', undefined, 'pov-hud'); this.shadow.append(this.toggle, this.panel, this.hud, this.povHud);
     for (const type of ['keydown', 'keyup', 'keypress']) this.panel.addEventListener(type, e => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) e.stopPropagation();
     });
@@ -41,16 +42,19 @@ export class CupUI {
   name(id) { return Cup.player(this.c.state, id)?.name ?? `Player ${id}`; }
   render() {
     const c = this.c, s = c.state;
+    const toolbar = document.querySelector('.game-toolbar-ui');
+    const bottom = toolbar?.getBoundingClientRect().bottom ?? 0;
+    if (bottom > 0 && bottom < innerHeight / 2) this.hud.style.setProperty('--pwc-hud-top', `${Math.max(96,Math.ceil(bottom) + 12)}px`);
     this.panel.hidden = !this.open;
     const key = JSON.stringify([this.open, this.tab, s?.id, s?.revision, c.isHost, c.selfId,
-      c.lobby.map(p => [p.id, p.nickname, c.hello.has(p.id), p.carStyle?.serialize()]), c.error, !!c.connection, c.auto, c.watchId, c.watchStatus]);
+      c.lobby.map(p => [p.id, p.nickname, c.hello.has(p.id), p.carStyle?.serialize()]), c.error, !!c.connection, c.auto, c.watchId, c.watchStatus, c.transferProgress]);
     if (key !== this.signature) {
       // Preserve a partially entered track code/name when unrelated lobby updates arrive.
       const focus = this.shadow.activeElement?.dataset?.field;
       const drafts = Object.fromEntries([...this.shadow.querySelectorAll('[data-field]')].map(e => [e.dataset.field, e.value]));
       this.signature = key; this.panel.replaceChildren();
       const header = h('header');
-      const title = h('div'); title.append(h('h1', 'World Cup'), h('p', s ? `${s.name} / ${names[s.phase]}` : 'PolyTrack 0.6.3 · Live competition'));
+      const title = h('div'); title.append(h('h1', 'PolyCup'), h('p', s ? `${s.name} / ${names[s.phase]}` : 'PolyTrack 0.6.3 · Live competition'));
       header.append(title, this.button('Hide', () => { this.open = false; }, 'quiet')); this.panel.append(header);
       if (c.error) { const error = h('p', c.error, 'error'); error.setAttribute('role', 'alert'); this.panel.append(error); }
       if (!c.connection) this.welcome();
@@ -92,20 +96,20 @@ export class CupUI {
   }
   welcome() {
     const content = h('div', undefined, 'body');
-    content.append(h('h2', 'Eight racers. One World Cup.'),
+    content.append(h('h2', 'Join. Pick a track. Race.'),
       h('p', 'Host or join a normal multiplayer lobby to begin. Set Maximum Players to 16 to leave room for spectators.'),
-      h('p', 'Everyone joins with the game’s invite code and loads this mod. The organizer stays connected for semifinal A, semifinal B, and the final.'),
+      h('p', 'Two to eight racers share one Cup. Reach 100 points, then win a later round to take the Cup. Everyone else can spectate.'),
       h('p', 'F8 opens this panel. Spectators follow a racer’s driving camera. Press [ or ] to cycle racers.', 'muted'));
     this.panel.append(content);
   }
   setup() {
     const body = h('div', undefined, 'body');
-    body.append(h('h2', this.c.isHost ? 'Create a World Cup' : 'Waiting for the organizer'));
+    body.append(h('h2', this.c.isHost ? 'Create a Simple Cup' : 'Waiting for the organizer'));
     if (this.c.isHost) {
-      const label = h('label', 'Competition name'); const input = h('input'); input.value = 'World Cup'; input.dataset.field = 'cup-name';
+      const label = h('label', 'Competition name'); const input = h('input'); input.value = 'Simple Cup'; input.dataset.field = 'cup-name';
       input.maxLength = 64; label.append(input); body.append(label);
-      body.append(this.button('Create tournament', () => this.c.create(input.value), 'primary'));
-      const saved = localStorage.getItem('pwc-save-v1');
+      body.append(this.button('Create Cup', () => this.c.create(input.value), 'primary'));
+      const saved = localStorage.getItem('pwc-save-v2');
       if (saved) body.append(this.button('Restore autosave', () => this.c.restore(saved), 'quiet'));
       const file = h('input'); file.type = 'file'; file.accept = '.json'; file.hidden = true;
       file.addEventListener('change', async () => {
@@ -118,17 +122,16 @@ export class CupUI {
   roster() {
     const s = this.c.state, c = this.c;
     this.body.append(h('h2', `${s.roster.length} / 8 racers`),
-      h('p', 'Seed 1 is captain A; seed 2 is captain B. They alternate opponent picks. Seed order also decides track-pick turns.', 'muted'));
+      h('p', 'Join as a racer and choose one track. Stay out of the grid to spectate.', 'muted'));
     const list = h('div', undefined, 'rows');
     for (const p of s.roster) {
       const row = h('div', undefined, 'row');
-      row.append(h('strong', `#${p.seed}`), this.racerName(p.id, p.name));
+      row.append(this.racerName(p.id, p.name));
+      const pick = s.tracks.find(t => t.id === s.picks[p.id]); row.append(h('span', pick?.name ?? 'Choosing a track…', pick ? 'badge' : 'muted'));
       const online = c.lobby.some(l => l.id === p.id);
       row.append(h('small', c.needsRebind?.has(p.id) ? 'Confirm identity' : online ? 'In lobby' : 'Disconnected', 'muted'));
       if (c.isHost && s.phase === 'registration') {
-        if (p.seed > 1) row.append(this.button('↑', () => c.change(s => Cup.moveSeed(s, p.id, -1)), 'quiet'));
-        if (p.seed < s.roster.length) row.append(this.button('↓', () => c.change(s => Cup.moveSeed(s, p.id, 1)), 'quiet'));
-        row.append(this.button('Remove', () => c.change(s => Cup.removePlayer(s, p.id)), 'quiet'));
+        row.append(this.button('Remove', () => c.change(s => { Cup.removePlayer(s, p.id); c.pruneTrackData(); }), 'quiet'));
       }
       if (c.isHost && (!online || c.needsRebind?.has(p.id)) && !s.runtime) {
         const select = h('select'); select.setAttribute('aria-label', `Reconnect ${p.name}`);
@@ -145,7 +148,9 @@ export class CupUI {
       }
       list.append(row);
     }
-    this.body.append(list, h('h3', 'Lobby & spectators'));
+    this.body.append(list);
+    if (s.phase === 'registration') this.body.append(this.joinControls());
+    this.body.append(h('h3', 'Lobby & spectators'));
     for (const l of c.lobby) {
       const row = h('div', undefined, 'row');
       row.append(this.racerName(l.id, l.nickname), h('small', l.isSelf || c.hello.has(l.id) ? 'Mod connected' : c.isHost ? 'Awaiting mod' : 'In lobby', 'muted'));
@@ -171,17 +176,24 @@ export class CupUI {
     }
     group.append(image, h('span', name)); return group;
   }
+  joinControls() {
+    const box = h('div', undefined, 'controls'), joined = !!Cup.player(this.c.state, this.c.selfId);
+    const full = !joined && this.c.state.roster.length >= 8;
+    const join = this.button(joined ? 'Switch to spectator' : full ? 'Grid full · spectating' : 'Join as racer', () => this.c.action(joined ? 'leave' : 'join'), joined || full ? 'quiet' : 'primary');
+    join.disabled = full; box.append(join);
+    if (joined) box.append(this.button('Choose my track', () => { this.tab = 'Tracks'; }));
+    return box;
+  }
   trackPack() {
-    const s = this.c.state, c = this.c;
-    this.body.append(h('h2', `Track pack · ${s.tracks.length} / 5`), h('p', 'Choose three to five tracks from your game. Joined players receive the selected track automatically. Each track visit has a 15-second warmup and four scored rounds.', 'muted'));
+    const s = this.c.state, c = this.c, joined = !!Cup.player(s, c.selfId);
+    this.body.append(h('h2', 'One racer, one track'), h('p', 'Pick from your game’s tracks. Everyone receives custom tracks automatically. Shared picks count once; the organizer starts with a shuffled order.', 'muted'));
     for (const t of s.tracks) {
-      const row = h('div', undefined, 'row'); row.append(h('span', t.name, 'grow'));
-      if (c.isHost && s.phase === 'registration') row.append(this.button('Remove', () => c.change(s => {
-        s.tracks = s.tracks.filter(track => track.id !== t.id); c.tracks.delete(t.id); Cup.touch(s);
-      }), 'quiet'));
-      this.body.append(row);
+      const row = h('div', undefined, 'row'); row.append(h('strong', t.name, 'grow'),
+        h('small', s.roster.filter(p => s.picks[p.id] === t.id).map(p => p.name).join(', '), 'muted')); this.body.append(row);
     }
-    if (c.isHost && s.phase === 'registration') {
+    if (s.phase === 'registration' && !joined) this.body.append(this.joinControls());
+    if (s.phase === 'registration' && joined) {
+      if (c.transferProgress) this.body.append(h('p', c.transferProgress, 'upload-status'));
       const tabs = h('div', undefined, 'track-tabs'); tabs.setAttribute('aria-label', 'Track collections');
       for (const [category, text] of [['official', 'Official tracks'], ['community', 'Community tracks'], ['custom', 'Custom tracks']]) {
         const button = this.button(text, () => { this.trackCategory = category; }, category === this.trackCategory ? 'selected' : 'quiet');
@@ -200,17 +212,17 @@ export class CupUI {
           `${t.name} ${t.author ?? ''}`.toLocaleLowerCase().includes(this.trackQuery.toLocaleLowerCase()));
         if (!tracks.length) grid.append(h('p', this.trackCategory === 'custom' && !this.trackQuery ? 'No custom tracks saved in this game profile yet.' : 'No matching tracks.', 'muted'));
         for (const track of tracks) {
-          const selected = s.tracks.some(t => t.id === track.id);
+          const selected = s.picks[c.selfId] === track.id;
           const button = this.button('', async () => {
             button.disabled = true;
             try { await c.addLibraryTrack(track); } finally { if (button.isConnected) button.disabled = false; }
           }, `track-card${selected ? ' added' : ''}`);
-          button.disabled = selected || s.tracks.length >= 5;
-          button.setAttribute('aria-label', `${selected ? 'Added' : 'Add'} ${track.name}`);
+          button.disabled = selected || !!c.pendingUpload;
+          button.setAttribute('aria-label', `${selected ? 'Selected' : 'Choose'} ${track.name}`);
           const image = h('img'); image.alt = ''; image.loading = 'lazy'; image.draggable = false;
           Promise.resolve(track.thumbnail).then(src => { if (src && image.isConnected) image.src = src; }).catch(() => {});
           image.addEventListener('error', () => { image.hidden = true; });
-          const text = h('span'); text.append(h('strong', track.name), h('small', selected ? 'Added to cup' : track.author || 'Custom track', 'muted'));
+          const text = h('span'); text.append(h('strong', track.name), h('small', selected ? 'Your pick' : track.author || 'Custom track', 'muted'));
           button.append(image, text); grid.append(button);
         }
       };
@@ -219,47 +231,32 @@ export class CupUI {
       const advanced = h('details', undefined, 'track-code'); advanced.append(h('summary', 'Paste a share code instead'));
       const label = h('label', 'PolyTrack share code'), code = h('textarea'); code.rows = 4; code.dataset.field = 'track-code'; code.spellcheck = false;
       label.append(code); advanced.append(label,
-        this.button('Import track', () => { c.importTrack(code.value); code.value = ''; }, 'primary'));
+        this.button('Choose this track', async () => { await c.importTrack(code.value); code.value = ''; }, 'primary'));
       this.body.append(advanced);
     }
   }
   tournament() {
     const c = this.c, s = c.state, m = Cup.currentMatch(s);
-    if (c.isHost && !s.runtime) {
-      const label = h('label', undefined, 'disconnect-rule'); label.append(h('span', 'If a racer disconnects during a race'));
-      const select = h('select'); select.setAttribute('aria-label', 'Disconnect rule');
-      for (const [value, text] of [['', 'Choose a rule before starting'], ['dnf', 'DNF; organizer may void the round'], ['void', 'Void round and wait for reconnect']]) {
-        const option = h('option', text); option.value = value; option.selected = value === (s.disconnectPolicy ?? ''); select.append(option);
-      }
-      select.addEventListener('change', () => c.change(s => { s.disconnectPolicy = select.value || null; Cup.touch(s); }));
-      label.append(select); this.body.append(label);
-    }
-    if (c.canSpectate() && c.watchable().length) this.body.append(this.spectatorControls());
     if (s.phase === 'registration') {
-      this.body.append(h('h2', 'Build the starting grid'), h('p', 'Register eight lobby players and import a track pack, then confirm seeding. Everyone else stays a spectator.'));
-      const stats = h('div', undefined, 'setup-stats'); stats.append(h('span', `${s.roster.length}/8 racers`), h('span', `${s.tracks.length}/3–5 tracks`)); this.body.append(stats);
-      if (c.isHost) this.body.append(this.button('Racers & seeds', () => { this.tab = 'Racers'; }), this.button('Import tracks', () => { this.tab = 'Tracks'; }),
-        this.button('Lock grid & begin captain picks', () => c.change(Cup.lockRegistration), 'primary'));
-    } else if (s.phase === 'group-picks') {
-      const actor = Cup.groupPicker(s);
-      this.body.append(h('h2', `${this.name(actor)} chooses an opponent`), h('p', 'Captains alternate until each semifinal has four racers.', 'muted'));
-      for (const p of s.roster.filter(p => !s.groups.flat().includes(p.id))) {
-        const row = h('div', undefined, 'row'); row.append(h('span', `#${p.seed} ${p.name}`, 'grow'));
-        if (actor === c.selfId) row.append(this.button('Pick opponent', () => c.action('pick-opponent', p.id)));
-        else if (c.isHost) row.append(this.button('Record captain’s pick', () => c.change(s => { Cup.note(s, 'Organizer recorded a captain pick.'); Cup.pickOpponent(s, actor, p.id); }), 'quiet'));
-        this.body.append(row);
+      const ready = s.roster.filter(p => s.picks[p.id]).length;
+      this.body.append(h('h2', 'Your next Cup starts here'),
+        h('p', 'Join the grid, choose one track, and race together. No seeding. No captain draft.'),
+        h('p', '100 points → Finalist → win a round. First finalist to win takes the Cup.', 'cup-rules'));
+      const stats = h('div', undefined, 'setup-stats'); stats.append(h('span', `${s.roster.length}/8 racers`), h('span', `${ready}/${s.roster.length} tracks chosen`)); this.body.append(stats);
+      this.body.append(this.joinControls());
+      if (c.isHost) {
+        const start = this.button('Shuffle tracks & start Cup', () => { c.startCup(); this.open = false; }, 'primary');
+        start.disabled = s.roster.length < 2 || ready !== s.roster.length; this.body.append(start);
+        this.body.append(h('p', 'Start with any 2–8 racers. The organizer stays connected throughout the Cup.', 'muted'));
+      } else this.body.append(h('p', 'The organizer starts when the grid is ready.', 'muted'));
+      const list = h('div', undefined, 'ready-list');
+      for (const p of s.roster) {
+        const row = h('div', undefined, 'row'), picked = s.tracks.find(t => t.id === s.picks[p.id]);
+        row.append(this.racerName(p.id, p.name), h('span', picked ? `✓ ${picked.name}` : 'Choosing a track…', picked ? 'ready-pick' : 'muted')); list.append(row);
       }
-    } else if (s.phase === 'track-picks') {
-      const actor = Cup.trackPicker(s);
-      this.body.append(h('h2', `${m.name} · Track picks`), h('p', `${this.name(actor)} picks next. Order: ${m.order.map(id => s.tracks.find(t => t.id === id).name).join(' / ') || 'No picks yet'}`));
-      for (const t of s.tracks.filter(t => !m.order.includes(t.id))) {
-        const row = h('div', undefined, 'row'); row.append(h('span', t.name, 'grow'));
-        if (actor === c.selfId) row.append(this.button('Pick track', () => c.action('pick-track', t.id)));
-        else if (c.isHost) row.append(this.button('Record racer’s pick', () => c.change(s => { Cup.note(s, 'Organizer recorded a track pick.'); Cup.pickTrack(s, actor, t.id); }), 'quiet'));
-        this.body.append(row);
-      }
+      this.body.append(list);
     } else {
-      this.body.append(h('h2', s.phase === 'complete' ? `${this.name(s.results[0].id)} wins the World Cup` : `${m.name} · ${names[s.phase]}`));
+      this.body.append(h('h2', s.phase === 'complete' ? `${this.name(s.results[0].id)} wins the Cup` : `${m.name} · ${names[s.phase]}`));
       this.body.append(this.scoreboard());
       if (s.runtime) {
         const status = h('p', `Round ${s.runtime.round} / ${s.tracks.find(t => t.id === s.runtime.trackId)?.name} `);
@@ -270,65 +267,85 @@ export class CupUI {
       if (c.isHost) {
         const controls = h('div', undefined, 'controls');
         if (s.phase === 'between-rounds') controls.append(this.button('Start next round', () => { c.runRound(); this.open = false; }, 'primary'));
-        if (s.phase === 'match-complete') controls.append(this.button('Continue to next match', () => c.change(Cup.advanceMatch), 'primary'));
         if (s.phase === 'racing') controls.append(this.button('End round · unfinished DNF', () => {
           if (confirm('Score the current finishes and give every unfinished racer a DNF?')) c.finishRound();
         }, 'quiet'));
         if (s.runtime) controls.append(this.button('Void & stop round', () => c.voidRound(), 'quiet'));
-        if (['between-rounds', 'match-complete', 'complete'].includes(s.phase)) controls.append(this.button('Undo last scored round', () => {
+        if (['between-rounds', 'complete'].includes(s.phase)) controls.append(this.button('Undo last scored round', () => {
           if (confirm('Undo the last scored round in this match?')) c.change(Cup.undoRound);
         }, 'quiet'));
         controls.append(this.button(c.auto ? 'Automatic rounds: on' : 'Automatic rounds: off', () => { c.auto = !c.auto; }, 'quiet'));
         this.body.append(controls);
       }
     }
-    if (s.phase !== 'registration') this.bracket();
-  }
-  bracket() {
-    const s = this.c.state, bracket = h('div', undefined, 'bracket');
-    for (let i = 0; i < 3; i++) {
-      const match = s.matches[i], box = h('section', undefined, i === s.matchIndex ? 'match active' : 'match');
-      box.append(h('h3', ['Semifinal A', 'Semifinal B', 'Grand final'][i]));
-      const ids = match?.players ?? s.groups[i] ?? [];
-      for (const id of ids) box.append(h('p', this.name(id), match?.winners.includes(id) ? 'qualified' : ''));
-      if (!ids.length) box.append(h('p', 'Awaiting qualifiers', 'muted'));
-      bracket.append(box);
+    if (c.isHost && !s.runtime) {
+      const advanced = h('details', undefined, 'organizer-settings'); advanced.append(h('summary', 'Organizer settings'));
+      const label = h('label', undefined, 'disconnect-rule'); label.append(h('span', 'If a racer disconnects during a race'));
+      const select = h('select'); select.setAttribute('aria-label', 'Disconnect rule');
+      for (const [value,text] of [['dnf','DNF; organizer may void the round'],['void','Void round and wait for reconnect']]) {
+        const option = h('option', text); option.value = value; option.selected = value === s.disconnectPolicy; select.append(option);
+      }
+      select.addEventListener('change', () => c.change(s => { s.disconnectPolicy = select.value; Cup.touch(s); }));
+      label.append(select); advanced.append(label); this.body.append(advanced);
     }
-    this.body.append(bracket);
+    if (c.canSpectate() && c.watchable().length) this.body.append(this.spectatorControls());
   }
   scoreboard() {
-    const s = this.c.state, m = Cup.currentMatch(s), board = h('div', undefined, 'scoreboard');
-    if (!m) return board;
-    const ranking = Cup.rankMatch(s, m);
-    for (const id of ranking) {
-      const won = m.winners.indexOf(id), finalist = id in m.finalists;
-      const row = h('div', undefined, `score-row${won >= 0 ? ' won' : finalist ? ' finalist' : ''}`);
-      const position = h('strong', `#${ranking.indexOf(id) + 1}`, 'position');
-      row.append(position, h('span', this.name(id), 'grow'), h('small', s.runtime?.dnfs.includes(id) ? 'DNF' : time(s.runtime?.finishes[id]), 'time'),
-        h('strong', won >= 0 ? (s.matchIndex === 2 ? 'Podium' : 'Qualified') : finalist ? 'Finalist' : `${m.scores[id]} / ${m.target}`, 'points'));
-      board.append(row);
+    const s = this.c.state, board = h('div', undefined, 'scoreboard'), rows = standings(s);
+    const winners = rows.filter(r => r.winner), racers = rows.filter(r => !r.winner);
+    if (winners.length) {
+      const podium = h('div', undefined, 'winner-strip'); podium.append(h('small', 'CUP WINNER'));
+      for (const r of winners) podium.append(this.racerName(r.id, this.name(r.id)));
+      board.append(podium);
     }
+    const heading = h('div', undefined, 'ranking-heading'); heading.append(h('strong', s.phase === 'racing' ? 'ROUND RANKING' : 'CUP STANDINGS'), h('small', '100 PT CUP')); board.append(heading);
+    for (const [i,r] of racers.entries()) {
+      const row = h('div', undefined, `score-row${i === 0 ? ' leader' : ''}${r.finalist ? ' finalist' : ''}${r.id === this.c.selfId ? ' self' : ''}`);
+      const name = this.racerName(r.id, this.name(r.id)); name.title = this.name(r.id);
+      const movement = h('small', r.movement > 0 ? `▲${r.movement}` : r.movement < 0 ? `▼${-r.movement}` : '', r.movement < 0 ? 'movement down' : 'movement up');
+      movement.title = 'Places gained or lost in Cup standings this round';
+      const points = h('span', undefined, 'points');
+      const total = h('strong', r.finalist ? 'F' : String(r.score)); total.title = r.finalist ? 'Finalist: win an outright round to take the Cup' : `${r.score} of 100 points`;
+      const gain = h('small', r.gain ? `+${r.gain}` : '', `point-gain${r.provisional ? ' projected' : ''}`); gain.title = r.provisional ? 'Provisional points if these finish positions hold' : 'Points gained this round';
+      points.append(total, gain);
+      const result = r.dnf ? 'DNF' : r.frames === undefined ? '—' : r.delta > 0 ? `+${time(r.delta)}` : time(r.frames);
+      const timing = h('span', result, 'time'); timing.title = r.frames === undefined ? 'No finish recorded' : `Finish: ${time(r.frames)} s`;
+      row.append(h('strong', r.position, 'position'), name, movement, points, timing); board.append(row);
+    }
+    board.append(h('p', s.phase === 'racing' ? 'Finished racers first · +points are provisional' : 'Green +points = last round · F = win to finish', 'ranking-note'));
     return board;
   }
+  recordStrip(label, record, name, tooltip) {
+    const strip = h('div', undefined, `record-strip record-${label.toLowerCase()}`); strip.title = tooltip;
+    const status = !record ? 'Loading…' : record.status === 'missing' ? 'No record' : record.status === 'unavailable' ? 'Unavailable' : name;
+    strip.append(h('strong', label), h('span', status, 'record-holder'), h('strong', record?.frames ? time(record.frames) : '—', 'record-time')); return strip;
+  }
   renderHud() {
-    this.hud.replaceChildren(); this.hud.hidden = !this.c.state || !Cup.currentMatch(this.c.state) || this.open;
+    this.hud.replaceChildren(); this.povHud.replaceChildren(); this.povHud.hidden = true; this.hud.hidden = !this.c.state || !Cup.currentMatch(this.c.state) || this.open;
     if (this.hud.hidden) return;
-    const s = this.c.state, m = Cup.currentMatch(s), title = h('div', undefined, 'hud-title');
-    title.append(h('strong', m.name), h('span', names[s.phase]));
-    const clock = h('strong'); clock.dataset.clock = ''; title.append(clock);
-    this.hud.append(title, this.scoreboard());
-    if (this.c.canSpectate()) this.hud.append(this.spectatorControls());
-    this.hud.append(h('p', 'F8 · Tournament controls', 'muted'));
+    const s = this.c.state, m = Cup.currentMatch(s), id = recordTrack(s), track = s.tracks.find(t => t.id === id);
+    const title = h('div', undefined, 'hud-track'); title.append(h('strong', track?.name ?? s.name));
+    const sub = h('div', undefined, 'hud-meta'), round = s.runtime?.round ?? Math.max(1,m.rounds);
+    const picked = s.roster.filter(p => s.picks[p.id] === id).map(p => p.name).join(', ');
+    sub.append(h('span', `Picked by ${picked}`), h('strong', `ROUND ${(round - 1) % 4 + 1}/4`)); title.append(sub);
+    const status = h('div', undefined, 'hud-phase'); status.append(h('span', names[s.phase])); const clock = h('strong'); clock.dataset.clock = ''; status.append(clock); title.append(status);
+    const records = s.records[id], tr = sessionRecord(s,id);
+    this.hud.append(title, this.recordStrip('WR', records?.wr, records?.wr?.name, 'Overall leaderboard record. Official/community tracks use verified records; custom tracks use their public leaderboard.'),
+      this.recordStrip('TR', tr ?? { status: 'missing' }, tr?.ids.map(id => this.name(id)).join(' / '), 'Fastest scored run on this track in this Cup, including current round provisionally. Voided rounds are excluded.'), this.scoreboard());
+    if (this.c.canSpectate()) { this.povHud.hidden = false; this.povHud.append(this.spectatorControls()); }
+    this.hud.append(h('p', 'F8 · Cup controls', 'hud-footer'));
   }
   spectatorControls() {
     const c = this.c, box = h('section', undefined, 'pov');
-    box.append(h('strong', `Watching ${c.watchId === null ? '—' : this.name(c.watchId)}`));
+    box.append(h('small', 'RACER POV'), h('strong', c.watchId === null ? 'Waiting for racer' : this.name(c.watchId)));
+    const id = recordTrack(c.state), pb = c.state.records[id]?.pbs[c.watchId];
+    box.append(this.recordStrip('PB', pb, pb?.source === 'online' ? 'Overall · online' : 'Overall · player profile', 'Watched racer’s best for this track, including runs outside this Cup. Shared by their mod; never inferred from their nickname.'));
     const controls = h('div', undefined, 'controls');
-    controls.append(this.button('← Previous [', () => c.cycleWatch(-1), 'quiet'));
+    controls.append(this.button('← [', () => c.cycleWatch(-1), 'quiet'));
     const select = h('select'); select.setAttribute('aria-label', 'Spectate racer');
     for (const id of c.watchable()) { const option = h('option', this.name(id)); option.value = id; option.selected = id === c.watchId; select.append(option); }
     select.addEventListener('change', () => c.selectWatch(Number(select.value)));
-    controls.append(select, this.button('Next ] →', () => c.cycleWatch(1), 'quiet'));
+    controls.append(select, this.button('] →', () => c.cycleWatch(1), 'quiet'));
     const stats = h('p', c.watchStatus, 'muted'); stats.dataset.povStats = '';
     box.append(controls, stats); return box;
   }

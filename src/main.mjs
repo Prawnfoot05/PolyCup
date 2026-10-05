@@ -1,7 +1,7 @@
 import { Controller } from './controller.mjs';
 import { CupUI } from './ui.mjs';
 const { PolyMod } = await import(new URL('PolyTypes.js', document.baseURI).href);
-class WorldCup extends PolyMod {
+class PolyCup extends PolyMod {
   init = pml => {
     this.controller = new Controller(() => this.ui?.render());
     try { this.controller.init(pml); } catch (error) { this.controller.fail(error); }
@@ -9,4 +9,4 @@ class WorldCup extends PolyMod {
   postInit = () => { if (!this.ui) this.ui = new CupUI(this.controller); this.ui.render(); };
   onGameLoad = () => this.postInit();
 }
-export const polyMod = new WorldCup();
+export const polyMod = new PolyCup();

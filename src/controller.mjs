@@ -8,6 +8,8 @@ export class Controller {
     this.hello = new Set(); this.offset = 0; this.bestRtt = Infinity; this.error = '';
     this.resetKey = ''; this.startKey = ''; this.readyKey = ''; this.lastBroadcast = 0;
     this.transport = new CupTransport((id, m) => this.receive(id, m), () => { this.lastBroadcast = 0; });
+    this.trackUploads = new Map(); this.pendingUpload = null; this.transferProgress = '';
+    this.recordRequests = new Map(); this.lastRecordPoll = 0;
     this.lastTick = 0; this.lastHello = 0; this.lastSaved = -1; this.auto = false;
     this.cameraTransport = new CupTransport((id, m) => this.receiveCamera(id, m), () => {}, { channelId: 43, realtime: true });
     this.cameraBuffers = new Map(); this.subscriptions = new Map(); this.watchId = null;
@@ -24,7 +26,7 @@ export class Controller {
       this.auto = false; this.isHost = false; this.cameraBuffers.clear(); this.onChange();
     },500);
   }
-  fail(error) { this.error = error?.message ?? String(error); console.error('[World Cup]', error); this.onChange(); }
+  fail(error) { this.error = error?.message ?? String(error); console.error('[PolyCup]', error); this.onChange(); }
   observeGame(game) {
     if (!this.native) return;
     const info = this.native.read(game);
@@ -32,7 +34,7 @@ export class Controller {
     this.game = game; this.info = info;
     if (this.connection !== info.connection) {
       this.transport.dispose(); this.cameraTransport.dispose(); this.cameraBuffers.clear(); this.subscriptions.clear();
-      this.hello.clear(); this.connection = info.connection;
+      this.hello.clear(); this.connection = info.connection; this.trackUploads.clear(); this.recordRequests.clear();
       this.isHost = this.connection instanceof this.native.Host;
       this.state = null; this.resetKey = ''; this.readyKey = ''; this.lastSaved = -1;
       this.offset = 0; this.bestRtt = Infinity; this.watchId = null; this.needsRebind = new Set();
@@ -157,6 +159,8 @@ export class Controller {
       }
       if (!this.state) { this.onChange(); return; }
       this.sendReady();
+      this.refreshRecords();
+      for (const [id, upload] of this.trackUploads) if (upload.until < Date.now()) this.trackUploads.delete(id);
       if (this.isHost) {
         this.checkDisconnects();
         this.advanceClock();
@@ -175,18 +179,71 @@ export class Controller {
   }
   create(name) {
     this.requireHost(); this.state = Cup.newCup(name); this.tracks.clear(); this.error = '';
-    this.needsRebind = new Set();
+    this.needsRebind = new Set(); this.trackUploads.clear(); this.recordRequests.clear(); this.auto = true;
     this.lastSaved = -1; this.broadcast(); this.onChange();
   }
   requireHost() { if (!this.isHost || !this.connection) throw new Error('Host a PolyTrack multiplayer lobby first.'); }
-  importTrack(code) {
-    this.requireHost();
+  acceptTrack(actor, code) {
     if (typeof code !== 'string' || code.length > 2000000) throw new Error('The track code is too large.');
     const track = this.native.parse(code.trim());
     if (!track?.trackData?.hasStartingPoint()) throw new Error('The code must contain a valid PolyTrack track with a start.');
     const id = track.trackData.getId();
-    Cup.addTrack(this.state, { id, name: track.trackMetadata.name });
-    this.tracks.set(id, { ...track, code: code.trim() }); this.broadcast();
+    Cup.chooseTrack(this.state, actor, { id, name: track.trackMetadata.name });
+    this.tracks.set(id, { ...track, code: code.trim() });
+    this.pruneTrackData(); this.broadcast();
+  }
+  pruneTrackData() { for (const id of this.tracks.keys()) if (!this.state.tracks.some(t => t.id === id)) this.tracks.delete(id); }
+  async importTrack(code) {
+    if (this.state?.phase !== 'registration' || !Cup.player(this.state, this.selfId)) throw new Error('Join as a racer before choosing a track.');
+    if (typeof code !== 'string' || !code.trim() || code.length > 2000000) throw new Error('Choose a valid track of up to 2 MB.');
+    if (this.isHost) { this.acceptTrack(this.selfId, code); return; }
+    if (this.pendingUpload) throw new Error('Your previous track is still uploading.');
+    const cupId = this.state.id, connection = this.connection, transferId = crypto.randomUUID();
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const pending = { transferId, done: false, error: null }; this.pendingUpload = pending;
+    const send = async message => {
+      const deadline = Date.now() + 5000;
+      while (true) {
+        if (this.connection !== connection || this.state?.id !== cupId || this.state.phase !== 'registration') throw new Error('The Cup changed during track upload.');
+        if (pending.error) throw new Error(pending.error);
+        if (this.transport.send(0, { ...message, cupId, transferId })) return;
+        if (Date.now() > deadline) throw new Error('Track upload lost its connection. Try again.');
+        await sleep(100);
+      }
+    };
+    try {
+      await send({ type: 'track-begin', length: code.length });
+      for (let offset = 0, seq = 0; offset < code.length; offset += 24000, seq++) {
+        await sleep(100); await send({ type: 'track-chunk', seq, data: code.slice(offset, offset + 24000) });
+        this.transferProgress = `Sending track · ${Math.min(100, Math.round((offset + 24000) / code.length * 100))}%`; this.onChange();
+      }
+      await send({ type: 'track-end' });
+      const deadline = Date.now() + 15000;
+      while (!pending.done && !pending.error && Date.now() < deadline) await sleep(100);
+      if (pending.error) throw new Error(pending.error);
+      if (!pending.done) throw new Error('The organizer did not confirm the track. Try again.');
+    } finally { this.pendingUpload = null; this.transferProgress = ''; this.onChange(); }
+  }
+  receiveTrack(id, m) {
+    if (!this.hello.has(id) || this.state?.phase !== 'registration' || m.cupId !== this.state.id || !Cup.player(this.state, id)) return;
+    if (typeof m.transferId !== 'string' || m.transferId.length > 64) return;
+    try {
+      if (m.type === 'track-begin') {
+        if (!Number.isSafeInteger(m.length) || m.length < 1 || m.length > 2000000) throw new Error('Invalid track size.');
+        this.trackUploads.set(id, { transferId: m.transferId, cupId: m.cupId, length: m.length, data: '', seq: 0, until: Date.now() + 30000 }); return;
+      }
+      const u = this.trackUploads.get(id);
+      if (!u || u.transferId !== m.transferId || u.cupId !== m.cupId || u.until < Date.now()) throw new Error('Track transfer expired. Select the track again.');
+      if (m.type === 'track-chunk') {
+        if (m.seq !== u.seq || typeof m.data !== 'string' || !m.data.length || m.data.length > 24000 || u.data.length + m.data.length > u.length) throw new Error('Invalid track chunk.');
+        u.data += m.data; u.seq++; return;
+      }
+      if (m.type === 'track-end') {
+        if (u.data.length !== u.length) throw new Error('Incomplete track upload. Try again.');
+        this.trackUploads.delete(id); this.acceptTrack(id, u.data);
+        this.transport.send(id, { type: 'track-ack', transferId: m.transferId });
+      }
+    } catch (e) { this.trackUploads.delete(id); this.transport.send(id, { type: 'track-ack', transferId: m.transferId, error: e.message }); }
   }
   availableTracks() {
     if (!this.native?.trackLibrary) throw new Error('The game track library is not ready. Open the normal track selector once, then try again.');
@@ -197,7 +254,6 @@ export class Controller {
     return tracks;
   }
   async addLibraryTrack(entry) {
-    this.requireHost();
     const state = this.state, connection = this.connection;
     if (state?.phase !== 'registration') throw new Error('Tracks can only be selected during registration.');
     const track = await entry.load();
@@ -205,18 +261,21 @@ export class Controller {
       throw new Error('The tournament changed while the track was loading. Select it again.');
     // Export the actual native track, so autosaves and native multiplayer transfers
     // work even when other players have never installed this custom track.
-    this.importTrack(track.trackData.toExportString(track.trackMetadata));
+    await this.importTrack(track.trackData.toExportString(track.trackMetadata));
     this.error = ''; this.onChange();
   }
   change(fn) { this.requireHost(); fn(this.state); this.error = ''; this.broadcast(); this.onChange(); }
   action(type, value) {
-    if (this.isHost) this.handleAction(this.selfId, { type, value, revision: this.state?.revision });
-    else this.transport.send(0, { type, value, revision: this.state?.revision });
+    if (this.isHost) this.handleAction(this.selfId, { type, value, cupId: this.state?.id });
+    else this.transport.send(0, { type, value, cupId: this.state?.id });
   }
   handleAction(actor, m) {
     if (!this.state || !this.hello.has(actor) && actor !== this.selfId) return;
-    if (m.type === 'pick-opponent') Cup.pickOpponent(this.state, actor, m.value);
-    else if (m.type === 'pick-track') Cup.pickTrack(this.state, actor, m.value);
+    if (m.cupId !== this.state.id) return;
+    if (m.type === 'join') {
+      const p = this.lobby.find(p => p.id === actor); if (!p) return;
+      Cup.addPlayer(this.state, actor, p.nickname);
+    } else if (m.type === 'leave') { Cup.removePlayer(this.state, actor); this.pruneTrackData(); }
     else if (m.type === 'dnf' && m.value === this.state.runtime?.id) Cup.markDNF(this.state, actor);
     else return;
     this.broadcast();
@@ -233,11 +292,15 @@ export class Controller {
         if (this.state && !Cup.activeIds(this.state).includes(id) && Cup.activeIds(this.state).includes(m.value)) this.subscriptions.set(id, m.value);
         else this.subscriptions.delete(id);
       }
-      else if (['pick-opponent', 'pick-track', 'dnf'].includes(m.type)) {
+      else if (m.type === 'pb' && this.hello.has(id)) this.receivePB(id, m);
+      else if (['track-begin', 'track-chunk', 'track-end'].includes(m.type)) this.receiveTrack(id, m);
+      else if (['join', 'leave', 'dnf'].includes(m.type)) {
         try { this.handleAction(id, m); } catch (e) { this.transport.send(id, { type: 'error', message: e.message }); }
       }
     } else if (id === 0) {
-      if (m.type === 'hello-ack' && Number.isFinite(m.sentAt) && Number.isFinite(m.hostAt)) {
+      if (m.type === 'track-ack' && this.pendingUpload?.transferId === m.transferId) {
+        this.pendingUpload.done = !m.error; this.pendingUpload.error = m.error ? String(m.error).slice(0,200) : null;
+      } else if (m.type === 'hello-ack' && Number.isFinite(m.sentAt) && Number.isFinite(m.hostAt)) {
         const rtt = Date.now() - m.sentAt;
         if (rtt >= 0 && rtt < this.bestRtt) { this.bestRtt = rtt; this.offset = m.hostAt + rtt / 2 - Date.now(); }
       } else if (m.type === 'state' && validSnapshot(m.state)) {
@@ -250,6 +313,48 @@ export class Controller {
       } else if (m.type === 'error') this.error = String(m.message).slice(0, 200);
     }
     this.onChange();
+  }
+  refreshRecords() {
+    if (Date.now() - this.lastRecordPoll < 5000 || !this.native?.personalBest || !this.state) return;
+    this.lastRecordPoll = Date.now();
+    const state = this.state, cupId = state.id, connection = this.connection;
+    const trackId = state.runtime?.trackId ?? Cup.nextTrack(state);
+    if (!trackId) return;
+    const stillCurrent = () => this.state?.id === cupId && this.connection === connection;
+    const launch = (key, interval, fn) => {
+      const old = this.recordRequests.get(key);
+      if (old && (old.pending || old.until > Date.now())) return;
+      const request = { pending: true, until: Date.now() + interval }; this.recordRequests.set(key, request);
+      Promise.resolve().then(fn).catch(() => {}).finally(() => { request.pending = false; });
+    };
+    if (Cup.player(state, this.selfId)) {
+      const actor = this.selfId;
+      launch(`${cupId}:pb:${trackId}:${actor}`, 5000, async () => {
+        const pb = await this.native.personalBest(this.game, trackId);
+        if (!stillCurrent() || this.selfId !== actor || !validPB(pb)) return;
+        const message = { type: 'pb', cupId, trackId, pb };
+        if (this.isHost) this.receivePB(actor, message); else this.transport.send(0, message);
+      });
+    }
+    if (this.isHost) launch(`${cupId}:wr:${trackId}`, 120000, async () => {
+      const wr = await this.native.worldRecord(this.game, trackId);
+      if (!stillCurrent() || !this.state.tracks.some(t => t.id === trackId)) return;
+      const records = this.state.records[trackId] ??= { pbs: {} };
+      if (JSON.stringify(records.wr) !== JSON.stringify(wr)) { records.wr = wr; Cup.touch(this.state); this.broadcast(); }
+    });
+  }
+  receivePB(actor, m) {
+    const s = this.state;
+    if (!s || m.cupId !== s.id || !Cup.player(s, actor) || !s.tracks.some(t => t.id === m.trackId) || !validPB(m.pb)) return;
+    const pb = m.pb.status === 'ready' ? { status: 'ready', frames: m.pb.frames, source: m.pb.source } : { status: m.pb.status };
+    const r = s.records[m.trackId] ??= { pbs: {} };
+    if (JSON.stringify(r.pbs[actor]) !== JSON.stringify(pb)) { r.pbs[actor] = pb; Cup.touch(s); this.broadcast(); }
+  }
+  startCup() {
+    this.requireHost();
+    if (this.state.roster.some(p => this.needsRebind?.has(p.id) || !this.lobby.some(l => l.id === p.id) || p.id !== this.selfId && (!this.hello.has(p.id) || !this.transport.has(p.id))))
+      throw new Error('Every racer must be connected with the current mod before starting.');
+    Cup.lockRegistration(this.state); this.trackUploads.clear(); this.broadcast(); this.runRound();
   }
   networkState() {
     const state = Cup.publicState(this.state);
@@ -269,7 +374,7 @@ export class Controller {
     if (this.state.roster.some(p => this.needsRebind?.has(p.id))) throw new Error('Confirm every saved racer’s lobby identity in Racers before resuming.');
     for (const id of Cup.activeIds(this.state)) {
       if (!this.lobby.some(p => p.id === id)) throw new Error(`${Cup.player(this.state, id).name} is disconnected. Reconnect or replace their lobby identity.`);
-      if (id !== this.selfId && (!this.hello.has(id) || !this.transport.has(id))) throw new Error(`${Cup.player(this.state, id).name} must load World Cup ${Cup.VERSION}.`);
+      if (id !== this.selfId && (!this.hello.has(id) || !this.transport.has(id))) throw new Error(`${Cup.player(this.state, id).name} must load PolyCup ${Cup.VERSION}.`);
     }
     const track = this.tracks.get(Cup.nextTrack(this.state));
     if (!track) throw new Error('The selected track is missing from this organizer’s saved pack.');
@@ -337,10 +442,10 @@ export class Controller {
     tracks: [...this.tracks].map(([id, t]) => ({ id, code: t.code })) }; }
   restore(text) {
     this.requireHost();
-    if (text.length > 12000000) throw new Error('The save is too large.');
+    if (text.length > 18000000) throw new Error('The save is too large.');
     const data = JSON.parse(text);
-    if (data.format !== 'polytrack-world-cup' || !validSnapshot(data.state) || !Array.isArray(data.tracks) || data.tracks.length > 5 ||
-      !Array.isArray(data.state.history)) throw new Error('This is not a supported World Cup save.');
+    if (data.format !== 'polytrack-world-cup' || !validSnapshot(data.state) || !Array.isArray(data.tracks) || data.tracks.length > 8 ||
+      !Array.isArray(data.state.history)) throw new Error('This is not a Simple Cup save. Older PolyCup exports remain readable as JSON but cannot be resumed in this format.');
     const tracks = new Map();
     for (const entry of data.tracks) {
       if (typeof entry.code !== 'string' || entry.code.length > 2000000) throw new Error('Invalid saved track.');
@@ -361,7 +466,7 @@ export class Controller {
   }
   save() {
     if (this.lastSaved === this.state.revision) return;
-    try { localStorage.setItem('pwc-save-v1', JSON.stringify(this.exportData())); this.lastSaved = this.state.revision; }
+    try { localStorage.setItem('pwc-save-v2', JSON.stringify(this.exportData())); this.lastSaved = this.state.revision; }
     catch { this.error = 'Autosave is full or unavailable. Export the tournament to keep results.'; }
   }
 }
@@ -369,32 +474,45 @@ export function validSnapshot(s) {
   const obj = o => !!o && typeof o === 'object' && !Array.isArray(o);
   const text = t => typeof t === 'string' && t.length <= 128;
   const num = n => Number.isSafeInteger(n) && n >= 0;
-  if (!obj(s) || s.schema !== 1 || !text(s.id) || !text(s.name) || !num(s.revision) ||
-    !['registration','group-picks','track-picks','loading','warmup','countdown','racing','between-rounds','match-complete','complete'].includes(s.phase) ||
-    !Array.isArray(s.roster) || s.roster.length > 8 || !s.roster.every(p => obj(p) && Number.isSafeInteger(p.id) && p.id !== 0 && text(p.name) && num(p.seed)) ||
+  const frames = n => Number.isSafeInteger(n) && n > 0 && n <= 3600000;
+  if (!obj(s) || s.schema !== 2 || !text(s.id) || !text(s.name) || !num(s.revision) ||
+    !['registration','loading','warmup','countdown','racing','between-rounds','complete'].includes(s.phase) ||
+    !['dnf','void'].includes(s.disconnectPolicy) ||
+    !Array.isArray(s.roster) || s.roster.length > 8 || !s.roster.every(p => obj(p) && Number.isSafeInteger(p.id) && p.id !== 0 && text(p.name)) ||
     new Set(s.roster.map(p => p.id)).size !== s.roster.length ||
-    !Array.isArray(s.tracks) || s.tracks.length > 5 || !s.tracks.every(t => obj(t) && typeof t.id === 'string' && /^[a-f0-9]{64}$/i.test(t.id) && text(t.name))) return false;
-  const ids = values => Array.isArray(values) && values.length <= 8 && values.every(id => s.roster.some(p => p.id === id));
+    !Array.isArray(s.tracks) || s.tracks.length > 8 || !s.tracks.every(t => obj(t) && typeof t.id === 'string' && /^[a-f0-9]{64}$/i.test(t.id) && text(t.name)) ||
+    new Set(s.tracks.map(t => t.id)).size !== s.tracks.length) return false;
+  const ids = values => Array.isArray(values) && values.length <= 8 && values.every(id => s.roster.some(p => p.id === id)) && new Set(values).size === values.length;
   const times = o => obj(o) && Object.keys(o).length <= 8 && Object.entries(o).every(([id, n]) => s.roster.some(p => p.id === Number(id)) && num(n));
-  const round = r => obj(r) && num(r.round) && text(r.trackId) && times(r.finishes) && times(r.points) && ids(r.dnfs) && ids(r.winners);
-  const match = m => obj(m) && text(m.name) && ids(m.players) && ids(m.winners) && ids(m.ranking) &&
-    [120,140].includes(m.target) && [2,3].includes(m.winnerCount) && num(m.rounds) &&
-    Array.isArray(m.order) && m.order.length <= 5 && m.order.every(id => s.tracks.some(t => t.id === id)) &&
-    times(m.scores) && m.players.every(id => num(m.scores[id])) && obj(m.finalists) &&
+  const trackId = id => s.tracks.some(t => t.id === id);
+  if (!obj(s.picks) || Object.entries(s.picks).some(([id,t]) => !ids([Number(id)]) || !trackId(t)) || !obj(s.records) || Object.keys(s.records).length > 8) return false;
+  for (const [id,r] of Object.entries(s.records)) {
+    if (!trackId(id) || !obj(r) || !obj(r.pbs) || Object.keys(r.pbs).length > 8) return false;
+    for (const [id,p] of Object.entries(r.pbs)) if (!ids([Number(id)]) || !validPB(p)) return false;
+    if (r.wr && (!obj(r.wr) || !['ready','missing','unavailable'].includes(r.wr.status) ||
+      r.wr.status === 'ready' && (!frames(r.wr.frames) || !text(r.wr.name)))) return false;
+    if (r.tr && (!obj(r.tr) || !frames(r.tr.frames) || !ids(r.tr.ids))) return false;
+  }
+  const round = r => obj(r) && num(r.round) && trackId(r.trackId) && times(r.finishes) && times(r.points) && ids(r.dnfs) && ids(r.winners) && ids(r.beforeRanking);
+  const match = m => obj(m) && text(m.name) && ids(m.players) && m.players.length >= 2 && ids(m.winners) && ids(m.ranking) &&
+    m.target === 100 && m.winnerCount === 1 && m.winners.length <= 1 && num(m.rounds) &&
+    Array.isArray(m.order) && m.order.length >= 1 && m.order.length <= 8 && m.order.every(trackId) && new Set(m.order).size === m.order.length &&
+    times(m.scores) && m.players.every(id => num(m.scores[id]) && m.scores[id] <= 100) && obj(m.finalists) &&
     Object.entries(m.finalists).every(([id,f]) => m.players.includes(Number(id)) && obj(f) && num(f.round) && num(f.position) && (f.checkpoint === null || num(f.checkpoint))) &&
     Array.isArray(m.roundsLog) && m.roundsLog.every(round);
-  if (!Array.isArray(s.matches) || s.matches.length > 3 || !s.matches.every(match) ||
-    !Number.isSafeInteger(s.matchIndex) || s.matchIndex < -1 || s.matchIndex >= s.matches.length ||
-    !Array.isArray(s.groups) || s.groups.length !== 2 || !s.groups.every(ids) ||
-    !Array.isArray(s.draft) || s.draft.length > 6 || !s.draft.every(d => obj(d) && ids([d.actor,d.id])) ||
+  if (!Array.isArray(s.matches) || s.matches.length > 1 || !s.matches.every(match) ||
+    s.matchIndex !== (s.matches.length ? 0 : -1) || (s.phase !== 'registration' && !s.matches.length) ||
     !Array.isArray(s.audit) || !s.audit.every(a => obj(a) && text(a.message) && text(a.at)) ||
-    !Array.isArray(s.results) || s.results.length > 8 || !s.results.every(r => obj(r) && ids([r.id]) && [1,2,3,4,'5–8'].includes(r.place)) ||
-    (s.history !== undefined && (!Array.isArray(s.history) || !s.history.every(h => obj(h) && num(h.matchIndex) && h.matchIndex < s.matches.length && match(h.before))))) return false;
+    !Array.isArray(s.results) || s.results.length > 8 || !s.results.every(r => obj(r) && ids([r.id]) && Number.isInteger(r.place) && r.place >= 1 && r.place <= 8) ||
+    (s.history !== undefined && (!Array.isArray(s.history) || !s.history.every(h => obj(h) && h.matchIndex === 0 && match(h.before))))) return false;
   const r = s.runtime;
-  const live = ['loading','warmup','countdown','racing'].includes(s.phase);
-  if (!live) return r === null;
-  return obj(r) && text(r.id) && num(r.round) && s.tracks.some(t => t.id === r.trackId) &&
+  if (!['loading','warmup','countdown','racing'].includes(s.phase)) return r === null;
+  return obj(r) && text(r.id) && num(r.round) && trackId(r.trackId) &&
     (r.sessionId === null || num(r.sessionId)) && typeof r.warmup === 'boolean' &&
     ids(r.ready) && ids(r.dnfs) && times(r.finishes) && times(r.checkpoints) &&
     (r.startsAt === null || Number.isFinite(r.startsAt)) && (r.deadline === null || Number.isFinite(r.deadline));
+}
+export function validPB(p) {
+  return !!p && ['ready','missing','unavailable'].includes(p.status) &&
+    (p.status !== 'ready' || Number.isSafeInteger(p.frames) && p.frames > 0 && p.frames <= 3600000 && ['profile','online'].includes(p.source));
 }

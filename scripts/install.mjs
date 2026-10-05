@@ -54,7 +54,7 @@ export async function makeArchive({ testing = false, visible = false } = {}) {
     main = main.replace('let browserWindow = null;', `if(!process.env.PWC_PROFILE_DIR || !path.isAbsolute(process.env.PWC_PROFILE_DIR)) throw new Error('Start this test build with Start-Test-Clients.cmd.');\napp.setPath('userData',path.resolve(process.env.PWC_PROFILE_DIR));\nlet browserWindow = null;`);
     main = main.replace('fullscreen: !0,', `fullscreen: false, show: ${visible},`);
     if (visible) main = main.replace('browserWindow.removeMenu(),', `browserWindow.removeMenu(),
-      browserWindow.setTitle('World Cup test client ' + (process.env.PWC_TEST_CLIENT || '')),
+      browserWindow.setTitle('PolyCup test client ' + (process.env.PWC_TEST_CLIENT || '')),
       browserWindow.webContents.on('page-title-updated', e => e.preventDefault()),`);
     files.set('electron/main.js', Buffer.from(main));
   }
@@ -91,7 +91,7 @@ async function install() {
   const output = await makeArchive();
   await writeFile(archive + '.world-cup-new', output); await rename(archive + '.world-cup-new', archive);
   await writeFile(receipt, JSON.stringify({ loader: 'v0.6.3-1', mod: modVersion, originalHash, installedHash: digest(output) }, null, 2));
-  console.log(`Installed World Cup ${modVersion} with PolyModLoader v0.6.3-1. Launch PolyTrack.exe and press F8.`);
+  console.log(`Installed PolyCup ${modVersion} with PolyModLoader v0.6.3-1. Launch PolyTrack.exe and press F8.`);
   console.log('Original game backed up as resources/app.asar.before-world-cup.');
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) install().catch(error => { console.error(error.message); process.exitCode = 1; });

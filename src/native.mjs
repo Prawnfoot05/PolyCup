@@ -1,9 +1,10 @@
 // Version-specific access is isolated here. These symbols were inspected in PML v0.6.3-1.
 import { renderCarPose } from './spectator.mjs';
 export function connectNative(pml, controller) {
-  if (pml.polyVersion !== '0.6.3') throw new Error('World Cup requires PolyTrack 0.6.3.');
+  if (pml.polyVersion !== '0.6.3') throw new Error('PolyCup requires PolyTrack 0.6.3.');
   const api = pml.getFromPolyTrack(`({
     Host: ii, Client: vc, Game: Is, TrackLibrary: du,
+    records: g => ({ server: jd.get(da.get(g)), profiles: ha.get(g), store: da.get(g) }),
     carThumbnail: style => kr.F(style, new Sr.A()),
     clearInput: g => { const c=qa.get(g); if(c) for(const key of ['up','right','down','left','reset']) c[key]=false;
       const s=fs.get(g); if(s) for(const field of [ft,pt,gt,mt,vt,At,yt]) field.set(s,false); },
@@ -35,6 +36,31 @@ export function connectNative(pml, controller) {
   for (const key of ['Host', 'Client', 'Game', 'read', 'peers', 'parse', 'reset', 'guard']) {
     if (typeof api[key] !== 'function') throw new Error(`Unsupported game build: ${key} is unavailable.`);
   }
+  const onlinePB = new Map();
+  const verified = id => !!(api.trackLibrary?.isOfficialTrack(id) || api.trackLibrary?.isCommunityTrack(id));
+  api.personalBest = async (game, id) => {
+    const { server, profiles, store } = api.records(game);
+    const profile = profiles.getCurrentUserProfile(), slot = profiles.profileSlot;
+    // Use the game's own identity locally; only the time and its source leave this client.
+    const key = `${slot}:${profile.tokenHash}:${id}`, cached = onlinePB.get(key);
+    if (!cached || cached.until < Date.now()) {
+      onlinePB.set(key, { until: Date.now() + 60000, value: server.getLeaderboardUserEntry(profile.tokenHash, id, verified(id))
+        .then(record => ({ ok: true, frames: record?.time?.numberOfFrames ?? null })).catch(() => ({ ok: false, frames: null })) });
+    }
+    const online = await onlinePB.get(key).value;
+    const local = store.getRecordTime(slot, id)?.numberOfFrames ?? null;
+    if (online.frames !== null && (local === null || online.frames <= local)) return { status: 'ready', frames: online.frames, source: 'online' };
+    if (local !== null) return { status: 'ready', frames: local, source: 'profile' };
+    return { status: online.ok ? 'missing' : 'unavailable' };
+  };
+  api.worldRecord = async (game, id) => {
+    const { server, profiles } = api.records(game);
+    try {
+      const data = await server.getLeaderboard(profiles.getCurrentUserProfile().tokenHash, id, 0, 1, verified(id));
+      const best = data.entries[0];
+      return best ? { status: 'ready', frames: best.frames.numberOfFrames, name: String(best.nickname).slice(0,64) } : { status: 'missing' };
+    } catch { return { status: 'unavailable' }; }
+  };
   const follow = api.follow;
   api.follow = (game, pose, id) => {
     follow(game, pose, id);
@@ -96,7 +122,7 @@ export class CupTransport {
           const message = JSON.parse(event.data);
           if (!message || message.protocol !== 1 || typeof message.type !== 'string') return;
           this.onMessage(id, message); // Native peer ID, never an ID supplied by a client.
-        } catch (error) { console.warn('[World Cup] Rejected peer message:', error.message); }
+        } catch (error) { console.warn('[PolyCup] Rejected peer message:', error.message); }
       };
     }
   }

@@ -1,11 +1,14 @@
 {
-  "shortdesc": "Host eight-player live cups with semifinals, finalist scoring, track picks, and switchable racer POV spectating.",
+  "shortdesc": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelogs": {
-    "0.1.2": [
-      "Smooth racer POV with a 250 ms buffer shared by the camera and watched car's visual transform.",
-      "Remove backward camera jumps and avoid inheriting native remote-car playback corrections.",
-      "Interpolate rotations, cut on cockpit/chase switches and teleports, and hold during missing packets without changing physics or scoring.",
-      "Retains the native track picker, car-skin previews, and input fixes from 0.1.1."
+    "0.2.0": [
+      "Replace seeding, captains and semifinals with one shared Cup for any 2–8 racers.",
+      "Racers join themselves and choose one native-library track each; duplicate picks collapse and the order is shuffled.",
+      "100-point target; 10/8/6/5/4/3/2/1 scoring; the first finalist to win a later round wins the Cup.",
+      "Lower race HUD with clearer point gains, finalist markers, rank movement and car skins.",
+      "Add overall WR, scored Cup session record (TR), and the watched racer’s overall PB.",
+      "Preserve buffered POV spectating and organizer void, undo, reconnect and export controls.",
+      "Use PolyCup branding throughout the current release and PolyTrack’s bundled ForcedSquare typography."
     ]
   }
 }

@@ -3,21 +3,18 @@ import assert from 'node:assert/strict';
 import { Controller, validSnapshot } from '../src/controller.mjs';
 import * as Cup from '../src/cup.mjs';
 import { CameraBuffer, validPose, renderCarPose } from '../src/spectator.mjs';
-import { CupTransport } from '../src/native.mjs';
+import { CupTransport, connectNative } from '../src/native.mjs';
 import { pack, unpack } from '../scripts/asar.mjs';
 function race() {
   const s = Cup.newCup();
-  for (let i = 1; i <= 8; i++) Cup.addPlayer(s, i, `P${i}`);
-  for (let i = 1; i <= 3; i++) Cup.addTrack(s, { id: String(i).repeat(64), name: `T${i}` });
+  for (const i of [1,3,5,7]) { Cup.addPlayer(s,i,`P${i}`); Cup.chooseTrack(s,i,{id:String((i%3)+1).repeat(64),name:`T${i}`}); }
   Cup.lockRegistration(s);
-  for (const id of [3,4,5,6,7,8]) Cup.pickOpponent(s, Cup.groupPicker(s), id);
-  for (const t of s.tracks) Cup.pickTrack(s, Cup.trackPicker(s), t.id);
   Cup.beginRound(s); s.runtime.sessionId = 9; s.phase = 'countdown'; Cup.startRace(s, Date.now() - 10000); return s;
 }
 const pose = (at = 1000) => ({ sessionId: 9, at, position: [0,1,2], quaternion: [0,0,0,1], fov: 75, frames: 1000, speed: 120,
   carPosition: [0,0,0], carQuaternion: [0,0,0,1], view: 0 });
 test('library selection retains an exportable custom track for transfer and autosave', async () => {
-  const c = new Controller(() => {}); c.isHost = true; c.connection = {}; c.state = Cup.newCup(); c.broadcast = () => {};
+  const c = new Controller(() => {}); c.isHost = true; c.connection = {}; c.state = Cup.newCup(); c.selfId=1; Cup.addPlayer(c.state,1,'Host'); c.broadcast = () => {};
   const id = 'a'.repeat(64), metadata = { name: 'Locally saved track' };
   const track = { trackMetadata: metadata, trackData: { hasStartingPoint: () => true, getId: () => id,
     toExportString: m => { assert.equal(m, metadata); return 'complete-custom-track'; } } };
@@ -41,7 +38,7 @@ test('snapshot parser rejects malformed nested data while accepting every engine
 });
 test('restored identities cannot collide with another saved racer or silently claim new lobby IDs', () => {
   const s = race(); Cup.recordFinish(s, 1, 1000, Date.now()); Cup.completeRound(s);
-  Cup.detachIdentities(s); assert.deepEqual(s.roster.map(p => p.id), [-1,-2,-3,-4,-5,-6,-7,-8]);
+  Cup.detachIdentities(s); assert.deepEqual(s.roster.map(p => p.id), [-1,-2,-3,-4]);
   Cup.rebindPlayer(s, -2, 1, 'Reconnected 2'); Cup.rebindPlayer(s, -1, 2, 'Reconnected 1');
   assert.equal(s.matches[0].scores[2], 10); assert.equal(s.matches[0].roundsLog[0].finishes[2], 1000);
   Cup.undoRound(s); assert.equal(s.matches[0].scores[2], 0); assert.ok(validSnapshot(s));
@@ -181,4 +178,64 @@ test('ASAR repacking preserves binary content, empty files, nested assets, and r
   const files = new Map([['a.bin',Buffer.from([0,255,1])],['nested/empty',Buffer.alloc(0)],['package.json',Buffer.from('{"version":"0.6.3"}')]]);
   const restored = unpack(pack(files)); for(const [name,data] of files) assert.deepEqual(restored.get(name),data);
   assert.throws(()=>unpack(Buffer.alloc(32))); assert.throws(()=>pack(new Map([['../x',Buffer.from('x')]])));
+});
+
+
+test('two controllers transfer a remote custom track and bind self-registration to native identity', async () => {
+  const host=new Controller(()=>{}), client=new Controller(()=>{}); host.isHost=true; host.selfId=1; client.selfId=2;
+  host.connection={}; client.connection={}; host.state=Cup.newCup(); client.state=Cup.publicState(host.state);
+  host.lobby=[{id:1,nickname:'Organizer'},{id:2,nickname:'Remote'}]; host.hello.add(2);
+  host.transport.send=(id,m)=>{assert.equal(id,2);client.receive(0,m);return true;};
+  host.transport.broadcast=m=>client.receive(0,m);
+  client.transport.send=(id,m)=>{assert.equal(id,0);host.receive(2,m);return true;};
+  client.action('join', {id:1,name:'Impersonation'}); assert.equal(host.state.roster[0].id,2); assert.equal(host.state.roster[0].name,'Remote');
+  const code='custom-track-data-'.repeat(3000), id='b'.repeat(64);
+  host.native={parse:value=>{assert.equal(value,code);return {trackMetadata:{name:'Custom'},trackData:{getId:()=>id,hasStartingPoint:()=>true}};}};
+  await client.importTrack(code); assert.equal(host.tracks.get(id).code,code); assert.equal(client.state.picks[2],id);
+  assert.ok(validSnapshot(client.state)); assert.equal(client.pendingUpload,null);
+  client.action('leave'); assert.equal(host.state.roster.length,0); assert.equal(host.tracks.size,0);
+});
+test('track transfer rejects spoofed cups, spectators, oversize, reordered and partial data', () => {
+  const c=new Controller(()=>{});c.isHost=true;c.state=Cup.newCup();c.selfId=1;Cup.addPlayer(c.state,2,'Racer');c.hello.add(2);c.hello.add(3);
+  const sent=[];c.transport.send=(id,m)=>{sent.push(m);return true;}; c.native={parse(){throw new Error('Should not parse invalid transfer');}};
+  const begin={type:'track-begin',cupId:c.state.id,transferId:'a',length:10};
+  c.receiveTrack(3,begin);c.receiveTrack(2,{...begin,cupId:'wrong'});assert.equal(c.trackUploads.size,0);
+  c.receiveTrack(2,{...begin,length:2000001});assert.match(sent.at(-1).error,/size/);
+  c.receiveTrack(2,begin);c.receiveTrack(2,{...begin,type:'track-chunk',seq:1,data:'x'});assert.equal(c.trackUploads.size,0);
+  c.receiveTrack(2,begin);c.receiveTrack(2,{...begin,type:'track-end'});assert.match(sent.at(-1).error,/Incomplete/);
+  c.receiveTrack(2,begin); c.trackUploads.get(2).until=0;c.receiveTrack(2,{...begin,type:'track-end'});assert.match(sent.at(-1).error,/expired/);
+});
+test('PB reports are informational, session-bound and identity-bound; stale record requests cannot overwrite another Cup', async () => {
+  const c=new Controller(()=>{});c.isHost=true;c.selfId=1;c.connection={};c.state=race();c.broadcast=()=>{};
+  const id=c.state.tracks[0].id, pb={status:'ready',frames:12345,source:'profile',token:'must not relay'};
+  c.receivePB(2,{cupId:c.state.id,trackId:id,pb});assert.equal(c.state.records[id],undefined);
+  c.receivePB(1,{cupId:'old',trackId:id,pb});assert.equal(c.state.records[id],undefined);
+  c.receivePB(1,{cupId:c.state.id,trackId:id,pb});assert.deepEqual(c.state.records[id].pbs[1],{status:'ready',frames:12345,source:'profile'});
+  c.receivePB(1,{cupId:c.state.id,trackId:id,pb:{...pb,frames:-1}});assert.equal(c.state.records[id].pbs[1].frames,12345);
+  assert.ok(validSnapshot(c.networkState()));
+  let finish; c.native={personalBest:()=>new Promise(resolve=>finish=resolve),worldRecord:async()=>({status:'missing'})};c.refreshRecords();
+  await Promise.resolve();c.state=Cup.newCup('New Cup');finish(pb);await new Promise(resolve=>setTimeout(resolve,0));assert.deepEqual(c.state.records,{});
+});
+test('compact live snapshots retain TR across tracks and round history truncation', () => {
+  const c=new Controller(()=>{}); c.state=race();const s=c.state,id=s.runtime.trackId;
+  Cup.recordFinish(s,1,1000,Date.now());Cup.completeRound(s);
+  for(let i=0;i<5;i++){Cup.beginRound(s);s.phase='countdown';Cup.startRace(s,0);Cup.recordFinish(s,3,2000+i,3000);Cup.completeRound(s);}
+  const snapshot=c.networkState();assert.equal(snapshot.matches[0].roundsLog.length,1);assert.equal(snapshot.records[id].tr.frames,1000);assert.ok(validSnapshot(snapshot));
+});
+
+
+test('native record adapter combines persistent profile PB with online PB and requests only the top WR', async () => {
+  class Game { update(){} dispose(){} } class Library {}
+  for(const name of ['getFirstSessionTrack','getRandomOfficialTrack','forEachTrack','forEachOfficialTrack','forEachCommunityTrack','forEachCustomTrack']) Library.prototype[name]=function(){};
+  const game={},store={},profiles={profileSlot:1,getCurrentUserProfile:()=>({tokenHash:'test-only-profile-hash'})},jd=new WeakMap(),da=new WeakMap(),ha=new WeakMap();
+  let local=23000, online=24000, calls=0;store.getRecordTime=()=>local===null?null:{numberOfFrames:local};
+  const server={getLeaderboardUserEntry:async()=>{calls++;return online===null?null:{time:{numberOfFrames:online}};},getLeaderboard:async(hash,id,skip,amount,verified)=>{assert.equal(skip,0);assert.equal(amount,1);assert.equal(verified,true);return {entries:[{nickname:'Champion',frames:{numberOfFrames:22000}}]};}};
+  jd.set(store,server);da.set(game,store);ha.set(game,profiles);
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','jd','da','ha',`let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,jd,da,ha)};
+  const native=connectNative(pml,{});native.trackLibrary={isOfficialTrack:()=>true};
+  assert.deepEqual(await native.personalBest(game,'track'),{status:'ready',frames:23000,source:'profile'});
+  local=25000;assert.deepEqual(await native.personalBest(game,'track'),{status:'ready',frames:24000,source:'online'});assert.equal(calls,1);
+  local=20000;assert.equal((await native.personalBest(game,'track')).frames,20000);
+  assert.deepEqual(await native.worldRecord(game,'track'),{status:'ready',frames:22000,name:'Champion'});
+  server.getLeaderboard=async()=>{throw new Error('Offline');};assert.deepEqual(await native.worldRecord(game,'other'),{status:'unavailable'});
 });

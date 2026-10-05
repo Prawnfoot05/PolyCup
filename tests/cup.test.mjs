@@ -1,87 +1,72 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as Cup from '../src/cup.mjs';
-function grid() {
+import { standings, sessionRecord } from '../src/standings.mjs';
+function grid(n = 4) {
   const s = Cup.newCup('Test cup');
-  for (let i = 1; i <= 8; i++) Cup.addPlayer(s, i, `Racer ${i}`);
-  for (let i = 1; i <= 3; i++) Cup.addTrack(s, { id: String(i).repeat(64), name: `Track ${i}` });
-  Cup.lockRegistration(s);
-  for (const id of [3, 4, 5, 6, 7, 8]) Cup.pickOpponent(s, Cup.groupPicker(s), id);
-  return s;
+  for (let i = 1; i <= n; i++) { Cup.addPlayer(s,i,`Racer ${i}`); Cup.chooseTrack(s,i,{id:String((i-1)%3+1).repeat(64),name:`Track ${i}`}); }
+  Cup.lockRegistration(s, () => .999); return s;
 }
-function pickTracks(s) { for (const t of s.tracks) Cup.pickTrack(s, Cup.trackPicker(s), t.id); }
 function race(s, order = Cup.activeIds(s), times) {
-  if (s.phase === 'track-picks') pickTracks(s);
-  Cup.beginRound(s); s.phase = 'countdown'; Cup.startRace(s, 100000);
-  order.forEach((id, i) => assert.equal(Cup.recordFinish(s, id, times?.[i] ?? 30000 + i * 1000, 100000 + (times?.[i] ?? 30000 + i * 1000)), true));
+  Cup.beginRound(s); s.phase = 'countdown'; Cup.startRace(s,100000);
+  order.forEach((id,i) => assert.equal(Cup.recordFinish(s,id,times?.[i] ?? 30000+i*1000,100000+(times?.[i] ?? 30000+i*1000)),true));
   Cup.completeRound(s);
 }
-test('registration, captain draft, and seed-order track picks enforce turns', () => {
-  const s = grid(); assert.deepEqual(s.groups, [[1, 3, 5, 7], [2, 4, 6, 8]]);
-  assert.equal(Cup.trackPicker(s), 1);
-  assert.throws(() => Cup.pickTrack(s, 3, s.tracks[0].id));
-  assert.throws(() => Cup.addPlayer(s, 9, 'Late entrant'));
-  pickTracks(s); assert.equal(s.phase, 'between-rounds');
+test('2–8 racers each choose one track, duplicates collapse and shuffled order is shared', () => {
+  const s = Cup.newCup(); Cup.addPlayer(s,1,'A'); assert.throws(() => Cup.lockRegistration(s));
+  Cup.addPlayer(s,2,'B'); Cup.chooseTrack(s,1,{id:'a'.repeat(64),name:'A'}); assert.throws(() => Cup.lockRegistration(s));
+  Cup.chooseTrack(s,2,{id:'a'.repeat(64),name:'A'}); assert.equal(s.tracks.length,1);
+  Cup.chooseTrack(s,1,{id:'b'.repeat(64),name:'B'}); Cup.chooseTrack(s,2,{id:'c'.repeat(64),name:'C'});
+  assert.equal(s.tracks.length,2); Cup.lockRegistration(s,()=>0); assert.deepEqual(Cup.currentMatch(s).order,['c'.repeat(64),'b'.repeat(64)]);
+  assert.throws(() => Cup.chooseTrack(s,1,{id:'a'.repeat(64),name:'Late'})); assert.throws(() => Cup.addPlayer(s,3,'Late'));
+  const full = Cup.newCup(); for(let i=1;i<=8;i++) Cup.addPlayer(full,i,'Racer'); assert.throws(()=>Cup.addPlayer(full,9,'Extra'));
 });
-test('reaching target makes a finalist; only a later outright win qualifies', () => {
-  const s = grid(); for (let i = 0; i < 12; i++) race(s, [1, 3, 5, 7]);
-  assert.equal(Cup.currentMatch(s).scores[1], 120); assert.deepEqual(Cup.currentMatch(s).winners, []);
-  race(s, [1, 3, 5, 7]); assert.deepEqual(Cup.currentMatch(s).winners, [1]);
-  assert.ok(!Cup.activeIds(s).includes(1)); assert.equal(Cup.currentMatch(s).scores[1], 120);
-});
-test('whole 8-player World Cup advances two from each semifinal and resolves three podium places', () => {
-  const s = grid(); let guard = 0;
-  while (s.phase !== 'complete' && guard++ < 150) {
-    if (s.phase === 'match-complete') { Cup.advanceMatch(s); continue; }
-    race(s);
-  }
-  assert.equal(s.phase, 'complete'); assert.equal(s.matches[2].target, 140);
-  assert.equal(s.matches[2].winners.length, 3); assert.equal(s.results.length, 8);
-  assert.equal(new Set(s.results.map(r => r.id)).size, 8);
-  assert.equal(s.results.filter(r => r.place === '5–8').length, 4);
-});
-test('track rotates after four scored rounds and cycles with a fresh warmup', () => {
-  const s = grid(); pickTracks(s);
-  for (let i = 0; i < 13; i++) {
-    Cup.beginRound(s); assert.equal(s.runtime.trackId, s.tracks[Math.floor(i / 4) % 3].id);
-    assert.equal(s.runtime.warmup, i % 4 === 0);
-    s.phase = 'countdown'; Cup.startRace(s, 0); Cup.completeRound(s);
+test('every lobby size completes at the first later finalist win and scores all eight places', () => {
+  for (let n=2;n<=8;n++) {
+    const s=grid(n); race(s); assert.deepEqual(Object.values(s.matches[0].scores),Cup.RULES.points.slice(0,n));
+    for(let i=1;i<10;i++) race(s);
+    assert.equal(s.matches[0].scores[1],100); assert.deepEqual(s.matches[0].winners,[]);
+    race(s); assert.equal(s.phase,'complete'); assert.deepEqual(s.matches[0].winners,[1]);
+    assert.equal(s.results.length,n); assert.equal(s.matches.length,1);
   }
 });
-test('DNF gives no points and late, duplicate, future, and spectator finishes are rejected', () => {
-  const s = grid(); pickTracks(s); Cup.beginRound(s); s.phase = 'countdown'; Cup.startRace(s, 100000);
-  assert.equal(Cup.recordFinish(s, 2, 30000, 130000), false);
-  assert.equal(Cup.recordFinish(s, 1, 999999, 130000), false);
-  assert.equal(Cup.recordFinish(s, 1, 30000, 130000), true);
-  assert.equal(Cup.recordFinish(s, 1, 29000, 130100), false);
-  assert.equal(Cup.recordFinish(s, 3, 40001, 140001), false);
-  assert.equal(Cup.recordFinish(s, 3, 40000, 140500), true);
-  Cup.markDNF(s, 5); assert.equal(Cup.recordFinish(s, 5, 31000, 131000), false);
-  Cup.completeRound(s); assert.deepEqual(Cup.currentMatch(s).scores, { 1: 10, 3: 6, 5: 0, 7: 0 });
+test('track rotation preserves four rounds per track and repeat warmups', () => {
+  const s=grid(); for(let i=0;i<13;i++) {
+    Cup.beginRound(s); assert.equal(s.runtime.trackId,s.tracks[Math.floor(i/4)%3].id); assert.equal(s.runtime.warmup,i%4===0);
+    s.phase='countdown'; Cup.startRace(s,0); Cup.completeRound(s);
+  }
 });
-test('exact tied first shares points but never gives a finalist win', () => {
-  const s = grid(); for (let i = 0; i < 12; i++) race(s, [1, 3, 5, 7], [30000, 30000, 31000, 32000]);
-  assert.equal(Cup.currentMatch(s).scores[1], 120); assert.equal(Cup.currentMatch(s).scores[3], 120);
-  race(s, [1, 3, 5, 7], [30000, 30000, 31000, 32000]); assert.deepEqual(Cup.currentMatch(s).winners, []);
-  race(s, [3, 1, 5, 7]); assert.deepEqual(Cup.currentMatch(s).winners, [3]);
+test('DNF and stale, late, duplicate, spectator finishes cannot score', () => {
+  const s=grid(); Cup.beginRound(s); s.phase='countdown'; Cup.startRace(s,100000);
+  assert.equal(Cup.recordFinish(s,9,30000,130000),false); assert.equal(Cup.recordFinish(s,1,999999,130000),false);
+  assert.equal(Cup.recordFinish(s,1,30000,130000),true); assert.equal(Cup.recordFinish(s,1,29000,130100),false);
+  assert.equal(Cup.recordFinish(s,2,40001,140001),false); assert.equal(Cup.recordFinish(s,2,40000,140500),true);
+  Cup.markDNF(s,3); assert.equal(Cup.recordFinish(s,3,31000,131000),false); Cup.completeRound(s);
+  assert.deepEqual(s.matches[0].scores,{1:10,2:8,3:0,4:0});
 });
-test('void preserves scores; undo restores finalist transitions and finished match', () => {
-  const s = grid(); race(s); const scores = structuredClone(Cup.currentMatch(s).scores);
-  Cup.beginRound(s); Cup.voidRound(s); assert.deepEqual(Cup.currentMatch(s).scores, scores);
-  Cup.undoRound(s); assert.equal(Cup.currentMatch(s).rounds, 0);
-  assert.deepEqual(Cup.currentMatch(s).scores, { 1: 0, 3: 0, 5: 0, 7: 0 });
-  for (let i = 0; i < 12; i++) race(s); Cup.undoRound(s);
-  assert.equal(Cup.currentMatch(s).scores[1], 110); assert.deepEqual(Cup.currentMatch(s).finalists, {});
+test('exact tied first shares points and cannot decide the Cup; later outright win can', () => {
+  const s=grid(); for(let i=0;i<11;i++) race(s,[1,2,3,4],[30000,30000,31000,32000]);
+  assert.deepEqual(s.matches[0].winners,[]); assert.equal(s.matches[0].scores[1],100); assert.equal(s.matches[0].scores[2],100);
+  race(s,[2,1,3,4]); assert.equal(s.phase,'complete'); assert.deepEqual(s.matches[0].winners,[2]);
 });
-test('round snapshots never expose undo history to clients', () => {
-  const s = grid(); race(s); const snapshot = Cup.publicState(s);
-  assert.equal('history' in snapshot, false); snapshot.roster[0].name = 'Changed';
-  assert.equal(s.roster[0].name, 'Racer 1');
+test('void and undo remove session records and restore finalist state', () => {
+  const s=grid(); race(s); const first=s.matches[0].order[0];
+  assert.equal(s.records[first].tr.frames,30000); Cup.beginRound(s); s.phase='countdown'; Cup.startRace(s,0); Cup.recordFinish(s,2,1000,1000);
+  assert.equal(sessionRecord(s,first).frames,1000); Cup.voidRound(s); assert.equal(sessionRecord(s,first).frames,30000);
+  Cup.undoRound(s); assert.equal(s.records[first].tr,null); assert.equal(s.matches[0].rounds,0);
+  for(let i=0;i<11;i++) race(s); Cup.undoRound(s); assert.equal(s.phase,'between-rounds'); assert.equal(s.matches[0].scores[1],100);
+  assert.deepEqual(s.matches[0].winners,[]); Cup.undoRound(s); assert.equal(s.matches[0].scores[1],90); assert.equal(s.matches[0].finalists[1],undefined);
 });
-test('reconnect identity is explicit and cannot replace an active round', () => {
-  const s = grid(); pickTracks(s); Cup.beginRound(s);
-  assert.throws(() => Cup.rebindPlayer(s, 1, 9, 'Back'));
-  Cup.voidRound(s); Cup.rebindPlayer(s, 1, 9, 'Back');
-  assert.deepEqual(s.groups[0], [9, 3, 5, 7]); assert.equal(Cup.currentMatch(s).scores[9], 0);
-  assert.throws(() => Cup.rebindPlayer(s, 9, 3, 'Duplicate'));
+test('HUD gains reflect actual score caps, ties, provisional finishes and rank movement', () => {
+  const s=grid(); s.matches[0].scores[1]=96; race(s,[2,1,3,4]);
+  const rows=standings(s); assert.equal(rows.find(r=>r.id===1).gain,4); assert.equal(rows.find(r=>r.id===1).finalist,true);
+  Cup.beginRound(s); s.phase='countdown'; Cup.startRace(s,0); Cup.recordFinish(s,3,1000,1000); Cup.recordFinish(s,4,1000,1000);
+  const live=standings(s); assert.equal(live[0].gain,10); assert.equal(live[1].gain,10); assert.equal(live[0].position,live[1].position); assert.ok(live[0].provisional);
+});
+test('reconnect remaps track picks, PBs, records, logs and undo state without identity collisions', () => {
+  const s=grid(); race(s); const id=s.tracks[0].id; s.records[id].pbs[1]={status:'ready',frames:24000,source:'profile'};
+  Cup.detachIdentities(s); Cup.rebindPlayer(s,-1,9,'Back'); assert.equal(s.picks[9],id); assert.equal(s.records[id].pbs[9].frames,24000);
+  assert.deepEqual(s.records[id].tr.ids,[9]); assert.equal(s.matches[0].roundsLog[0].beforeRanking[0],9);
+  Cup.undoRound(s); assert.equal(s.matches[0].scores[9],0); assert.equal('history' in Cup.publicState(s),false);
+  Cup.beginRound(s); assert.throws(()=>Cup.rebindPlayer(s,9,10,'Live'));
 });
