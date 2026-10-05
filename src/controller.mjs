@@ -14,6 +14,7 @@ export class Controller {
     this.cameraTransport = new CupTransport((id, m) => this.receiveCamera(id, m), () => {}, { channelId: 43, realtime: true });
     this.cameraBuffers = new Map(); this.subscriptions = new Map(); this.watchId = null;
     this.lastPose = 0; this.lastSubscribe = 0; this.watchStatus = ''; this.watchedPose = null;
+    this.hideOtherGhosts = false;
   }
   init(pml) { this.native = connectNative(pml, this); this.timer = setInterval(() => this.tick(), 100); }
   now() { return Date.now() + (this.isHost ? 0 : this.offset); }
@@ -95,6 +96,10 @@ export class Controller {
     }
   }
   canSpectate() { return !!this.state && !Cup.activeIds(this.state).includes(this.selfId); }
+  toggleGhosts() {
+    if (!this.state) return;
+    this.hideOtherGhosts = !this.hideOtherGhosts; this.onChange();
+  }
   watchable() { return this.state ? Cup.activeIds(this.state).filter(id => this.lobby.some(p => p.id === id)) : []; }
   cycleWatch(delta) {
     const ids = this.watchable(); if (!this.canSpectate() || !ids.length) return;
@@ -108,7 +113,9 @@ export class Controller {
     if (game !== this.game || this.info?.disposed) return;
     if (!this.state) { if(this.filteredCars) this.native.visibility(game,null,this.selfId); this.filteredCars=false; return; }
     const now = this.now(), active = Cup.activeIds(this.state);
-    this.native.visibility(game,active,this.selfId); this.filteredCars=true;
+    if (this.canSpectate() && !this.watchable().includes(this.watchId)) this.selectWatch(this.watchable()[0]);
+    const viewed = active.includes(this.selfId) ? this.selfId : this.watchId;
+    this.native.visibility(game,this.hideOtherGhosts ? active.filter(id => id === viewed) : active,this.selfId); this.filteredCars=true;
     if (active.includes(this.selfId) && now - this.lastPose >= 50 && !this.info.spectator.isEnabled) {
       this.lastPose = now;
       const pose = { ...this.native.camera(game), at: now };
@@ -116,7 +123,6 @@ export class Controller {
       else this.cameraTransport.send(0, { type: 'camera', pose });
     }
     if (!this.canSpectate()) { this.watchedPose = null; return; }
-    if (!this.watchable().includes(this.watchId)) this.selectWatch(this.watchable()[0]);
     if (!this.isHost && Date.now() - this.lastSubscribe > 1000) {
       if (this.transport.send(0, { type: 'watch', value: this.watchId })) this.lastSubscribe = Date.now();
     }

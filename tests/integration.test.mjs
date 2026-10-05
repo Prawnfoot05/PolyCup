@@ -79,6 +79,30 @@ test('spectators can cycle only active racers and a client cannot impersonate ca
   assert.ok(c.cameraBuffers.has(3)); assert.equal(c.cameraBuffers.has(1),false);
   c.selfId=3; c.cycleWatch(1); assert.equal(c.watchId,3);
 });
+
+test('ghost filtering keeps the driver or watched racer, follows new cars, and restores native visibility on exit', () => {
+  class Game { update(){} dispose(){} } class Library {}
+  const Xa=new WeakMap(), as=new WeakMap(), game={};
+  const car=()=>({visible:true,setVisible(value){this.visible=value;}}), own=car();
+  const others=new Map([3,5,7,8].map(id=>[id,{car:car()}])); Xa.set(game,own);as.set(game,others);
+  // Native overlap rules deliberately keep one idle lobby car invisible.
+  const Cs=function(){for(const [id,r] of as.get(this)) r.car.setVisible(id!==8);};
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','Xa','as','Cs',`let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,Xa,as,Cs)};
+  const c=new Controller(()=>{}); c.native=connectNative(pml,c);c.game=game;c.connection={};c.state=race();c.selfId=1;c.isHost=true;
+  c.info={sessionId:9,spectator:{isEnabled:true}};c.lobby=[1,3,5,7,8].map(id=>({id}));
+  c.transport.broadcast=c.transport.send=c.cameraTransport.send=()=>{throw new Error('Visibility must not send race data');};
+  const saved=JSON.stringify(c.state);
+  c.afterGame(game);assert.equal(own.visible,true);assert.equal(others.get(3).car.visible,true);
+  c.toggleGhosts();c.afterGame(game);assert.equal(own.visible,true);assert.ok([...others.values()].every(r=>!r.car.visible));
+  others.set(3,{car:car()});c.afterGame(game);assert.equal(others.get(3).car.visible,false);
+  c.toggleGhosts();c.afterGame(game);assert.equal(others.get(3).car.visible,true);
+  c.toggleGhosts();c.selfId=8;c.lastWatchPose=pose();c.native.camera=()=>pose();c.native.follow=()=>{};
+  c.afterGame(game);assert.equal(own.visible,false);assert.equal(c.watchId,1);
+  c.cycleWatch(1);c.afterGame(game);assert.equal(c.watchId,3);assert.equal(others.get(3).car.visible,true);assert.equal(others.get(5).car.visible,false);
+  c.cycleWatch(1);c.afterGame(game);assert.equal(others.get(3).car.visible,false);assert.equal(others.get(5).car.visible,true);
+  assert.equal(JSON.stringify(c.state),saved);
+  c.state=null;c.afterGame(game);assert.equal(own.visible,true);assert.equal(others.get(3).car.visible,true);assert.equal(others.get(8).car.visible,false);
+});
 test('buffered POV stays monotonic under packet jitter, loss, and reordering with camera and car aligned', () => {
   const b = new CameraBuffer(), queue = [];
   for (let at = 0; at <= 3000; at += 50) {

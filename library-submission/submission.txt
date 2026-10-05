@@ -1,10 +1,10 @@
 Please register PolyCup by Kiki in the PolyModLoader mod library for PolyTrack 0.6.3.
 
 Import URL: https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
-Version: 0.2.1 (pilot)
+Version: 0.2.2 (pilot)
 
 Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.
 
 registration.json is ready for /api/mods. release.json is for /api/versions. The mod is not claimed to be verified. hashes.json identifies the submitted files.
 
-Validation: 29 automated tests cover all 2-8 racer counts, scoring, ties, remote custom-track chunks, PB identity binding, session records and buffered POV. Real-game browser checks use native libraries plus controlled HUD fixtures. The 0.2.1 UI checks cover native toolbar integration, dynamic leaderboard placement, typography and readable button states. A prior three-instance desktop race checked the underlying native invite and POV paths. The complete 0.2.0 flow on eight independent computers is not established. Every participant must use 0.2.1. Library registration remains a moderator action.
+Validation: 30 automated tests cover all 2-8 racer counts, scoring, ties, remote custom-track chunks, PB identity binding, session records and buffered POV. Real-game browser checks use native libraries plus controlled HUD fixtures. The 0.2.1 UI checks cover native toolbar integration, dynamic leaderboard placement, typography and readable button states. The 0.2.2 checks cover invite copying, expiry, retry, permissions, text cleanup, record readability and native shortcut rebinding with reload persistence. Ghost filtering and restoration are covered by adapter tests. A prior three-instance desktop race checked the underlying native invite and POV paths. The complete 0.2.0 flow on eight independent computers is not established. Every participant must use 0.2.2. Library registration remains a moderator action.

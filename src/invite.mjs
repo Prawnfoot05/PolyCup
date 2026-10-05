@@ -1,0 +1,86 @@
+// Read the same public connection methods used by PolyTrack's native Invite UI.
+export function inviteState(connection, now = Date.now()) {
+  if (!connection?.isInviteAllowed?.()) return { status: 'hidden' };
+  if (connection.getInviteIsLoading()) return { status: 'loading' };
+  const invite = connection.getInvite();
+  if (invite == null) return { status: 'empty' };
+  if (typeof invite.inviteCode !== 'string' || !invite.inviteCode) return { status: 'error' };
+  const expires = invite.timeoutMilliseconds === null ? Infinity
+    : invite.timeoutMilliseconds <= 0 ? 0 : Number(invite.timeoutStart) + invite.timeoutMilliseconds;
+  if (!Number.isFinite(expires) && expires !== Infinity) return { status: 'error' };
+  return { status: expires <= now ? 'expired' : 'ready', code: invite.inviteCode, expires };
+}
+
+export class CupInvite {
+  constructor() {
+    this.element = document.createElement('div'); this.element.className = 'lobby-invite';
+    const label = document.createElement('label'); label.className = 'invite-label'; label.textContent = 'Lobby code';
+    this.input = document.createElement('input'); this.input.type = 'text'; this.input.readOnly = true;
+    this.input.setAttribute('aria-label', 'Lobby invite code'); this.input.spellcheck = false;
+    this.input.addEventListener('click', () => this.input.select());
+    label.append(this.input);
+    this.button = document.createElement('button'); this.button.type = 'button'; this.button.className = 'quiet invite-copy';
+    this.icon = document.createElement('img'); this.icon.alt = ''; this.icon.draggable = false;
+    this.text = document.createElement('span'); this.text.setAttribute('aria-live', 'polite'); this.button.append(this.icon, this.text);
+    this.button.addEventListener('click', () => this.act());
+    const row = document.createElement('div'); row.className = 'invite-actions'; row.append(label, this.button);
+    this.status = document.createElement('small'); this.status.className = 'invite-status';
+    this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
+    this.element.append(row, this.status);
+  }
+  update(connection, open) {
+    if (connection !== this.connection) {
+      this.connection = connection; this.requested = false; this.requestFailed = false;
+      this.feedback = ''; this.feedbackUntil = 0; this.lastCode = null;
+    }
+    let state = inviteState(connection);
+    // Opening PolyCup can replace opening vanilla Invite. Request once, never
+    // rotate a still-valid code or retry a failed service on every render tick.
+    if (open && !this.requested && state.status !== 'hidden') {
+      this.requested = true;
+      if (['empty', 'expired'].includes(state.status)) { this.renew(); state = inviteState(connection); }
+    }
+    if (state.status === 'loading') this.requested = true;
+    if (this.requestFailed && state.status === 'empty') state = { status: 'error' };
+    if (state.code !== this.lastCode) { this.feedback = ''; this.lastCode = state.code; }
+    this.element.hidden = state.status === 'hidden';
+    const ready = state.status === 'ready';
+    const value = ready ? state.code : '';
+    if (this.input.value !== value) this.input.value = value;
+    this.input.placeholder = state.status === 'loading' ? 'Creating…' : state.status === 'expired' ? 'Expired' : 'Unavailable';
+    this.input.disabled = !ready;
+    this.button.disabled = ['hidden', 'loading'].includes(state.status) || this.copying === connection;
+    const feedback = ready && this.feedbackUntil > Date.now() ? this.feedback : '';
+    this.text.textContent = feedback === 'copied' ? 'Copied!' : ready ? 'Copy' : state.status === 'expired' ? 'Renew' : state.status === 'loading' ? 'Copy' : 'Retry';
+    this.button.setAttribute('aria-label', ready ? 'Copy lobby invite code' : state.status === 'expired' ? 'Renew lobby invite code' : 'Create lobby invite code');
+    const icon = ready || state.status === 'loading' ? 'copy' : 'refresh';
+    const src = new URL(`images/${icon}.svg`, document.baseURI).href;
+    if (this.icon.src !== src) this.icon.src = src;
+    const message = feedback === 'manual' ? 'Select code and press Ctrl+C' :
+      ready && state.expires !== Infinity ? `Expires in ${Math.max(1, Math.ceil((state.expires - Date.now()) / 60000))} min` : '';
+    if (this.status.textContent !== message) this.status.textContent = message;
+  }
+  renew() {
+    this.requested = true; this.requestFailed = false;
+    try { this.connection.renewInvite(); } catch { this.requestFailed = true; }
+  }
+  async act() {
+    const connection = this.connection, state = inviteState(connection);
+    if (state.status === 'hidden' || state.status === 'loading' || this.copying === connection) return;
+    if (state.status !== 'ready') { this.renew(); this.update(connection, false); return; }
+    this.copying = connection; this.update(connection, false);
+    let copied = false;
+    try { await navigator.clipboard.writeText(state.code); copied = true; }
+    catch {
+      // The native game also falls back to selection-based copying on desktop.
+      // Keep the code selectable when the browser denies both clipboard paths.
+      if (this.connection === connection && inviteState(connection).code === state.code) {
+        this.input.focus(); this.input.select();
+        try { copied = document.execCommand('copy'); } catch { /* Manual copy remains available. */ }
+      }
+    } finally { if (this.copying === connection) this.copying = null; }
+    if (this.connection !== connection || inviteState(connection).code !== state.code) return;
+    this.feedback = copied ? 'copied' : 'manual'; this.feedbackUntil = Date.now() + (copied ? 2000 : 8000);
+    this.update(connection, false);
+  }
+}

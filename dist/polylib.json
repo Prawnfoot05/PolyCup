@@ -1,12 +1,12 @@
 {
   "shortdesc": "Simple live Cups for 2–8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelogs": {
-    "0.2.1": [
-      "Integrate PolyCup into the native in-game toolbar, including native scaling, hover styling and auto-hide.",
-      "Move the race leaderboard into the top corner when the native toolbar disappears; reserve space when it returns.",
-      "Keep buttons readable across hover, focus and disabled states; fix disappearing dark-text labels.",
-      "Match native italic ForcedSquare typography, kerning, navy surfaces and slanted panel, tab, button and field shapes.",
-      "Preserve the Simple Cup format, records, car skins and buffered POV spectating."
+    "0.2.2": [
+      "Keep the native lobby invite code and a Copy button in the PolyCup header on every tab, including setup.",
+      "Show copied feedback, invite expiry, loading and retry states without leaving PolyCup.",
+      "Remove redundant instructions and leaderboard footers; enlarge record times, race gaps and small labels with lighter numeric text.",
+      "Toggle other racers' ghosts with G, rebindable in native Settings under PolyCup; keep H for Hide UI.",
+      "Show the current ghost shortcut in Racers and a brief first-race hint; retain the driver's or watched racer's car."
     ]
   }
 }
