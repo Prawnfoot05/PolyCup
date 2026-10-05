@@ -1,6 +1,8 @@
 import * as Cup from './cup.mjs';
 import { connectNative, CupTransport } from './native.mjs';
 import { CameraBuffer, validPose } from './spectator.mjs';
+import { CheckpointProgress } from './progress.mjs';
+import { standings, updateLiveMovement } from './standings.mjs';
 export class Controller {
   constructor(onChange) {
     this.onChange = onChange; this.state = null; this.game = null; this.connection = null;
@@ -15,6 +17,7 @@ export class Controller {
     this.cameraBuffers = new Map(); this.subscriptions = new Map(); this.watchId = null;
     this.lastPose = 0; this.lastSubscribe = 0; this.watchStatus = ''; this.watchedPose = null;
     this.hideOtherGhosts = false;
+    this.checkpointProgress = new CheckpointProgress();
     this.syncSequence = 0; this.receivedSequence = -1;
     this.panelRequest = { revision: 0, open: false, message: '' }; this.roundViewKey = '';
   }
@@ -76,11 +79,33 @@ export class Controller {
   shouldBlockRestart(game) {
     return !!this.state && game === this.game && this.state.phase !== 'warmup';
   }
+  restartHotkey(event) {
+    const s = this.state, run = s?.runtime;
+    if (event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey ||
+      event.composedPath().some(e => ['INPUT','TEXTAREA','SELECT'].includes(e.tagName) || e.isContentEditable) ||
+      !this.game || this.info?.disposed || s?.phase !== 'racing' || !run ||
+      this.info?.sessionId !== run.sessionId || run.startsAt === null || this.now() < run.startsAt ||
+      !Cup.activeIds(s).includes(this.selfId) || Cup.roundDone(s, this.selfId) ||
+      !this.native.restartPressed(this.game, event)) return false;
+    // Do not attach this to the native restart routine: checkpoint reset can
+    // call that same routine when no checkpoint is available.
+    this.action('dnf', run.id);
+    return true;
+  }
   hookFinish(car, run) {
     let checkpoint = null;
     const checkpointIndex = this.info.checkpointCount - 2;
     car.addCheckpointCallback(index => {
       if (index === checkpointIndex && checkpointIndex >= 0) checkpoint = car.getTime().numberOfFrames;
+      if (this.state?.phase !== 'racing' || this.state.runtime?.id !== run.id) return;
+      // The native callback receives the previous index. Read the current
+      // progress so a frame crossing several checkpoints reports the furthest.
+      const reached = car.getNextCheckpointIndex() - 1;
+      if (reached < 0 || reached > checkpointIndex) return;
+      const message = { type: 'checkpoint', cupId: this.state.id, roundId: run.id,
+        sessionId: run.sessionId, index: reached, frames: car.getTime().numberOfFrames };
+      if (this.isHost) this.receiveCheckpoint(this.selfId, message);
+      else this.transport.send(0, message);
     });
     car.addFinishCallback(() => {
       if (this.state?.phase !== 'racing' || this.state.runtime?.id !== run.id) return;
@@ -93,10 +118,18 @@ export class Controller {
   receiveFinish(id, m) {
     const run = this.state?.runtime;
     if (!run || m.roundId !== run.id || m.sessionId !== run.sessionId) return;
+    const before = standings(this.state).map(r => r.id);
     if (Cup.recordFinish(this.state, id, m.frames, this.now())) {
       if (Number.isSafeInteger(m.checkpoint) && m.checkpoint >= 0 && m.checkpoint <= m.frames) run.checkpoints[id] = m.checkpoint;
+      updateLiveMovement(this.state, before);
       this.broadcast();
     }
+  }
+  receiveCheckpoint(id, m) {
+    const run = this.state?.runtime;
+    if (!this.isHost || !run || m.cupId !== this.state.id || m.roundId !== run.id ||
+      m.sessionId !== run.sessionId || this.info?.sessionId !== run.sessionId) return;
+    if (this.checkpointProgress.record(this.state, id, m.index, m.frames, this.now(), this.info.checkpointCount)) this.broadcast();
   }
   canSpectate() {
     if (!Cup.mayWatch(this.state, this.selfId)) return false;
@@ -360,7 +393,10 @@ export class Controller {
       const p = this.lobby.find(p => p.id === actor); if (!p) return;
       Cup.addPlayer(this.state, actor, p.nickname);
     } else if (m.type === 'leave') { Cup.removePlayer(this.state, actor); this.pruneTrackData(); }
-    else if (m.type === 'dnf' && m.value === this.state.runtime?.id) Cup.markDNF(this.state, actor);
+    else if (m.type === 'dnf' && m.value === this.state.runtime?.id) {
+      const before = standings(this.state).map(r => r.id);
+      Cup.markDNF(this.state, actor); updateLiveMovement(this.state, before);
+    }
     else if (m.type === 'practice-ready') {
       if (!Cup.practiceReady(this.state, actor, m.value)) return;
       this.advanceClock();
@@ -376,6 +412,7 @@ export class Controller {
         this.transport.send(id, this.syncMessage());
       } else if (m.type === 'ready' && this.hello.has(id)) this.markReady(id, m);
       else if (m.type === 'finish' && this.hello.has(id)) this.receiveFinish(id, m);
+      else if (m.type === 'checkpoint' && this.hello.has(id)) this.receiveCheckpoint(id, m);
       else if (m.type === 'watch' && this.hello.has(id)) {
         if (Cup.mayWatch(this.state, id) && this.watchable().includes(m.value)) this.subscriptions.set(id, m.value);
         else this.subscriptions.delete(id);
@@ -513,7 +550,9 @@ export class Controller {
     if (!missing.length) return;
     this.auto = false;
     if (s.disconnectPolicy === 'dnf' && s.phase === 'racing') {
+      const before = standings(s).map(r => r.id);
       for (const id of missing) Cup.markDNF(s, id);
+      updateLiveMovement(s, before);
       Cup.note(s, 'Disconnected racers received DNF. Automatic rounds stopped.');
     } else {
       Cup.voidRound(s); this.loadingSession = undefined; this.nextAuto = null;
@@ -636,6 +675,11 @@ export function validSnapshot(s) {
   return obj(r) && text(r.id) && num(r.round) && trackId(r.trackId) &&
     (r.sessionId === null || num(r.sessionId)) && typeof r.warmup === 'boolean' &&
     ids(r.ready) && (r.practiceReady === undefined || ids(r.practiceReady)) && ids(r.dnfs) && times(r.finishes) && times(r.checkpoints) &&
+    (r.splits === undefined || obj(r.splits) && Object.keys(r.splits).length <= 8 && Object.entries(r.splits).every(([id,p]) =>
+      ids([Number(id)]) && obj(p) && num(p.index) && num(p.frames) && p.frames > 0 && p.frames <= 3600000 &&
+      num(p.bestFrames) && p.bestFrames > 0 && p.bestFrames <= p.frames)) &&
+    (r.liveMovement === undefined || obj(r.liveMovement) && Object.keys(r.liveMovement).length <= 8 && Object.entries(r.liveMovement).every(([id,n]) =>
+      ids([Number(id)]) && Number.isInteger(n) && Math.abs(n) <= 7)) &&
     (r.startsAt === null || Number.isFinite(r.startsAt)) && (r.deadline === null || Number.isFinite(r.deadline));
 }
 function validWR(wr) {

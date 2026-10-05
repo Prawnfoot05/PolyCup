@@ -22,6 +22,7 @@ export function connectNative(pml, controller) {
   const api = pml.getFromPolyTrack(`({
     Host: ii, Client: vc, Game: Is, TrackLibrary: du,
     renderer: g => la.get(g),
+    hudElement: g => _a.get(g)?.element,
     presentation: (g, cup, watching) => {
       const ended=!!ss.get(g), ui=_a.get(g)?.element, backdrop=Hr.get(Oa.get(g));
       ui?.classList.toggle('polycup-watching', !!cup && !!watching && !ended);
@@ -43,6 +44,10 @@ export function connectNative(pml, controller) {
     remoteCar: (g,id) => as.get(g).get(id)?.car,
     ghostKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupToggleGhosts).map(key=>key ? ve(key) : '').filter(Boolean),
     autoSpectate: g => ua.get(g).getSettingBoolean(P.A.PolyCupAutoSpectate),
+    restartPressed: (g,event) => !fs.get(g).isEnabled && !bs.call(g) && Ps.call(g) &&
+      Xa.get(g).hasStarted() && !Xa.get(g).hasFinished() &&
+      ua.get(g).checkKeyBinding(event,ge.A.VehicleStartReset) &&
+      !ua.get(g).checkKeyBinding(event,ge.A.VehicleCheckpointReset),
     visibility: (g,ids,self) => { Cs.call(g); Xa.get(g).setVisible(ids===null||ids.includes(self));
       for(const [id,r] of as.get(g)) if(ids!==null&&!ids.includes(id)) r.car.setVisible(false); },
     release: g => { const car=Xa.get(g); fs.get(g).isEnabled=false;

@@ -32,6 +32,28 @@ test('native presentation is reversible and scoped to the current game and ended
   assert.deepEqual(classes(otherUI),[]); assert.equal(ss.get(game),true); assert.equal(Oa.get(game),endScreen);
 });
 
+test('native restart detection follows both rebound slots, preserves checkpoint priority and ignores menus or finished cars', () => {
+  class Game { update(){} dispose(){} } class Library {}
+  const game={}, ua=new WeakMap(),fs=new WeakMap(),Xa=new WeakMap(), ge={A:{VehicleStartReset:5,VehicleCheckpointReset:4}};
+  const keys=new Map([[5,['KeyT','Backspace']],[4,['KeyR','Enter']]]);
+  let blocked=false,paused=false,started=true,finished=false;
+  ua.set(game,{checkKeyBinding:(e,id)=>keys.get(id).includes(e.code)});fs.set(game,{isEnabled:false});
+  Xa.set(game,{hasStarted:()=>started,hasFinished:()=>finished});
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','ua','fs','Xa','ge','isBlocked','isPaused',
+    `let bs=isBlocked,Ss=()=>{},Ps=()=>!isPaused();return ${code}`)(class{},class{},Game,Library,ua,fs,Xa,ge,()=>blocked,()=>paused)};
+  const native=connectNative(pml,{shouldBlock:()=>false});
+  const detects=code=>native.restartPressed(game,{code});
+  assert.equal(detects('KeyT'),true); assert.equal(detects('Backspace'),true);
+  assert.equal(detects('KeyR'),false); assert.equal(detects('Enter'),false);
+  keys.set(5,['KeyY','Delete']); assert.equal(detects('KeyT'),false); assert.equal(detects('KeyY'),true); assert.equal(detects('Delete'),true);
+  keys.set(4,['KeyY']);assert.equal(detects('KeyY'),false);
+  blocked=true; assert.equal(detects('Delete'),false); blocked=false;
+  paused=true; assert.equal(detects('Delete'),false); paused=false;
+  started=false; assert.equal(detects('Delete'),false); started=true;
+  finished=true; assert.equal(detects('Delete'),false); finished=false;
+  fs.get(game).isEnabled=true; assert.equal(detects('Delete'),false);
+});
+
 test('native Game.update applies Cup transforms and visibility before the draw, after native resets', () => {
   const events=[], model={visible:true,x:0}, camera={x:0};
   const renderer={update(){events.push('draw');assert.equal(model.visible,false);assert.equal(model.x,25);assert.equal(camera.x,30);}};

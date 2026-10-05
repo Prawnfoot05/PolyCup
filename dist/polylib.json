@@ -1,9 +1,9 @@
 {
   "shortdesc": "Simple live Cups for 2â€“8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
   "changelogs": {
-    "0.2.10": [
-      "Clear native finish banners, retry hints and personal driving readouts while spectating another racer.",
-      "Hide the native Session Results panel and backdrop between Cup rounds; restore ordinary multiplayer UI when Cup mode ends."
+    "0.2.11": [
+      "Use the native full-restart key to retire from a live round; checkpoint resets and practice restarts remain unchanged.",
+      "Live rankings follow checkpoint progress with cumulative lap times, same-checkpoint gaps and green/red position arrows."
     ]
   }
 }

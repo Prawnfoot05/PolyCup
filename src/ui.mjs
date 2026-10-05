@@ -4,6 +4,7 @@ import { CupToolbar } from './toolbar.mjs';
 import { CupInvite } from './invite.mjs';
 import { formatTime as time, formatGap } from './time.mjs';
 import { roundStartCue } from './countdown.mjs';
+import { RestartHint } from './restart-hint.mjs';
 import { resultRows, resultsImage } from './results.mjs';
 import css from './world-cup.css';
 const h = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
@@ -12,6 +13,7 @@ const names = { registration: 'Registration', loading: 'Loading track',
 export class CupUI {
   constructor(controller) {
     this.c = controller; this.open = false; this.tab = 'Tournament'; this.signature = '';
+    this.restartHint = new RestartHint();
     this.trackCategory = 'official'; this.trackQuery = ''; this.carThumbnails = new Map(); this.playerThumbnails = new Map();
     const root = h('div'); root.id = 'polytrack-world-cup'; document.body.append(root);
     this.shadow = root.attachShadow({ mode: 'open' });
@@ -48,6 +50,7 @@ export class CupUI {
         this.c.native?.clearInput(this.c.game);
     });
     window.addEventListener('keydown', e => {
+      if (this.c.restartHotkey(e)) e.preventDefault();
       if (e.code === 'F8') { e.preventDefault(); this.toggle.click(); }
       if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(this.shadow.activeElement?.tagName) && this.c.canSpectate() && ['BracketLeft', 'BracketRight'].includes(e.code)) {
         e.preventDefault(); this.c.cycleWatch(e.code === 'BracketLeft' ? -1 : 1);
@@ -77,6 +80,8 @@ export class CupUI {
   name(id) { return Cup.player(this.c.state, id)?.name ?? `Player ${id}`; }
   render() {
     const c = this.c, s = c.state;
+    this.restartHint.update(c.game ? c.native.hudElement(c.game) : null,
+      s?.phase === 'racing' && Cup.activeIds(s).includes(c.selfId) && !Cup.roundDone(s,c.selfId));
     if (c.panelRequest.revision !== this.seenPanelRequest) {
       this.seenPanelRequest = c.panelRequest.revision;
       if (c.panelRequest.revision > 0) {
@@ -392,13 +397,17 @@ export class CupUI {
       const row = h('div', undefined, `score-row${i === 0 ? ' leader' : ''}${r.finalist ? ' finalist' : ''}${r.id === this.c.selfId ? ' self' : ''}`);
       const name = this.racerName(r.id, this.name(r.id)); name.title = this.name(r.id);
       const movement = h('small', r.movement > 0 ? `▲${r.movement}` : r.movement < 0 ? `▼${-r.movement}` : '', r.movement < 0 ? 'movement down' : 'movement up');
-      movement.title = 'Places gained or lost in Cup standings this round';
+      movement.title = s.phase === 'racing' ? 'Places gained or lost at the latest race update' : 'Places gained or lost in Cup standings this round';
       const points = h('span', undefined, 'points');
       const total = h('strong', r.finalist ? 'F' : String(r.score)); total.title = r.finalist ? 'Finalist: win an outright round to take the Cup' : `${r.score} of ${Cup.currentMatch(s).target} points`;
       const gain = h('small', r.gain ? `+${r.gain}` : '', `point-gain${r.provisional ? ' projected' : ''}`); gain.title = r.provisional ? 'Provisional points if these finish positions hold' : 'Points gained this round';
       points.append(total, gain);
-      const result = r.dnf ? 'DNF' : r.frames === undefined ? '—' : r.delta > 0 ? formatGap(r.delta) : time(r.frames);
-      const timing = h('span', result, 'time'); timing.title = r.frames === undefined ? 'No finish recorded' : `Finish: ${time(r.frames)}`;
+      const reading = r.frames ?? r.splitFrames;
+      const showGap = s.phase === 'racing' ? i > 0 && r.delta !== null : r.delta > 0;
+      const result = r.dnf ? 'DNF' : reading === undefined ? '—' : showGap ? formatGap(r.delta) : time(reading);
+      const timing = h('span', result, 'time');
+      timing.title = r.dnf ? 'Retired this round' : r.frames !== undefined ? `Finish: ${time(r.frames)}` :
+        r.splitFrames !== undefined ? `Checkpoint ${r.checkpoint + 1}: ${time(r.splitFrames)} · ${formatGap(r.delta)}` : 'No checkpoint reached';
       row.append(h('strong', r.position, 'position'), name, movement, points, timing); board.append(row);
     }
     return board;

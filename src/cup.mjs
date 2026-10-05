@@ -1,5 +1,5 @@
 // Competition state is owned by the native multiplayer host. No game internals here.
-export const VERSION = '0.2.10';
+export const VERSION = '0.2.11';
 export const RULES = Object.freeze({ points: [10, 8, 6, 5, 4, 3, 2, 1], target: 140, trackDrivingMs: 240000, fallbackRounds: 4, warmupMs: 15000, finishTimeoutMs: 10000 });
 const copy = value => structuredClone(value);
 const requireThat = (ok, message) => { if (!ok) throw new Error(message); };
@@ -109,7 +109,7 @@ export function beginRound(state) {
   const firstVisit = !m.roundsLog.some(r => r.trackId === visit.trackId);
   state.runtime = { id: crypto.randomUUID(), round: m.rounds + 1, trackId: visit.trackId,
     warmup: visit.round === 1 && (m.trackWarmups === undefined || firstVisit), sessionId: null, ready: [], practiceReady: [],
-    startsAt: null, deadline: null, finishes: {}, dnfs: [], checkpoints: {} };
+    startsAt: null, deadline: null, finishes: {}, dnfs: [], checkpoints: {}, splits: {}, liveMovement: {} };
   state.phase = 'loading'; touch(state);
 }
 export function startRace(state, now) {

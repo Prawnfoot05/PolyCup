@@ -26,6 +26,44 @@ function room(state = race()) {
 }
 const pose = () => ({ sessionId: 9, at: 30000, position: [0,2,6], quaternion: [0,0,0,1], fov: 75,
   carPosition: [0,0,0], carQuaternion: [0,0,0,1], frames: 25000, speed: 120, view: 0 });
+const restartEvent = (extra={}) => ({code:'KeyT',composedPath:()=>[],...extra});
+
+test('full restart retires only unfinished live racers and respects typing, practice and native input guards', () => {
+  const c=room(); c.native.restartPressed=(g,e)=>e.code==='KeyT';
+  for(const event of [restartEvent({repeat:true}),restartEvent({isComposing:true}),restartEvent({ctrlKey:true}),
+    restartEvent({metaKey:true}),restartEvent({altKey:true}),restartEvent({code:'KeyR'}),
+    ...['INPUT','TEXTAREA','SELECT'].map(tagName=>restartEvent({composedPath:()=>[{tagName}]})),
+    restartEvent({composedPath:()=>[{isContentEditable:true}]})]) assert.equal(c.restartHotkey(event),false);
+  for(const phase of ['registration','loading','warmup','countdown','between-rounds','complete']) {
+    c.state.phase=phase; assert.equal(c.restartHotkey(restartEvent()),false);
+  }
+  c.state.phase='racing'; c.selfId=4; assert.equal(c.restartHotkey(restartEvent()),false);
+  c.selfId=1; c.info.disposed=true; assert.equal(c.restartHotkey(restartEvent()),false);
+  c.info.disposed=false; c.info.sessionId=8; assert.equal(c.restartHotkey(restartEvent()),false);
+  c.info.sessionId=9; c.state.runtime.startsAt=31000; assert.equal(c.restartHotkey(restartEvent()),false);
+  c.state.runtime.startsAt=0; assert.deepEqual(c.state.runtime.dnfs,[]);
+  assert.equal(c.restartHotkey(restartEvent()),true); assert.deepEqual(c.state.runtime.dnfs,[1]);
+  assert.equal(c.canSpectate(),true); assert.equal(c.restartHotkey(restartEvent()),false);
+  c.selfId=2; Cup.recordFinish(c.state,2,25000,30000);
+  assert.equal(c.restartHotkey(restartEvent()),false); assert.equal(c.state.runtime.finishes[2],25000);
+});
+
+test('a guest restart reports DNF through the host and propagates to every client without changing other racers', () => {
+  const host=room(), guest=room(), observer=room();
+  for(const c of [guest,observer]) {c.state=structuredClone(host.state);c.isHost=false;}
+  guest.selfId=2; observer.selfId=4; guest.native.restartPressed=()=>true;
+  let message, broadcasts=0;
+  guest.transport.send=(id,m)=>{assert.equal(id,0);message=structuredClone(m);return true;};
+  assert.equal(guest.restartHotkey(restartEvent()),true);
+  assert.deepEqual(guest.state.runtime.dnfs,[],'guest waits for host confirmation');
+  host.broadcast=()=>{broadcasts++;const m=host.syncMessage();for(const c of [guest,observer])c.receive(0,structuredClone(m));};
+  host.receive(2,message);
+  for(const c of [host,guest,observer]) assert.deepEqual(c.state.runtime.dnfs,[2]);
+  assert.equal(guest.canSpectate(),true); assert.equal(broadcasts,1);
+  assert.equal(guest.restartHotkey(restartEvent()),false);
+  Cup.completeRound(host.state); Cup.beginRound(host.state); host.state.phase='countdown';Cup.startRace(host.state,30000);
+  host.receive(2,message);assert.deepEqual(host.state.runtime.dnfs,[],'old round cannot retire a new run');
+});
 
 test('practice uses a frozen 1.5 WR, minimum 30s and 90s offline fallback', () => {
   for (const [frames, expected] of [[10000,30000],[25000,37500],[60000,90000],[3600000,5400000]])
