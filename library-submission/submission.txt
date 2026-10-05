@@ -1,10 +1,10 @@
 Please register World Cup by Kiki in the PolyModLoader mod library for PolyTrack 0.6.3.
 
 Import URL: https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
-Version: 0.1.1 (pilot)
+Version: 0.1.2 (pilot)
 
 Host eight-player live cups with semifinals, finalist scoring, track picks, and switchable racer POV spectating.
 
 registration.json is ready for /api/mods. release.json is for /api/versions. The mod is not claimed to be verified. hashes.json identifies the submitted files.
 
-Validation: 19 automated tests; a prior three-instance desktop race checked native invite-code joining, scoring, and switchable racer camera spectating. Normal PML Core 1.3.8 URL import, load, apply, and startup were checked. Version 0.1.1 UI checks covered native track selection, custom-track loading, skin thumbnails, and competition-name typing. A new two-client custom-track transfer check was blocked by the native invite service. Eight-computer Internet performance and independent anti-cheat are not established. Every participant needs the mod.
+Validation: 25 automated tests including buffered POV under jitter, loss, and reordering; a prior three-instance desktop race checked native invite-code joining, scoring, and switchable racer camera spectating. Normal PML Core 1.3.8 URL import, load, apply, and startup were checked. Version 0.1.1 UI checks covered native track selection, custom-track loading, skin thumbnails, and competition-name typing. A new two-client custom-track transfer check was blocked by the native invite service. Eight-computer Internet performance and independent anti-cheat are not established. Version 0.1.2 buffers camera and car visual transforms together by 250 ms. Every participant must update to 0.1.2 together.

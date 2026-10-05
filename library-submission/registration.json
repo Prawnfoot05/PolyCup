@@ -9,12 +9,12 @@
     "0.6.3"
   ],
   "latest": {
-    "0.6.3": "0.1.1"
+    "0.6.3": "0.1.2"
   },
   "tags": [
     "Gameplay",
     "UI"
   ],
-  "icon_url": "https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist/0.1.1/icon.png",
+  "icon_url": "https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist/0.1.2/icon.png",
   "description": "Host eight-player live cups with semifinals, finalist scoring, track picks, and switchable racer POV spectating."
 }

@@ -1,12 +1,12 @@
 # World Cup for PolyTrack 0.6.3
 
-An organizer-hosted, eight-player competition mod by **Kiki**, with two sequential semifinals, a grand final, Cup Mode scoring, and racer POV spectating. Version 0.1.1 is a pilot build.
+An organizer-hosted, eight-player competition mod by **Kiki**, with two sequential semifinals, a grand final, Cup Mode scoring, and racer POV spectating. Version 0.1.2 is a pilot build.
 
 ## PolyModLoader library distribution
 
 The `dist/` folder is a standard PolyModLoader package: a root `manifest.json`, versioned JavaScript, version metadata, description, and icon. It can be hosted and installed through PolyModLoader's **Mods** menu without this project's desktop installer. Everyone in an event still needs PolyModLoader for PolyTrack 0.6.3 and the same World Cup version.
 
-**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.1.1`, click **Import**, then select World Cup and choose **Load → Apply**:
+**Library registration is pending moderator action.** The package is hosted in [Prawnfoot05/PolyCup](https://github.com/Prawnfoot05/PolyCup). Until registration, use **Mods → Add**, enter the following URL and version `0.1.2`, click **Import**, then select World Cup and choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -76,7 +76,9 @@ The 16-person native room limit includes racers, organizer, and spectators. With
 
 Spectators follow a selected competitor's **actual driving-camera position, orientation, and field of view**, including changes between cockpit and chase view. Use **[ / ]**, the previous/next buttons, or the racer selector to switch. The HUD identifies the racer and shows their timer and speed alongside the match scores. Finished qualifiers and racers waiting for their semifinal become spectators automatically.
 
-Camera samples travel at up to 20 Hz over a separate unreliable WebRTC channel through the organizer. Playback interpolates against the game's buffered car frames. Expect network delay; this is a rendering of the race in your own game, not a video stream or an exact copy of the driver's UI, graphics settings, or screen. No screen, microphone, or webcam capture is used. Inactive cars are hidden during Cup mode.
+Camera and car-transform samples travel together at up to 20 Hz over a separate unreliable WebRTC channel through the organizer. Spectating uses a 250 ms viewing buffer, with smooth clock corrections and interpolated position/rotation. The watched car's visual transform is redrawn from the same sample as the camera; native physics, network car states, input, and scoring are untouched. This avoids inheriting the game's abrupt remote-car playback corrections. Other cars retain native interpolation. Packet outages can still cause a pause, and low rendering frame rates still affect smoothness. Cockpit/chase switches and large teleports cut instead of sweeping the camera through scenery.
+
+Expect viewing delay; this is a rendering of the race in your own game, not a video stream or an exact copy of the driver's UI, graphics settings, or screen. No screen, microphone, or webcam capture is used. Inactive cars are hidden during Cup mode. Everyone in a lobby must update to 0.1.2 together: its POV samples include the watched car's transform.
 
 ## Rules implemented
 
@@ -107,7 +109,9 @@ The base format comes from the supplied 2024 World Tour rulebook and World Cup a
 
 ## Validation and limits
 
-Nineteen automated tests cover the complete eight-player scoring/progression flow, finalist and exact-tie behavior, rotation, timeout/DNF handling, undo, identity rebinding, malformed snapshots, camera interpolation and identity checks, protocol rate/size limits, ASAR round trips, native-library track export, and pending track selection after a tournament changes.
+Twenty-five automated tests cover the complete eight-player scoring/progression flow, finalist and exact-tie behavior, rotation, timeout/DNF handling, undo, identity rebinding, malformed snapshots, camera interpolation and identity checks, protocol rate/size limits, ASAR round trips, native-library track export, and pending track selection after a tournament changes. Version 0.1.2 adds deterministic jitter/loss/reordering playback tests, buffer startup, stream stalls, clock corrections, camera cuts, matching camera/car transforms, and restoration of native car getters even when rendering fails.
+
+A 0.1.2 native car-renderer check replayed simulated delayed/reordered/lost pose packets over 1,643 rendered frames. It recorded zero camera rewinds, zero model-position error, and unchanged native car states/getters after every redraw. This verifies the rendering path under controlled input; it is not a new multi-computer Internet race or a measurement of subjective smoothness on a live connection.
 
 Version 0.1.1 adds spacing around the disconnect-rule selector, a native track-library browser, and car previews rendered from each connected player's actual skin using the game's leaderboard renderer. Editable Cup fields intercept game hotkeys while preserving browser text editing. In-game UI checks covered official and community selection, saving and selecting a local custom track, loading that selected track through the native session API, rendered car thumbnails, and typing `wasd cup` without moving the car. The additional two-client custom-track transfer check was blocked by the native invite service closing its WebSocket; that specific live path remains unverified in this release.
 

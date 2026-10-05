@@ -1,9 +1,9 @@
 {
   "mod_id": "polytrack-world-cup",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "game_versions": [
     "0.6.3"
   ],
   "dependencies": [],
-  "changelog": "Choose official, community, and locally saved custom tracks directly in the Tracks tab.\nShow each connected player's real car skin beside their name using the native thumbnail renderer.\nGive the disconnect rule label proper spacing and isolate text-field typing from game controls.\nEight-player cups, finalist scoring, sequential semifinals, and switchable racer POV spectating."
+  "changelog": "Smooth racer POV with a 250 ms buffer shared by the camera and watched car's visual transform.\nRemove backward camera jumps and avoid inheriting native remote-car playback corrections.\nInterpolate rotations, cut on cockpit/chase switches and teleports, and hold during missing packets without changing physics or scoring.\nRetains the native track picker, car-skin previews, and input fixes from 0.1.1."
 }

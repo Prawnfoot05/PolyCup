@@ -1,5 +1,5 @@
 param(
-  [ValidateRange(1,8)][int]$Count = 2,
+  [ValidateRange(1,8)][int]$Count = 8,
   [ValidateRange(1,8)][int]$StartFrom = 1,
   [string]$GameDirectory = (Split-Path -Parent $PSScriptRoot),
   [switch]$PrepareOnly

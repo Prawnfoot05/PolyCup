@@ -1,5 +1,5 @@
 // Competition state is owned by the native multiplayer host. No game internals here.
-export const VERSION = '0.1.1';
+export const VERSION = '0.1.2';
 export const RULES = Object.freeze({ points: [10, 6, 4, 3], semiTarget: 120,
   finalTarget: 140, roundsPerTrack: 4, warmupMs: 15000, finishTimeoutMs: 10000 });
 const copy = value => structuredClone(value);

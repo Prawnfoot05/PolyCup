@@ -1,4 +1,5 @@
 // Version-specific access is isolated here. These symbols were inspected in PML v0.6.3-1.
+import { renderCarPose } from './spectator.mjs';
 export function connectNative(pml, controller) {
   if (pml.polyVersion !== '0.6.3') throw new Error('World Cup requires PolyTrack 0.6.3.');
   const api = pml.getFromPolyTrack(`({
@@ -11,8 +12,10 @@ export function connectNative(pml, controller) {
       disposed: ss.get(g), checkpointCount: ra.get(g).getTotalNumberOfCheckpointIndices() }),
     camera: g => { const c=la.get(g).camera, car=Xa.get(g); return {
       sessionId: Za.get(g).sessionId, position:c.position.toArray(), quaternion:c.quaternion.toArray(),
-      fov:c.fov, frames:car.getTime().numberOfFrames, speed:car.getSpeedKmh() }; },
-    remoteFrame: (g,id) => as.get(g).get(id)?.car.getCarState().frames,
+      fov:c.fov, frames:car.getTime().numberOfFrames, speed:car.getSpeedKmh(),
+      carPosition:car.getPosition().toArray(), carQuaternion:car.getQuaternion().toArray(),
+      view:c===car.cameraCockpit?1:0 }; },
+    remoteCar: (g,id) => as.get(g).get(id)?.car,
     visibility: (g,ids,self) => { Xa.get(g).setVisible(ids===null||ids.includes(self));
       for(const [id,r] of as.get(g)) if(ids!==null) r.car.setVisible(ids.includes(id)); },
     follow: (g,p,id) => { const camera=fs.get(g).camera; camera.position.fromArray(p.position);
@@ -32,6 +35,11 @@ export function connectNative(pml, controller) {
   for (const key of ['Host', 'Client', 'Game', 'read', 'peers', 'parse', 'reset', 'guard']) {
     if (typeof api[key] !== 'function') throw new Error(`Unsupported game build: ${key} is unavailable.`);
   }
+  const follow = api.follow;
+  api.follow = (game, pose, id) => {
+    follow(game, pose, id);
+    renderCarPose(api.remoteCar(game, id), pose);
+  };
   // The game's own library owns built-in tracks and the current profile's custom tracks.
   for (const method of ['getFirstSessionTrack', 'getRandomOfficialTrack', 'forEachTrack',
     'forEachOfficialTrack', 'forEachCommunityTrack', 'forEachCustomTrack']) {

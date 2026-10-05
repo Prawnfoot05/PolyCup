@@ -118,12 +118,13 @@ export class Controller {
     if (!this.isHost && Date.now() - this.lastSubscribe > 1000) {
       if (this.transport.send(0, { type: 'watch', value: this.watchId })) this.lastSubscribe = Date.now();
     }
-    const buffer = this.cameraBuffers.get(this.watchId), frame = this.native.remoteFrame(game,this.watchId);
-    const pose = Number.isFinite(frame) ? buffer?.sampleFrame(frame,this.info.sessionId,now) : buffer?.sample(now - 150,this.info.sessionId);
+    const buffer = this.cameraBuffers.get(this.watchId);
+    const pose = buffer?.playback(now, this.info.sessionId, performance.now());
     this.watchedPose = pose ?? null;
-    this.watchStatus = pose ? 'Live POV' : 'Waiting for racer camera';
+    this.watchStatus = pose ? 'Buffered POV' : 'Waiting for racer camera';
     if (pose) this.lastWatchPose = pose;
-    else if (!this.lastWatchPose || this.lastWatchPose.sessionId !== this.info.sessionId) this.lastWatchPose = this.native.camera(game);
+    else if (!this.lastWatchPose || this.lastWatchPose.sessionId !== this.info.sessionId)
+      this.lastWatchPose = { ...this.native.camera(game), carPosition: undefined, carQuaternion: undefined };
     this.native.follow(game, this.lastWatchPose, this.watchId);
   }
   receiveCamera(id, message) {
