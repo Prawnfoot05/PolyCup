@@ -27,6 +27,7 @@ import type {
   TrackMessage,
 } from './protocol.ts';
 import { ReviewLog } from './review.ts';
+import { ReconnectRegistry, validPublicKey, type ProfileIdentity } from './reconnect.ts';
 import { CameraBuffer, validPose } from './spectator.ts';
 import { standings, updateLiveMovement } from './standings.ts';
 import type {
@@ -39,6 +40,15 @@ import type {
 } from './types.ts';
 import { validPB, validSnapshot, validWR } from './validation.ts';
 export class Controller {
+  #reconnect = new ReconnectRegistry();
+  #identity: Promise<ProfileIdentity> | null = null;
+  #identityCup = '';
+  #lastIdentity = 0;
+  #reconnectOffer: number | null = null;
+  #reconnectDeclined = false;
+  get reconnectOffer() {
+    return this.#reconnectOffer;
+  }
   get game() {
     return this.#game;
   }
@@ -272,6 +282,10 @@ export class Controller {
       this.#subscriptions.clear();
       this.#hello.clear();
       this.#connection = info.connection;
+      this.#identity = null;
+      this.#identityCup = '';
+      this.#reconnectOffer = null;
+      this.#reconnectDeclined = false;
       this.#trackUploads.clear();
       this.#recordRequests.clear();
       this.#isHost = this.#connection instanceof this.#native.Host;
@@ -764,6 +778,7 @@ export class Controller {
       }
       this.#transport.sync(this.#native.peers(this.#connection));
       this.#cameraTransport.sync(this.#native.peers(this.#connection));
+      this.syncReconnect();
       if (Date.now() - this.#lastHello > 2000) {
         this.#lastHello = Date.now();
         if (!this.#isHost)
@@ -897,6 +912,10 @@ export class Controller {
     this.#viewCupId = s?.id ?? null;
   }
   releaseCup(message: string) {
+    this.#reconnect.reset('');
+    this.#reconnectOffer = null;
+    this.#identity = null;
+    this.#identityCup = '';
     this.#state = null;
     this.#startingCup = null;
     this.#auto = false;
@@ -1117,6 +1136,164 @@ export class Controller {
     this.broadcast();
     this.#onChange();
   }
+  syncReconnect() {
+    const state = this.#state,
+      connection = this.#connection;
+    this.#reconnect.reset(state?.id ?? '');
+    if (!state || !connection) {
+      this.#reconnectOffer = null;
+      return;
+    }
+    if (this.#isHost) {
+      this.#reconnect.sync(
+        this.#lobby.map((p) => p.id),
+        state.roster.map((p) => p.id),
+      );
+      return;
+    }
+    if (Cup.player(state, this.#selfId)) this.#reconnectOffer = null;
+    if (!this.#native.reconnectIdentity || !this.#game || this.#selfId === null) return;
+    if (this.#identityCup !== state.id) {
+      this.#identityCup = state.id;
+      this.#lastIdentity = 0;
+      this.#reconnectOffer = null;
+      this.#reconnectDeclined = false;
+      this.#identity = this.#native.reconnectIdentity(this.#game, state.id);
+      // An unavailable crypto/profile API leaves organizer recovery available.
+      void this.#identity.catch(() => {});
+    }
+    if (Date.now() - this.#lastIdentity < 2000 || state.phase === 'complete') return;
+    this.#lastIdentity = Date.now();
+    void this.#identity
+      ?.then((identity) => {
+        if (this.#connection === connection && this.#state?.id === state.id)
+          this.#transport.send(0, {
+            type: 'identity-open',
+            cupId: state.id,
+            publicKey: identity.publicKey,
+          });
+      })
+      .catch(() => {});
+  }
+  offerReconnect(id: number) {
+    const s = this.#state,
+      owner = this.#reconnect.owner(id);
+    if (
+      !s ||
+      s.phase === 'complete' ||
+      owner === null ||
+      owner === id ||
+      !Cup.player(s, owner) ||
+      Cup.player(s, id) ||
+      this.#lobby.some((p) => p.id === owner)
+    )
+      return;
+    this.#transport.send(id, { type: 'reconnect-offer', cupId: s.id, racerId: owner });
+  }
+  async receiveReconnect(id: number, message: Message) {
+    if (
+      !('cupId' in message) ||
+      message.cupId !== this.#state?.id ||
+      !this.#state ||
+      this.#state.phase === 'complete'
+    )
+      return;
+    const state = this.#state,
+      connection = this.#connection;
+    if (this.#isHost) {
+      if (!this.#hello.has(id) || !this.#lobby.some((p) => p.id === id)) return;
+      this.#reconnect.reset(state.id);
+      if (message.type === 'identity-open' && validPublicKey(message.publicKey)) {
+        if (this.#reconnect.verified(id, message.publicKey)) {
+          this.offerReconnect(id);
+          return;
+        }
+        const nonce = this.#reconnect.challenge(id, message.publicKey);
+        if (nonce) this.#transport.send(id, { type: 'identity-challenge', cupId: state.id, nonce });
+      } else if (
+        message.type === 'identity-proof' &&
+        typeof message.nonce === 'string' &&
+        typeof message.signature === 'string'
+      ) {
+        if (!(await this.#reconnect.prove(id, message.nonce, message.signature))) return;
+        if (
+          this.#state !== state ||
+          this.#connection !== connection ||
+          !this.#lobby.some((p) => p.id === id)
+        )
+          return;
+        this.#reconnect.sync(
+          this.#lobby.map((p) => p.id),
+          state.roster.map((p) => p.id),
+        );
+        this.offerReconnect(id);
+      } else if (message.type === 'reconnect-accept') {
+        const owner = this.#reconnect.owner(id);
+        if (
+          owner === null ||
+          owner !== message.racerId ||
+          Cup.player(state, id) ||
+          this.#lobby.some((p) => p.id === owner)
+        )
+          return;
+        if (state.runtime) {
+          this.#transport.send(id, {
+            type: 'error',
+            message: 'Your racer is recognized. Rejoin after the current round ends.',
+          });
+          return;
+        }
+        const player = this.#lobby.find((p) => p.id === id)!;
+        this.rebindRacer(owner, id, player.nickname);
+      }
+    } else if (id === 0) {
+      if (
+        message.type === 'identity-challenge' &&
+        typeof message.nonce === 'string' &&
+        /^[a-f0-9]{64}$/.test(message.nonce)
+      ) {
+        if (this.#identityCup !== state.id || !this.#identity) return;
+        const identity = await this.#identity,
+          signature = await identity.sign(message.nonce);
+        if (this.#state?.id === state.id && this.#connection === connection)
+          this.#transport.send(0, {
+            type: 'identity-proof',
+            cupId: state.id,
+            nonce: message.nonce,
+            signature,
+          });
+      } else if (
+        message.type === 'reconnect-offer' &&
+        Number.isSafeInteger(message.racerId) &&
+        Cup.player(state, message.racerId) &&
+        !Cup.player(state, this.#selfId)
+      ) {
+        if (!this.#reconnectDeclined && this.#reconnectOffer !== message.racerId) {
+          this.#reconnectOffer = message.racerId;
+          this.requestPanel(true);
+          this.#onChange();
+        }
+      }
+    }
+  }
+  acceptReconnect() {
+    if (
+      !this.#isHost &&
+      this.#state &&
+      this.#reconnectOffer !== null &&
+      this.#state.phase !== 'complete'
+    )
+      this.#transport.send(0, {
+        type: 'reconnect-accept',
+        cupId: this.#state.id,
+        racerId: this.#reconnectOffer,
+      });
+  }
+  declineReconnect() {
+    this.#reconnectDeclined = true;
+    this.#reconnectOffer = null;
+    this.#onChange();
+  }
   recoveryRacers() {
     return (
       this.#state?.roster.filter(
@@ -1135,6 +1312,7 @@ export class Controller {
     if (oldId !== newId) Cup.rebindPlayer(this.cup, oldId, newId, name);
     else Cup.touch(this.cup);
     if (oldId !== newId) this.#review.rebind(oldId, newId);
+    this.#reconnect.rebind(oldId, newId);
     this.#needsRebind.delete(oldId);
     this.#error = '';
     this.save(true);
@@ -1174,6 +1352,18 @@ export class Controller {
     this.broadcast();
   }
   receive(id: number, m: Message) {
+    if (
+      [
+        'identity-open',
+        'identity-challenge',
+        'identity-proof',
+        'reconnect-offer',
+        'reconnect-accept',
+      ].includes(m.type)
+    ) {
+      void this.receiveReconnect(id, m).catch(() => {});
+      return;
+    }
     if (this.#isHost) {
       if (m.type === 'hello' && m.version === Cup.VERSION && Number.isFinite(m.sentAt)) {
         this.#hello.add(id);

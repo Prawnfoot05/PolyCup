@@ -4,7 +4,7 @@ Live Cups for **2–8 racers** in PolyTrack **0.6.3**. By **Kiki**.
 
 ## Install
 
-Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods → Add**, import this URL with version **0.2.17**, then choose **Load → Apply**:
+Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods → Add**, import this URL with version **0.2.18**, then choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
@@ -24,7 +24,7 @@ For the bundled Windows installer, place this project folder beside PolyTrack.ex
 
 The organizer must stay connected. Native room capacity includes spectators. **Hide** closes your panel; **End Cup for everyone** ends Cup mode for the whole lobby.
 
-After a warmup disconnect, select the returning player in **Cup paused → Reconnect**, then **Start next round**. Nicknames do not automatically reclaim racer slots.
+Rejoin the lobby with the same PolyTrack profile and choose **Rejoin Cup** to recover your racer slot. Profile ownership is checked with a Cup-specific signature; account tokens stay local. Recovery waits for the current round to end. The organizer restarts paused rounds; manual reconnect remains available for changed profiles or imported saves.
 
 ## Rules and controls
 

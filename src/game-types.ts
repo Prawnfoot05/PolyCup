@@ -93,6 +93,10 @@ export interface TrackLibrary {
   isCommunityTrack(id: string): boolean;
 }
 export interface NativeApi {
+  reconnectIdentity(
+    game: NativeGame,
+    cupId: string,
+  ): Promise<import('./reconnect.ts').ProfileIdentity>;
   Host: abstract new (...args: never[]) => NativeConnection;
   Client: abstract new (...args: never[]) => NativeConnection;
   Game: { prototype: NativeGame };
@@ -138,7 +142,10 @@ export interface NativeApi {
         verified: boolean,
       ): Promise<{ entries: { frames: { numberOfFrames: number }; nickname: string }[] }>;
     };
-    profiles: { getCurrentUserProfile(): { tokenHash: string }; profileSlot: number };
+    profiles: {
+      getCurrentUserProfile(): { tokenHash: string; token: string };
+      profileSlot: number;
+    };
     store: { getRecordTime(slot: number, id: string): { numberOfFrames: number } | null };
   };
 }

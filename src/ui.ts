@@ -302,6 +302,7 @@ export class CupUI {
       s?.revision,
       c.isHost,
       c.selfId,
+      c.reconnectOffer,
       c.lobby.map((p) => [
         p.id,
         p.nickname,
@@ -883,6 +884,18 @@ export class CupUI {
   tournament() {
     const c = this.#c,
       s = c.cup;
+    if (c.reconnectOffer !== null && !Cup.player(s, c.selfId) && s.phase !== 'complete') {
+      this.#body.append(h('h2', 'Rejoin this Cup?'));
+      this.#body.append(h('p', 'Resume your racer slot and keep your points.'));
+      const rejoin = this.button('Rejoin Cup', () => c.acceptReconnect(), 'primary');
+      rejoin.disabled = !!s.runtime;
+      this.#body.append(
+        rejoin,
+        this.button('Stay spectator', () => c.declineReconnect(), 'quiet'),
+      );
+      if (s.runtime) this.#body.append(h('p', 'Available when the current round ends.', 'muted'));
+      return;
+    }
     if (s.phase === 'between-rounds' && this.#c.recoveryRacers().length) {
       this.recovery();
       return;

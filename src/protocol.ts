@@ -47,6 +47,11 @@ export interface InputViewMessage extends InputContext {
   events: InputEvent[];
 }
 export type Message =
+  | { type: 'identity-open'; cupId: string; publicKey: string }
+  | { type: 'identity-challenge'; cupId: string; nonce: string }
+  | { type: 'identity-proof'; cupId: string; nonce: string; signature: string }
+  | { type: 'reconnect-offer'; cupId: string; racerId: number }
+  | { type: 'reconnect-accept'; cupId: string; racerId: number }
   | ActionMessage
   | FinishMessage
   | CheckpointMessage

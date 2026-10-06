@@ -4,6 +4,7 @@ import type { NativeApi, PolyModLoader } from './game-types.ts';
 import type { Message } from './protocol.ts';
 // Version-specific access is isolated here. These symbols were inspected in PML v0.6.3-1.
 import { renderCarPose } from './spectator.ts';
+import { profileIdentity } from './reconnect.ts';
 
 export function registerCarVisibility(pml: PolyModLoader, insertType: unknown) {
   // PolyTrack keeps the nameplate outside the car model's scene group.
@@ -87,6 +88,8 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
     guard: fn => { const original=bs; bs=function(){ return fn(this) || original.call(this); }; },
     guardRestart: fn => { const original=Ss; Ss=function(){ if(!fn(this)) return original.call(this); }; }
   })`) as NativeApi;
+  api.reconnectIdentity = (game, cupId) =>
+    profileIdentity(api.records(game).profiles.getCurrentUserProfile().token, cupId);
   for (const key of [
     'Host',
     'Client',
