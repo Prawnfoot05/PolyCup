@@ -187,3 +187,46 @@ test('deferred leave cleanup does not clear a replacement game, but clears a dep
   t.mock.timers.tick(500);
   assert.equal(guest.connection,null); assert.equal(guest.state,null); assert.equal(guest.localPlayerId,null);
 });
+
+
+test('warmup disconnect can be rebound and restarted for both returning and remaining racers', t => {
+  const previous=globalThis.localStorage;
+  globalThis.localStorage={setItem(){},getItem(){return null;}};
+  t.after(()=>{if(previous)globalThis.localStorage=previous;else delete globalThis.localStorage;});
+  const {host,guests,clients}=room(); host.create('Recovery');
+  for(const id of [2,3]) Cup.addPlayer(host.state,id,'Anonymous');
+  beginBans(host.state);
+  for(const name of ['b','c']) banTrack(host.state,banTurn(host.state),{id:name.repeat(64),name,category:'official'});
+  const trackId='a'.repeat(64);
+  for(const id of [2,3]) Cup.chooseTrack(host.state,id,{id:trackId,name:'Track'});
+  Cup.lockRegistration(host.state); Cup.beginRound(host.state);
+  host.state.phase='warmup';host.state.runtime.sessionId=7;
+  host.info.sessionId=7;host.tracks.set(trackId,{trackMetadata:{},trackData:{},code:'track'});
+  host.broadcast(); clients.forEach(c=>c.requestPanel(false));
+  host.lobby=host.lobby.filter(p=>p.id!==2);
+  guests.forEach(c=>c.lobby=host.lobby);
+  host.checkDisconnects();host.broadcast();
+  assert.equal(host.state.runtime,null);assert.equal(host.state.phase,'between-rounds');
+  assert.ok(clients.every(c=>c.panelRequest.open));
+  assert.ok(clients.every(c=>!c.canSpectate()));
+  assert.throws(()=>host.runRound(),/disconnected/);
+  host.lobby.push({id:9,nickname:'Anonymous'});host.hello.add(9);host.transport.has=()=>true;
+  assert.throws(()=>host.rebindRacer(2,3,'Anonymous'),/new lobby identity/);
+  assert.deepEqual(host.recoveryRacers().map(p=>p.id),[2]);
+  host.rebindRacer(2,9,'Anonymous');
+  assert.deepEqual(host.recoveryRacers(),[]);assert.equal(host.error,'');
+  assert.equal(host.state.picks[9],trackId);assert.equal(host.state.roster.length,2);
+  let started=0;host.connection.startNewSession=()=>started++;
+  host.runRound();assert.equal(started,1);assert.equal(host.state.runtime.warmup,true);
+  host.state.phase='warmup';host.state.runtime.sessionId=8;host.broadcast();
+  guests.forEach((c,i)=>{
+    c.selfId=i===0?9:3;
+    c.connection.getPlayers=()=>host.lobby.map(p=>({...p,isSelf:p.id===c.selfId}));
+    c.info={connection:c.connection,sessionId:8,spectator:{isEnabled:true},disposed:false};
+    c.native.reset=()=>{};c.native.clearRecords=()=>{};
+    c.observeGame(c.game);
+    assert.equal(c.shouldBlock(c.game),false);
+    assert.equal(c.info.spectator.isEnabled,false);
+    assert.equal(c.canSpectate(),false);
+  });
+});

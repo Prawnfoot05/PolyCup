@@ -351,7 +351,7 @@ export class CupUI {
         title.append(
           h(
             'p',
-            `${s.name} / ${s.phase === 'registration' ? ({ roster: 'Lobby', bans: 'Banning', picks: 'Picking' }[s.draft?.stage ?? 'picks'] ?? 'Picking') : names[s.phase]}`,
+            `${s.name} / ${s.phase === 'registration' ? ({ roster: 'Lobby', bans: 'Banning', picks: 'Picking' }[s.draft?.stage ?? 'picks'] ?? 'Picking') : s.phase === 'between-rounds' && this.#c.recoveryRacers().length ? 'Cup paused' : names[s.phase]}`,
           ),
         );
       const hide = this.button(
@@ -883,6 +883,10 @@ export class CupUI {
   tournament() {
     const c = this.#c,
       s = c.cup;
+    if (s.phase === 'between-rounds' && this.#c.recoveryRacers().length) {
+      this.recovery();
+      return;
+    }
     if (s.phase === 'complete') {
       this.results();
       return;
@@ -944,9 +948,54 @@ export class CupUI {
     if (c.canSpectate() && c.watchable().length)
       this.#body.append(this.spectatorControls(), this.spectatorRecord());
   }
+  recovery() {
+    const c = this.#c;
+    this.#body.append(h('h2', 'Cup paused'));
+    if (!c.isHost) {
+      this.#body.append(
+        h('p', 'Waiting for the organizer to reconnect racers and restart the round.'),
+      );
+      return;
+    }
+    this.#body.append(h('p', 'Reconnect each returning player, then start the round.'));
+    for (const racer of c.recoveryRacers()) {
+      const row = h('div', undefined, 'row');
+      row.append(this.racerName(racer.id, racer.name));
+      const select = h('select');
+      select.setAttribute('aria-label', `Reconnect ${racer.name}`);
+      const placeholder = h('option', 'Choose returning player');
+      placeholder.value = '';
+      select.append(placeholder);
+      for (const player of c.lobby.filter((p) => !Cup.player(c.state, p.id) || p.id === racer.id)) {
+        const option = h('option', `${player.nickname} · #${player.id}`);
+        option.value = String(player.id);
+        option.disabled = !player.isSelf && !c.hello.has(player.id);
+        select.append(option);
+      }
+      const reconnect = this.button(
+        'Reconnect',
+        () => {
+          if (!select.value) return;
+          const player = c.lobby.find((p) => p.id === Number(select.value));
+          if (player) c.rebindRacer(racer.id, player.id, player.nickname);
+        },
+        'primary',
+      );
+      reconnect.disabled = true;
+      select.addEventListener('change', () => {
+        reconnect.disabled = !select.value;
+      });
+      row.append(select, reconnect);
+      this.#body.append(row);
+    }
+  }
   organizer() {
     const c = this.#c,
       s = c.cup;
+    if (s.phase === 'between-rounds' && this.#c.recoveryRacers().length) {
+      this.recovery();
+      return;
+    }
     this.#body.append(h('h2', 'Organizer controls'));
     if (s.phase === 'registration' && s.draft?.stage !== 'roster') {
       this.#body.append(
@@ -1155,7 +1204,14 @@ export class CupUI {
     sub.append(picker, h('strong', `ROUND ${visit.round}/${visit.rounds}`));
     title.append(sub);
     const status = h('div', undefined, 'hud-phase');
-    status.append(h('span', names[s.phase]));
+    status.append(
+      h(
+        'span',
+        s.phase === 'between-rounds' && this.#c.recoveryRacers().length
+          ? 'Cup paused'
+          : names[s.phase],
+      ),
+    );
     const clock = h('strong');
     clock.dataset.clock = '';
     status.append(clock);

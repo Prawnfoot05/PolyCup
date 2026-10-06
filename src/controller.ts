@@ -616,6 +616,7 @@ export class Controller {
       : null;
   }
   canSpectate() {
+    if (!this.#state?.runtime) return false;
     if (this.localPlayerId === null) return false;
     if (!Cup.mayWatch(this.#state, this.#selfId)) return false;
     if (!Cup.activeIds(this.#state).includes(this.localPlayerId)) return true;
@@ -886,7 +887,11 @@ export class Controller {
     this.#roundViewKey = key;
     if (run && ['loading', 'warmup', 'countdown', 'racing'].includes(s.phase)) {
       this.requestPanel(false);
-    } else if (s && this.#viewCupId !== s.id) {
+    } else if (
+      s &&
+      (this.#viewCupId !== s.id ||
+        (s.phase === 'between-rounds' && this.recoveryRacers().length > 0))
+    ) {
       this.requestPanel(true);
     }
     this.#viewCupId = s?.id ?? null;
@@ -1112,12 +1117,29 @@ export class Controller {
     this.broadcast();
     this.#onChange();
   }
+  recoveryRacers() {
+    return (
+      this.#state?.roster.filter(
+        (p) => this.#needsRebind.has(p.id) || !this.#lobby.some((l) => l.id === p.id),
+      ) ?? []
+    );
+  }
   rebindRacer(oldId: number, newId: number, name: string) {
-    this.change((s) => {
-      if (oldId !== newId) Cup.rebindPlayer(s, oldId, newId, name);
-      else Cup.touch(s);
-    });
+    this.requireHost();
+    if (this.cup.runtime) throw new Error('Void the round before reconnecting a racer.');
+    if (!this.#lobby.some((p) => p.id === newId)) throw new Error('Choose a connected player.');
+    if (newId !== this.#selfId && (!this.#hello.has(newId) || !this.#transport.has(newId)))
+      throw new Error('Wait for the returning player to load PolyCup.');
+    if (oldId !== newId && this.#lobby.some((p) => p.id === oldId) && !this.#needsRebind.has(oldId))
+      throw new Error('That racer is still connected.');
+    if (oldId !== newId) Cup.rebindPlayer(this.cup, oldId, newId, name);
+    else Cup.touch(this.cup);
     if (oldId !== newId) this.#review.rebind(oldId, newId);
+    this.#needsRebind.delete(oldId);
+    this.#error = '';
+    this.save(true);
+    this.broadcast();
+    this.#onChange();
   }
   action(type: ActionType, value?: string) {
     if (this.localPlayerId === null) return;

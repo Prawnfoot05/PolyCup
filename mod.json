@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
-  "changelog": "Fix a player-side crash when leaving and rejoining an active Cup before the native lobby identity is available."
+  "changelog": "Show direct racer reconnection controls after interrupted warmups, preserve racer slots when reassigned, and clear stale spectator views while the Cup is paused."
 }

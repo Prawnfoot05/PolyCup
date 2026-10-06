@@ -1,6 +1,6 @@
 {
   "shortdesc": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
   "changelogs": {
-    "0.2.16": "Fix a player-side crash when leaving and rejoining an active Cup before the native lobby identity is available."
+    "0.2.17": "Show direct racer reconnection controls after interrupted warmups, preserve racer slots when reassigned, and clear stale spectator views while the Cup is paused."
   }
 }
