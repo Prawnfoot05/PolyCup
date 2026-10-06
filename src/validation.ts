@@ -28,7 +28,15 @@ export function validSnapshot(value: unknown): value is PublicCupState {
     !['dnf', 'void'].includes(s.disconnectPolicy) ||
     !Array.isArray(s.roster) ||
     s.roster.length > 8 ||
-    !s.roster.every((p) => obj(p) && Number.isSafeInteger(p.id) && p.id !== 0 && text(p.name)) ||
+    !s.roster.every(
+      (p) =>
+        obj(p) &&
+        Number.isSafeInteger(p.id) &&
+        p.id !== 0 &&
+        text(p.name) &&
+        (p.countryCode == null ||
+          (typeof p.countryCode === 'string' && /^[a-z]{2}$/i.test(p.countryCode))),
+    ) ||
     new Set(s.roster.map((p) => p.id)).size !== s.roster.length ||
     !Array.isArray(s.tracks) ||
     s.tracks.length > 8 ||

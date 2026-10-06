@@ -9,6 +9,7 @@ export type Phase =
   | 'between-rounds'
   | 'complete';
 export interface Racer {
+  countryCode?: string | null;
   id: PlayerId;
   name: string;
 }
@@ -22,6 +23,7 @@ export interface Draft {
   bans: Record<PlayerId, Track>;
 }
 export interface RaceRecord {
+  countryCode?: string | null;
   status: 'ready' | 'missing' | 'unavailable';
   frames?: number;
   name?: string;

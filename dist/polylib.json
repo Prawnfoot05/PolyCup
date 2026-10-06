@@ -1,6 +1,6 @@
 {
   "shortdesc": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
   "changelogs": {
-    "0.2.21": "Updated mod cover art and replaced the main-menu launcher with an installed-version label. The in-game PolyCup toolbar button remains available."
+    "0.2.22": "Playtest fixes: warmup restart recovery, adaptive spectator buffering, stable input overlay, hidden ghost skidmarks, accurate round status, local-player highlighting and country flags across Cup displays."
   }
 }

@@ -68,17 +68,6 @@ export function lobbyPanel(ui: CupUI) {
     const identity = ui.racerName(id, ui.name(id));
     const car = identity.querySelector('.car-skin');
     if (car) row.append(car);
-    const country = countryFlag(c.lobby.find((p) => p.id === id)?.countryCode);
-    if (country) {
-      const flag = h('img', undefined, 'country-flag');
-      flag.src = country;
-      flag.alt = c.lobby.find((p) => p.id === id)!.countryCode!.toUpperCase();
-      flag.title = 'Player’s selected country';
-      flag.addEventListener('error', () => {
-        flag.hidden = true;
-      });
-      identity.prepend(flag);
-    }
     row.append(identity);
     if (!c.lobby.some((p) => p.id === id) || c.needsRebind?.has(id))
       row.append(h('small', 'Disconnected', 'ban-label'));
@@ -103,7 +92,11 @@ export function lobbyPanel(ui: CupUI) {
     for (const p of spectators) more.append(ui.racerName(p.id, p.nickname));
     roster.append(more);
   }
-  action.append(h('h2', view.title));
+  const actionTitle = h('h2', view.title);
+  if (view.mode === 'ban' && view.turn !== c.selfId && view.turn !== null) {
+    actionTitle.replaceChildren(ui.playerLabel(view.turn), '’s ban');
+  }
+  action.append(actionTitle);
   if (!s.draft && !view.joined) action.append(ui.joinControls());
   if (view.mode === 'join') {
     const join = ui.button(

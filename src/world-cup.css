@@ -105,16 +105,16 @@ label input,label textarea { display:block; width:100%; margin-top:7px; } textar
 .score-row .racer-name > span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; overflow-wrap:normal; padding-right:4px; }
 .score-row .car-skin { width:32px; height:28px; flex-basis:32px; background:transparent; border-radius:0; }
 .score-row .position { font-size:20px; color:#aec2d9; }
-.score-row.leader { background:#ed7833; color:#111e34; }
-.score-row.leader .position { color:#111e34; }
+.score-row.highlighted { background:#ed7833; color:#111e34; }
+.score-row.highlighted .position { color:#111e34; }
 .score-row.self .racer-name > span { text-decoration:underline; text-underline-offset:3px; }
 .points { display:flex; justify-content:flex-end; align-items:center; gap:5px; padding-right:5px; }
 .points > strong { font-size:24px; font-weight:400; } .finalist .points > strong { color:#ffd26b; font-size:22px; font-style:italic; }
-.leader.finalist .points > strong { color:#172642; }
+.highlighted.finalist .points > strong { color:#172642; }
 .point-gain { color:#76e8ba; font-size:18px; font-weight:700; background:#0d302d; padding:2px 5px; clip-path:polygon(3px 0,100% 0,calc(100% - 3px) 100%,0 100%); }
 .point-gain:empty { display:none; } .projected { opacity:.76; font-weight:400; }
 .movement { font-size:18px; text-align:right; } .movement.up { color:#76e8ba; } .movement.down { color:#ff9d9d; }
-.leader .movement.up { color:#153e32; } .leader .movement.down { color:#6e1024; }
+.highlighted .movement.up { color:#153e32; } .highlighted .movement.down { color:#6e1024; }
 .score-row .time { align-self:stretch; display:flex; justify-content:center; align-items:center; background:#e9f1f8; color:#152238; font-size:20px; font-weight:400; clip-path:var(--cut); margin:2px 10px 2px 0; padding:0 10px; white-space:nowrap; }
 .winner-strip { padding:10px 14px; border-top:2px solid var(--gold); background:#273c3b; margin-bottom:5px; clip-path:var(--cut); }
 .winner-strip > small { display:block; color:var(--gold); font-size:18px; margin-bottom:5px; }
@@ -277,3 +277,19 @@ button.pov-cycle.next { clip-path:polygon(0 0,calc(100% - 8px) 0,100% 100%,8px 1
 @media (prefers-reduced-motion: reduce) {
   .round-timer { transition: none; }
 }
+
+.country-flag { flex:none; width:24px; height:18px; object-fit:contain; filter:drop-shadow(1px 1px 1px #0006); }
+.player-label { display:inline-flex; align-items:center; gap:6px; min-width:0; vertical-align:middle; }
+.player-label > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.track-pickers { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.track-pickers .country-flag,.record-holder .country-flag { width:18px; height:14px; margin-right:4px; }
+.record-holder { display:flex; align-items:center; gap:4px; }
+.pov-name { display:flex; align-items:center; justify-content:center; }
+
+.pov-name select,.pov-name select:disabled { min-width:0; flex:1; color:transparent; }
+.pov-name select option { color:var(--ice); }
+.pov-selected { position:absolute; inset:0 28px; display:flex; align-items:center; justify-content:center; pointer-events:none; overflow:hidden; }
+.pov-selected .player-label { max-width:100%; }
+
+.champion-card .racer-name { flex-direction:row; flex-wrap:wrap; justify-content:center; gap:8px; }
+.champion-card .car-skin { flex-basis:100%; object-fit:contain; }

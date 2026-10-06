@@ -11,7 +11,10 @@ export function registerCarVisibility(pml: PolyModLoader, insertType: unknown) {
   pml.registerGlobalMixin({
     type: insertType,
     token: '(0, l.gn)(this, me, "f").visible = e;',
-    func: 'if (!e && Ae.get(this)) Ae.get(this).visible = false;',
+    func: `if (!e) {
+      if (Ae.get(this)) Ae.get(this).visible = false;
+    }
+    for (const trail of Pe.get(this) || []) E.get(trail).visible = e;`,
   });
 }
 
@@ -55,8 +58,8 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
       backdrop?.classList.toggle('polycup-session-ended', !!cup && ended);
       if (cup && watching && !ended) {
         const toolbar=Na.get(g);
-        toolbar.setVisible(!fa.get(g).isCursorHidden || toolbar.hasFocus() ||
-          !!ui?.querySelector('.polycup-toolbar-button:focus'));
+        if (!fa.get(g).isCursorHidden || toolbar.hasFocus() ||
+          !!ui?.querySelector('.polycup-toolbar-button:focus')) toolbar.setVisible(true);
       }
     },
     records: g => ({ server: jd.get(da.get(g)), profiles: ha.get(g), store: da.get(g) }),
@@ -161,6 +164,7 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
             status: 'ready',
             frames: best.frames.numberOfFrames,
             name: String(best.nickname).slice(0, 64),
+            ...(best.countryCode ? { countryCode: best.countryCode } : {}),
           }
         : { status: 'missing' };
     } catch {
@@ -205,7 +209,7 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
     return result;
   };
   api.guard((game) => controller.shouldBlock(game));
-  api.guardRestart((game) => controller.shouldBlockRestart(game));
+  api.guardRestart((game) => controller.handleRestart(game));
   return api;
 }
 

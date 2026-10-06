@@ -141,7 +141,13 @@ export interface NativeApi {
         start: number,
         count: number,
         verified: boolean,
-      ): Promise<{ entries: { frames: { numberOfFrames: number }; nickname: string }[] }>;
+      ): Promise<{
+        entries: {
+          frames: { numberOfFrames: number };
+          nickname: string;
+          countryCode?: string | null;
+        }[];
+      }>;
     };
     profiles: {
       getCurrentUserProfile(): { tokenHash: string; token: string };

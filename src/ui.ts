@@ -8,7 +8,7 @@ import { element as h } from './dom.ts';
 import { banTurn, isBanned, picksOpen, rosterOpen } from './draft.ts';
 import { inputControls } from './inputs.ts';
 import { CupInvite } from './invite.ts';
-import { lobbyPanel } from './lobby.ts';
+import { countryFlag, lobbyPanel } from './lobby.ts';
 import { RestartHint } from './restart-hint.ts';
 import { resultRows, resultsImage } from './results.ts';
 import { reviewPanel } from './review-ui.ts';
@@ -18,7 +18,7 @@ import { CupToolbar } from './toolbar.ts';
 import css from './world-cup.css';
 const names = {
   registration: 'Registration',
-  loading: 'Loading track',
+  loading: 'Preparing round',
   warmup: 'Warmup',
   countdown: 'Get ready',
   racing: 'Live round',
@@ -61,6 +61,8 @@ export class CupUI {
   #inputHud: HTMLElement;
   #inputView: InputVisualizer | undefined;
   #inputStatus: HTMLElement;
+  #inputSignature: string = '';
+  #lastInputMask: number | null | undefined;
   #toolbar: CupToolbar;
   #ghostHintCup: string | undefined;
   #noticeTimer: number = 0;
@@ -469,7 +471,13 @@ export class CupUI {
     this.#roundTimer.classList.toggle('visible', seconds !== null);
     this.#roundTimer.setAttribute('aria-hidden', String(seconds === null));
     if (seconds !== null) this.#roundTimer.textContent = `${seconds}s`;
-    const label = this.#open ? '' : downtimeLabel(s?.phase, c.recoveryRacers().length > 0);
+    const label = this.#open
+      ? ''
+      : downtimeLabel(
+          s?.phase,
+          c.recoveryRacers().length > 0,
+          s?.runtime?.trackId === c.info?.trackData?.getId(),
+        );
     this.#downtime.hidden = !label;
     if (this.#downtime.textContent !== label) this.#downtime.textContent = label;
     this.#toolbar.sync(this.#open);
@@ -493,10 +501,16 @@ export class CupUI {
         !c.info?.disposed &&
         c.canSpectate() &&
         c.watchable().length > 0;
-    this.#inputHud.hidden = !visible;
     const mask = visible ? c.watchedInputs() : null;
-    this.#inputView?.update(inputControls(mask ?? 0));
-    this.#inputStatus.hidden = mask !== null;
+    const signature = `${visible}:${mask}:${c.watchId}:${visible ? this.name(c.watchId) : ''}`;
+    if (signature === this.#inputSignature) return;
+    this.#inputSignature = signature;
+    this.#inputHud.hidden = !visible;
+    if (mask !== this.#lastInputMask) {
+      this.#inputView?.update(inputControls(mask ?? 0));
+      this.#inputStatus.style.visibility = mask === null ? 'visible' : 'hidden';
+      this.#lastInputMask = mask;
+    }
     this.#inputHud.setAttribute(
       'aria-label',
       `Reported driving inputs for ${visible ? this.name(c.watchId) : 'spectated racer'}`,
@@ -598,7 +612,7 @@ export class CupUI {
         for (const l of c.lobby.filter(
           (l) => !s.roster.some((p) => p.id === l.id) || l.id === p.id,
         )) {
-          const option = h('option', l.nickname);
+          const option = h('option', this.optionName(l.id, l.nickname));
           option.value = String(l.id);
           select.append(option);
         }
@@ -641,6 +655,37 @@ export class CupUI {
       this.#body.append(row);
     }
   }
+  country(id: number | null) {
+    return (
+      this.#c.lobby.find((p) => p.id === id)?.countryCode ??
+      this.#c.state?.roster.find((p) => p.id === id)?.countryCode
+    );
+  }
+  flag(code: unknown) {
+    const url = countryFlag(code);
+    if (!url) return null;
+    const image = h('img', undefined, 'country-flag');
+    image.src = url;
+    image.alt = String(code).toUpperCase();
+    image.title = 'Player’s selected country';
+    image.addEventListener('error', () => {
+      image.hidden = true;
+    });
+    return image;
+  }
+  optionName(id: number, name = this.name(id)) {
+    const code = this.country(id);
+    return countryFlag(code)
+      ? `${[...code!.toUpperCase()].map((c) => String.fromCodePoint(127397 + c.charCodeAt(0))).join('')} ${name}`
+      : name;
+  }
+  playerLabel(id: number, name = this.name(id)) {
+    const label = h('span', undefined, 'player-label');
+    const flag = this.flag(this.country(id));
+    if (flag) label.append(flag);
+    label.append(h('span', name));
+    return label;
+  }
   racerName(id: number, name: string) {
     const group = h('span', undefined, 'racer-name grow'),
       image = h('img', undefined, 'car-skin');
@@ -651,7 +696,10 @@ export class CupUI {
     this.thumbnail(id).then((url) => {
       if (url && image.isConnected) image.src = url;
     });
-    group.append(image, h('span', name));
+    group.append(image);
+    const flag = this.flag(this.country(id));
+    if (flag) group.append(flag);
+    group.append(h('span', name));
     return group;
   }
   async thumbnail(id: number) {
@@ -726,7 +774,7 @@ export class CupUI {
           banning
             ? banTurn(s) === c.localPlayerId
               ? 'Your ban'
-              : `${this.name(banTurn(s))}’s ban`
+              : `${this.optionName(banTurn(s)!)}’s ban`
             : s.phase === 'registration'
               ? 'Track picks'
               : 'Track order',
@@ -754,7 +802,7 @@ export class CupUI {
             'small',
             s.roster
               .filter((p) => s.picks[p.id] === t.id)
-              .map((p) => p.name)
+              .map((p) => this.optionName(p.id, p.name))
               .join(', '),
             'muted',
           ),
@@ -993,7 +1041,10 @@ export class CupUI {
       placeholder.value = '';
       select.append(placeholder);
       for (const player of c.lobby.filter((p) => !Cup.player(c.state, p.id) || p.id === racer.id)) {
-        const option = h('option', `${player.nickname} · #${player.id}`);
+        const option = h(
+          'option',
+          `${this.optionName(player.id, player.nickname)} · #${player.id}`,
+        );
         option.value = String(player.id);
         option.disabled = !player.isSelf && !c.hello.has(player.id);
         select.append(option);
@@ -1128,7 +1179,7 @@ export class CupUI {
       const row = h(
         'div',
         undefined,
-        `score-row${i === 0 ? ' leader' : ''}${r.finalist ? ' finalist' : ''}${r.id === this.#c.localPlayerId ? ' self' : ''}`,
+        `score-row${r.id === this.#c.localPlayerId ? ' highlighted' : ''}${r.finalist ? ' finalist' : ''}${r.id === this.#c.localPlayerId ? ' self' : ''}`,
       );
       const name = this.racerName(r.id, this.name(r.id));
       name.title = this.name(r.id);
@@ -1193,9 +1244,20 @@ export class CupUI {
         : 'status' in record && record.status === 'unavailable'
           ? 'Unavailable'
           : name;
+    const holder = h('span', status, 'record-holder');
+    if (record && 'ids' in record) {
+      holder.replaceChildren();
+      for (const id of record.ids) {
+        if (holder.childNodes.length) holder.append(' / ');
+        holder.append(this.playerLabel(id));
+      }
+    } else if (record && 'countryCode' in record) {
+      const flag = this.flag(record.countryCode);
+      if (flag) holder.prepend(flag);
+    }
     strip.append(
       h('strong', label),
-      h('span', status, 'record-holder'),
+      holder,
       h('strong', record?.frames ? time(record.frames) : '—', 'record-time'),
     );
     return strip;
@@ -1225,7 +1287,11 @@ export class CupUI {
       .filter((p) => s.picks[p.id] === id)
       .map((p) => p.name)
       .join(', ');
-    const picker = h('span', `Picked by ${picked}`);
+    const picker = h('span', 'Picked by ', 'track-pickers');
+    for (const player of s.roster.filter((p) => s.picks[p.id] === id)) {
+      if (picker.childNodes.length > 1) picker.append(', ');
+      picker.append(this.playerLabel(player.id));
+    }
     picker.title = picked;
     sub.append(picker, h('strong', `ROUND ${visit.round}/${visit.rounds}`));
     title.append(sub);
@@ -1304,7 +1370,7 @@ export class CupUI {
     select.disabled = !racers.length;
     if (!racers.length) select.append(h('option', 'Waiting for racer'));
     for (const id of racers) {
-      const option = h('option', this.name(id));
+      const option = h('option', this.optionName(id));
       option.value = String(id);
       option.selected = id === c.watchId;
       select.append(option);
@@ -1316,7 +1382,11 @@ export class CupUI {
       this.#signature = '';
       this.render();
     });
-    name.append(select);
+    const selected = h('span', undefined, 'pov-selected');
+    if (c.watchId !== null && racers.includes(c.watchId))
+      selected.append(this.playerLabel(c.watchId));
+    else selected.textContent = 'Choose racer';
+    name.append(select, selected);
     main.append(name);
     box.append(previous, main, next);
     return box;
@@ -1377,7 +1447,7 @@ export class CupUI {
         this.#body.append(
           h(
             'p',
-            `Round ${r.round}: ${m.players.map((id) => `${this.name(id)} ${r.finishes[id] === undefined ? 'DNF' : time(r.finishes[id])}`).join(' / ')}${r.tiedFirst ? ' · Tied first: no finalist win' : ''}`,
+            `Round ${r.round}: ${m.players.map((id) => `${this.optionName(id)} ${r.finishes[id] === undefined ? 'DNF' : time(r.finishes[id])}`).join(' / ')}${r.tiedFirst ? ' · Tied first: no finalist win' : ''}`,
             'history',
           ),
         );

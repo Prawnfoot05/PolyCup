@@ -1,9 +1,13 @@
 import type { CupState, Phase } from './types.ts';
 
-export function downtimeLabel(phase: Phase | undefined, recovering = false): string {
+export function downtimeLabel(
+  phase: Phase | undefined,
+  recovering = false,
+  sameTrack = false,
+): string {
   switch (phase) {
     case 'loading':
-      return 'Changing track...';
+      return sameTrack ? 'Preparing next round...' : 'Changing track...';
     case 'warmup':
       return 'Warmup';
     case 'between-rounds':

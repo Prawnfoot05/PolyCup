@@ -50,7 +50,10 @@ export function reviewPanel(ui: CupUI) {
     const summary = h('summary'),
       title = h('span', undefined, 'review-title');
     title.append(
-      h('strong', r.name),
+      ui.playerLabel(
+        Number(Object.entries(log.data().identities).find(([, key]) => key === r.racerKey)?.[0]),
+        r.name,
+      ),
       h(
         'span',
         `Round ${r.round} · ${c.cup.tracks.find((t) => t.id === r.trackId)?.name ?? 'Track'}`,

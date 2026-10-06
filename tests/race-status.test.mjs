@@ -7,6 +7,7 @@ test('downtime labels never obscure racing, the start countdown, or winner prese
   for (const phase of [undefined,'racing','countdown','complete']) assert.equal(downtimeLabel(phase),'');
   assert.equal(downtimeLabel('warmup'),'Warmup');
   assert.equal(downtimeLabel('loading'),'Changing track...');
+  assert.equal(downtimeLabel('loading',false,true),'Preparing next round...');
   assert.equal(downtimeLabel('between-rounds',true),'Waiting for reconnect...');
   assert.equal(downtimeLabel('between-rounds'),'Waiting for next round...');
 });

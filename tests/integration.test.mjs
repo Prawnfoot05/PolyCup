@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Controller, validSnapshot } from '../.research/test-src/controller.ts';
 import * as Cup from '../.research/test-src/cup.ts';
 import { CameraBuffer, validPose, renderCarPose } from '../.research/test-src/spectator.ts';
-import { CupTransport, connectNative, beforeGameRender } from '../.research/test-src/native.ts';
+import { CupTransport, connectNative, beforeGameRender, registerCarVisibility } from '../.research/test-src/native.ts';
 import { pack, unpack } from '../scripts/asar.mjs';
 function race() {
   const s = Cup.newCup();
@@ -29,7 +29,7 @@ test('native presentation is reversible and scoped to the current game and ended
   native.presentation(game,true,true); assert.deepEqual(classes(ui),['polycup-watching']);
   assert.equal(visible,false);
   cursor.isCursorHidden=false;native.presentation(game,true,true);assert.equal(visible,true);
-  cursor.isCursorHidden=true;native.presentation(game,true,true);assert.equal(visible,false);
+  cursor.isCursorHidden=true;visible=false;native.presentation(game,true,true);assert.equal(visible,false);
   focused=true;native.presentation(game,true,true);assert.equal(visible,true);
   focused=false;ui.querySelector=()=>({});native.presentation(game,true,true);assert.equal(visible,true);
   native.presentation(game,true,false); assert.deepEqual(classes(ui),[]);
@@ -303,8 +303,11 @@ test('spectator playback uses the buffered stream independent of native car play
   const c = new Controller(() => {}); c.state=race(); c.isHost=true; c.selfId=8;
   c.game={}; c.info={sessionId:9}; c.lobby=[1,3,5,7,8].map(id=>({id})); c.watchId=1;
   c.now=()=>1300;
+  c.now=()=>1030;
   c.bufferCamera(1,{...pose(1000), frames:1000, position:[0,0,0],carPosition:[0,0,0]});
+  c.now=()=>1130;
   c.bufferCamera(1,{...pose(1100), frames:1100, position:[10,0,0],carPosition:[10,0,0]});
+  c.now=()=>1300;
   let shown; c.native={visibility(){},follow(g,p,id){shown={p,id};},remoteFrame(){throw new Error('native timeline must not drive POV');}};
   c.beforeRender(c.game);
   assert.equal(shown.id,1); assert.equal(shown.p.position[0],5); assert.equal(shown.p.carPosition[0],5);
@@ -409,4 +412,27 @@ test('non-racing Cup spectator entry restores the parent HUD without overriding 
   hud.isVisible=false;native.enableCupSpectator(game);assert.equal(hud.isVisible,false);
   enabled=false;Ma.set(game,false);native.enableCupSpectator(game);assert.equal(hud.isVisible,false);
   enabled=false;Ma.set(game,true);native.enableCupSpectator(game);assert.equal(hud.isVisible,true);
+});
+
+
+test('high latency and uneven arrivals retain smooth monotonic buffered playback', () => {
+  const b=new CameraBuffer(),queue=[];
+  for(let at=0;at<=6000;at+=50) queue.push({arrive:at+[310,410,360,440,330][at/50%5],p:{...pose(at),frames:at,position:[at/100,2,5],carPosition:[at/100,0,0]}});
+  queue.sort((a,b)=>a.arrive-b.arrive);
+  let prior=null,stalls=0,samples=0;
+  for(let now=0;now<6000;now+=10){
+    while(queue[0]?.arrive<=now){const packet=queue.shift();b.push(packet.p,now);}
+    const p=b.playback(now,9,now);if(!p)continue;
+    if(prior!==null&&now>1500){assert.ok(p.carPosition[0]>=prior);assert.ok(p.carPosition[0]-prior<=.111);if(p.carPosition[0]===prior)stalls++;samples++;}
+    prior=p.carPosition[0];
+  }
+  assert.ok(samples>400);assert.ok(stalls<5,`stalled on ${stalls} frames`);
+});
+test('ghost visibility also toggles its detached skidmark meshes without clearing shared buffers', () => {
+  let mixin;registerCarVisibility({registerGlobalMixin:m=>mixin=m},1);
+  const car={},trail={},mesh={visible:true},name={visible:true};
+  const apply=Function('e','Ae','Pe','E',mixin.func);
+  const Ae=new WeakMap([[car,name]]),Pe=new WeakMap([[car,[trail]]]),E=new WeakMap([[trail,mesh]]);
+  apply.call(car,false,Ae,Pe,E);assert.equal(mesh.visible,false);assert.equal(name.visible,false);
+  apply.call(car,true,Ae,Pe,E);assert.equal(mesh.visible,true);
 });

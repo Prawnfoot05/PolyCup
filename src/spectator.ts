@@ -117,18 +117,30 @@ export function renderCarPose(car: NativeCar | undefined, pose: CameraView) {
 export class CameraBuffer {
   #frames: CameraPose[] = [];
   #playhead: number | null = null;
+  #arrivalAges: number[] = [];
+  #delay: number = VIEW_DELAY_MS;
   #lastTick: number | null = null;
 
   constructor() {}
-  push(p: CameraPose) {
+  push(p: CameraPose, receivedAt = p.at) {
     if (!validPose(p)) return false;
     const last = this.#frames.at(-1);
     if (last && last.sessionId === p.sessionId && last.at >= p.at) return false;
     if (last && (last.sessionId !== p.sessionId || p.frames < last.frames)) {
       this.#frames = [];
+      this.#arrivalAges = [];
+      this.#delay = VIEW_DELAY_MS;
       this.#playhead = null;
       this.#lastTick = null;
     }
+    this.#arrivalAges.push(Math.max(0, receivedAt - p.at));
+    this.#arrivalAges = this.#arrivalAges.slice(-40);
+    const needed = Math.min(
+      1200,
+      Math.max(VIEW_DELAY_MS, ...this.#arrivalAges.map((age) => age + 150)),
+    );
+    // Grow immediately on late arrivals; shed extra delay slowly after recovery.
+    this.#delay = Math.max(needed, this.#delay - 1);
     this.#frames.push(p);
     this.#frames = this.#frames.slice(-40);
     return true;
@@ -169,7 +181,7 @@ export class CameraBuffer {
       this.#lastTick = null;
       return null;
     }
-    const desired = now - VIEW_DELAY_MS;
+    const desired = now - this.#delay;
     if (this.#playhead === null || this.#lastTick === null || tick - this.#lastTick > 1000)
       this.#playhead = desired;
     else {
@@ -177,7 +189,7 @@ export class CameraBuffer {
       // Correct drift gradually; packet arrival and clock synchronization must
       // never rewind the camera or cause the native 50 ms catch-up steps.
       const drift = desired - (this.#playhead + dt);
-      const rate = Math.max(0.9, Math.min(1.1, 1 + drift / 1000));
+      const rate = Math.max(0.8, Math.min(1.1, 1 + drift / 1000));
       this.#playhead += dt * rate;
     }
     this.#lastTick = tick;

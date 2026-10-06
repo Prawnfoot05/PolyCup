@@ -124,6 +124,9 @@ export class Controller {
   #error: string = '';
   #resetKey: string = '';
   #startKey: string = '';
+  #hookedCar: NativeCar | null = null;
+  #hookedRound: string = '';
+  #startedCar: NativeCar | null = null;
   #readyKey: string = '';
   #lastBroadcast: number = 0;
   #transport: CupTransport;
@@ -327,14 +330,27 @@ export class Controller {
         this.#native.clearRecords(this.#connection);
         if (racing) info.spectator.isEnabled = false;
         this.#info = this.#native.read(game);
-        if (phase !== 'warmup' && racing) this.hookFinish(this.gameInfo.car, run);
+      }
+      if (
+        phase !== 'warmup' &&
+        racing &&
+        (this.#hookedCar !== this.gameInfo.car || this.#hookedRound !== run.id)
+      ) {
+        this.#hookedCar = this.gameInfo.car;
+        this.#hookedRound = run.id;
+        this.hookFinish(this.gameInfo.car, run);
       }
       const startDue =
         (phase === 'countdown' || phase === 'racing') &&
         run.startsAt !== null &&
         this.now() >= run.startsAt!!;
-      if (racing && startDue && this.#startKey !== run.id) {
+      if (
+        racing &&
+        startDue &&
+        (this.#startKey !== run.id || this.#startedCar !== this.gameInfo.car)
+      ) {
         this.#startKey = run.id;
+        this.#startedCar = this.gameInfo.car;
         this.gameInfo.car.start();
         this.captureInputs();
       }
@@ -353,6 +369,20 @@ export class Controller {
       !(this.localPlayerId in this.round.finishes) &&
       !this.round.dnfs.includes(this.localPlayerId)
     );
+  }
+  handleRestart(game: NativeGame) {
+    if (!this.#state || game !== this.#game) return false;
+    if (
+      this.cup.phase === 'warmup' &&
+      !this.#info?.disposed &&
+      this.localPlayerId !== null &&
+      Cup.activeIds(this.cup).includes(this.localPlayerId) &&
+      this.gameInfo.sessionId === this.cup.runtime?.sessionId
+    ) {
+      this.#native.reset(game);
+      this.#info = this.#native.read(game);
+    }
+    return true;
   }
   shouldBlockRestart(game: NativeGame) {
     return !!this.#state && game === this.#game && this.cup.phase !== 'warmup';
@@ -761,7 +791,7 @@ export class Controller {
   }
   bufferCamera(id: number, pose: CameraPose) {
     if (!this.#cameraBuffers.has(id)) this.#cameraBuffers.set(id, new CameraBuffer());
-    this.#cameraBuffers.get(id)!.push(pose);
+    this.#cameraBuffers.get(id)!.push(pose, this.now());
   }
   relayCamera(id: number, pose: CameraPose) {
     this.bufferCamera(id, pose);
@@ -800,6 +830,18 @@ export class Controller {
       for (const [id, upload] of this.#trackUploads)
         if (upload.until < Date.now()) this.#trackUploads.delete(id);
       if (this.#isHost) {
+        for (const racer of this.cup.roster) {
+          const peer = this.#lobby.find((p) => p.id === racer.id);
+          if (!peer) continue;
+          const country =
+            typeof peer.countryCode === 'string' && /^[a-z]{2}$/i.test(peer.countryCode)
+              ? peer.countryCode.toLowerCase()
+              : null;
+          if (racer.countryCode !== country) {
+            racer.countryCode = country;
+            Cup.touch(this.cup);
+          }
+        }
         this.checkDisconnects();
         this.advanceClock();
         if (this.cup.phase === 'racing' && this.gameInfo.sessionId === this.round.sessionId) {

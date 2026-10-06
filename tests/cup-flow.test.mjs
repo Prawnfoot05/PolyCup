@@ -204,3 +204,20 @@ test('organizer outside the racer roster enables Cup spectator HUD in setup and 
   c.lobby=c.lobby.map(p=>({...p,isSelf:p.id===1}));c.observeGame(c.game);
   assert.equal(entries,6);
 });
+
+
+test('a warmup restart at the countdown boundary keeps the replacement car bound to Cup', () => {
+  const c=room();c.state.phase='warmup';c.state.runtime.startsAt=40000;
+  c.lobby=c.lobby.map(p=>({...p,isSelf:p.id===1}));c.connection.getPlayers=()=>c.lobby;c.info.connection=c.connection;
+  const car=()=>({starts:0,start(){this.starts++;},addCheckpointCallback(fn){this.checkpoint=fn;},addFinishCallback(fn){this.finish=fn;},getTime:()=>({numberOfFrames:25000}),getNextCheckpointIndex:()=>1});
+  c.info.car=car();c.info.checkpointCount=3;
+  c.native.read=()=>c.info;c.native.reset=()=>{c.info.car=car();};c.native.clearRecords=()=>{};
+  assert.equal(c.handleRestart(c.game),true);
+  c.state.phase='countdown';c.observeGame(c.game);const countdownCar=c.info.car;
+  assert.equal(c.shouldBlock(c.game),true);assert.equal(typeof countdownCar.finish,'function');
+  // A native replacement after the phase reset must not orphan callbacks.
+  c.info.car=car();c.observeGame(c.game);const replacement=c.info.car;
+  assert.equal(typeof replacement.finish,'function');assert.equal(c.shouldBlock(c.game),true);
+  c.now=()=>40000;c.state.phase='racing';c.observeGame(c.game);assert.equal(replacement.starts,1);
+  c.now=()=>65000;replacement.finish();assert.equal(c.state.runtime.finishes[1],25000);
+});
