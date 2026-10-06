@@ -131,3 +131,59 @@ test('race times preserve milliseconds across minute boundaries and gaps remain 
   for (const input of [undefined, null, NaN, Infinity, -1]) assert.equal(formatTime(input), '—');
   assert.equal(formatGap(123), '+0.123'); assert.equal(formatGap(101631), '+1:41.631');
 });
+
+
+test('missing native identity is a waiting state, not a crash or an actionable racer', () => {
+  const {host, guests:[guest]} = room(); host.create('Reconnect');
+  Cup.addPlayer(host.state, 1, 'Host'); Cup.addPlayer(host.state, 2, 'Guest');
+  host.broadcast();
+  guest.connection.getPlayers = () => [{id:1,nickname:'Host'}];
+  let renders=0, actions=0;
+  guest.onChange=()=>{ renders++; assert.equal(guest.localPlayerId,null); assert.equal(guest.canSpectate(),false); };
+  guest.transport.send=()=>{actions++;return true;};
+  assert.doesNotThrow(()=>guest.tick());
+  assert.equal(guest.error,''); assert.ok(renders>0);
+  assert.equal(guest.shouldBlock(guest.game),true);
+  assert.doesNotThrow(()=>{guest.action('join'); guest.flushInputs(); guest.refreshRecords(); guest.sendReady(); guest.beforeRender(guest.game);});
+  assert.equal(actions,0);
+  guest.state.matches=[{players:[1,2],winners:[]}]; guest.state.matchIndex=0;
+  guest.state.runtime={id:'round',sessionId:7,startsAt:0,finishes:{},dnfs:[]};
+  for(const phase of ['loading','warmup','countdown','racing','between-rounds','complete']) {
+    guest.state.phase=phase;
+    assert.doesNotThrow(()=>{guest.tick(); guest.beforeRender(guest.game); guest.flushInputs(); guest.watchRemaining(); guest.refreshRecords(); guest.sendReady();},phase);
+    assert.equal(guest.error,''); assert.equal(guest.canSpectate(),false);
+  }
+  assert.equal(actions,0);
+  assert.doesNotThrow(()=>guest.releaseCup('Ended'));
+});
+
+test('joining game reads its own identity before the first tick and cannot reuse the old lobby identity', () => {
+  const {host, guests:[guest]}=room(); host.create('Reconnect');
+  const previous=guest.connection, next={getPlayers:()=>[{id:1,nickname:'Host'}]};
+  guest.native.Host=class Host {};
+  guest.native.read=game=>({connection:game.connection,disposed:false,spectator:{isEnabled:false}});
+  guest.lastHello=Date.now();
+  const game={connection:next};
+  assert.doesNotThrow(()=>guest.observeGame(game));
+  assert.notEqual(guest.connection,previous); assert.equal(guest.localPlayerId,null);
+  assert.equal(guest.state,null); assert.equal(guest.lastHello,0);
+  assert.doesNotThrow(()=>guest.receive(0,host.syncMessage()));
+  assert.equal(guest.state.id,host.state.id);
+  next.getPlayers=()=>[{id:1,nickname:'Host'},{id:9,nickname:'Guest',isSelf:true}];
+  assert.doesNotThrow(()=>guest.observeGame(game));
+  assert.equal(guest.localPlayerId,9);
+  assert.equal(Cup.player(guest.state,9),undefined,'rejoining never silently claims an old racer');
+});
+
+test('deferred leave cleanup does not clear a replacement game, but clears a departed lobby', async t => {
+  const {guests:[guest]}=room();
+  t.mock.timers.enable({apis:['setTimeout']});
+  const old=guest.game;
+  guest.gameDisposed(old);
+  guest.game={};
+  t.mock.timers.tick(500);
+  assert.notEqual(guest.game,null);
+  guest.gameDisposed(guest.game);
+  t.mock.timers.tick(500);
+  assert.equal(guest.connection,null); assert.equal(guest.state,null); assert.equal(guest.localPlayerId,null);
+});

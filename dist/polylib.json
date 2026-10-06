@@ -1,6 +1,6 @@
 {
   "shortdesc": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
   "changelogs": {
-    "0.2.15": "TypeScript source with strict checks, explicit native and network contracts, and runtime-private internal fields. No gameplay rule changes."
+    "0.2.16": "Fix a player-side crash when leaving and rejoining an active Cup before the native lobby identity is available."
   }
 }

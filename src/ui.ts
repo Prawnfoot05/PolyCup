@@ -251,6 +251,7 @@ export class CupUI {
     this.#restartHint.update(
       c.game ? c.native.hudElement(c.game) : null,
       s?.phase === 'racing' &&
+        c.localPlayerId !== null &&
         Cup.activeIds(s).includes(c.localPlayerId) &&
         !Cup.roundDone(s, c.localPlayerId),
     );
@@ -284,6 +285,7 @@ export class CupUI {
       !this.#open &&
       s?.runtime &&
       ['warmup', 'countdown', 'racing'].includes(s.phase) &&
+      c.localPlayerId !== null &&
       Cup.activeIds(s).includes(c.localPlayerId) &&
       this.#ghostHintCup !== s.id
     ) {
@@ -803,7 +805,7 @@ export class CupUI {
             ),
           );
         for (const track of tracks) {
-          const selected = s.picks[c.localPlayerId] === track.id;
+          const selected = c.localPlayerId !== null && s.picks[c.localPlayerId] === track.id;
           const banned = isBanned(s, track.id);
           const button = this.button(
             '',
@@ -905,6 +907,7 @@ export class CupUI {
         if (s.phase === 'warmup') this.#body.append(this.practiceControls());
         if (
           s.phase === 'racing' &&
+          c.localPlayerId !== null &&
           Cup.activeIds(s).includes(c.localPlayerId) &&
           !Cup.roundDone(s, c.localPlayerId)
         )
@@ -1314,7 +1317,7 @@ export class CupUI {
       clock = h('strong');
     clock.dataset.clock = '';
     box.append(count, clock);
-    if (ids.includes(c.localPlayerId)) {
+    if (c.localPlayerId !== null && ids.includes(c.localPlayerId)) {
       const button = this.button(
         ready.includes(c.localPlayerId) ? 'Ready ✓' : 'Ready',
         () => c.action('practice-ready', run.id),
