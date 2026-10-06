@@ -47,7 +47,6 @@ export class CupUI {
   #carThumbnails: Map<string, Promise<string | null>> = new Map();
   #playerThumbnails: Map<number, Promise<string | null>> = new Map();
   #shadow: ShadowRoot;
-  #toggle: HTMLButtonElement;
   #panel: HTMLElement;
   #hud: HTMLElement;
   #povHud: HTMLElement;
@@ -84,21 +83,13 @@ export class CupUI {
     this.#shadow = root.attachShadow({ mode: 'open' });
     const style = h('style', css);
     this.#shadow.append(style);
-    this.#toggle = this.button(
-      'PolyCup · F8',
-      () => {
-        this.#open = !this.#open;
-        this.#signature = '';
-        this.render();
-      },
-      'launcher',
-    );
+    const menuVersion = h('div', `PolyCup ${Cup.VERSION}`, 'menu-version');
     this.#panel = h('section', undefined, 'panel');
     this.#panel.setAttribute('aria-label', 'Simple Cup');
     this.#hud = h('aside', undefined, 'hud');
     this.#povHud = h('aside', undefined, 'pov-hud');
     this.#povRecordHud = h('aside', undefined, 'pov-record-hud');
-    this.#shadow.append(this.#toggle, this.#panel, this.#hud, this.#povHud, this.#povRecordHud);
+    this.#shadow.append(menuVersion, this.#panel, this.#hud, this.#povHud, this.#povRecordHud);
     this.#invite = new CupInvite();
     this.#notice = h('div', undefined, 'notice');
     this.#notice.hidden = true;
@@ -130,7 +121,7 @@ export class CupUI {
     this.#inputHud.append(this.#inputStatus);
     this.#c.onInputsChanged(() => this.updateInputOverlay());
     this.#toolbar = new CupToolbar({
-      fallback: this.#toggle,
+      fallback: menuVersion,
       hud: this.#hud,
       povHud: this.#povHud,
       povRecordHud: this.#povRecordHud,
@@ -138,7 +129,7 @@ export class CupUI {
       practiceHud: this.#practiceHud,
       notice: this.#notice,
       roundTimer: this.#roundTimer,
-      toggle: () => this.#toggle.click(),
+      toggle: () => this.togglePanel(),
     });
     for (const type of ['keydown', 'keyup', 'keypress'] as const)
       this.#panel.addEventListener(type, (e) => {
@@ -176,7 +167,7 @@ export class CupUI {
       if (this.#c.restartHotkey(e)) e.preventDefault();
       if (e.code === 'F8') {
         e.preventDefault();
-        this.#toggle.click();
+        this.togglePanel();
       }
       if (
         !['INPUT', 'TEXTAREA', 'SELECT'].includes(this.#shadow.activeElement?.tagName ?? '') &&
@@ -241,6 +232,11 @@ export class CupUI {
     this.#c.toggleGhosts();
     this.#ghostHintCup = this.#c.state?.id;
     this.showNotice(this.#c.hideOtherGhosts ? 'Other ghosts hidden' : 'Other ghosts shown', 1600);
+    this.#signature = '';
+    this.render();
+  }
+  togglePanel() {
+    this.#open = !this.#open;
     this.#signature = '';
     this.render();
   }

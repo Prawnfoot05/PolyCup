@@ -14,7 +14,7 @@ button:disabled,button.primary:disabled { cursor:default; opacity:1; background:
 button:disabled::after { content:none; }
 /* Selected controls already own a gold edge; don't stack a second hover stripe. */
 button.selected::after,button.track-card.added::after { border-bottom:0; }
-.launcher { position:fixed; right:18px; top:16px; z-index:100100; border-bottom:3px solid var(--gold); font-size:27px; }
+.menu-version { position:fixed; right:18px; top:16px; z-index:100100; color:var(--muted); font-size:18px; line-height:1.2; pointer-events:none; }
 .panel { position:fixed; z-index:100101; left:50%; top:50%; transform:translate(-50%,-50%); width:min(880px,calc(100vw - 36px)); max-height:calc(100dvh - 32px); display:flex; flex-direction:column; background:var(--deep); border-top:4px solid var(--gold); clip-path:var(--cut); }
 header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:18px 24px 14px; background:var(--blue); }
 .header-title { flex:1; min-width:0; } .header-title p { overflow-wrap:anywhere; }

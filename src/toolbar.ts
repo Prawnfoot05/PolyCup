@@ -100,7 +100,6 @@ export class CupToolbar {
     if (!container) this.#button.remove();
     this.#fallback.hidden = !!container;
     this.#button.setAttribute('aria-expanded', String(!!this.#open));
-    this.#fallback.setAttribute('aria-expanded', String(!!this.#open));
     this.#button.tabIndex = toolbar?.classList.contains('visible') ? 0 : -1;
 
     layoutCupHud(this.#overlays);
