@@ -190,3 +190,17 @@ test('native results presentation updates after session end and restores even wh
   c.releaseCup('Ended'); assert.deepEqual(views.at(-1),[false,false]);
   c.beforeRender(c.game); assert.deepEqual(views.at(-1),[false,false]);
 });
+
+
+test('organizer outside the racer roster enables Cup spectator HUD in setup and between rounds', () => {
+  const c=room();c.selfId=4;c.lobby=c.lobby.map(p=>({...p,isSelf:p.id===4}));
+  c.connection.getPlayers=()=>c.lobby;c.info.connection=c.connection;c.info.sessionId=10;
+  c.native.read=()=>c.info;let entries=0;
+  c.native.enableCupSpectator=g=>{assert.equal(g,c.game);entries++;c.info.spectator.isEnabled=true;};
+  for(const phase of ['registration','loading','warmup','countdown','racing','between-rounds']) {
+    c.state.phase=phase;c.observeGame(c.game);assert.equal(c.localPlayerId,4);
+  }
+  assert.equal(entries,6);
+  c.lobby=c.lobby.map(p=>({...p,isSelf:p.id===1}));c.observeGame(c.game);
+  assert.equal(entries,6);
+});

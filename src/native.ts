@@ -40,6 +40,14 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
     Host: ii, Client: vc, Game: Is, TrackLibrary: du,
     renderer: g => la.get(g),
     hudElement: g => _a.get(g)?.element,
+    enableCupSpectator: g => {
+      const spectator=fs.get(g);
+      if (spectator.isEnabled) return;
+      spectator.isEnabled=true;
+      // Native free-camera mode hides the whole HUD, including the toolbar.
+      // Restore it only on entry; dialogs and Toggle UI retain ownership afterward.
+      _a.get(g).isVisible=Ma.get(g) !== false;
+    },
     presentation: (g, cup, watching) => {
       const ended=!!ss.get(g), ui=_a.get(g)?.element, backdrop=Hr.get(Oa.get(g));
       ui?.classList.toggle('polycup-watching', !!cup && !!watching && !ended);

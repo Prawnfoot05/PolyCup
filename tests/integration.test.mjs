@@ -395,3 +395,18 @@ test('automatic scheduling waits for recovery and resumes after a restarted roun
   c.finishRound();assert.ok(c.nextAuto>Date.now());
   c.toggleAutomaticRounds();assert.equal(c.auto,false);assert.equal(c.nextAuto,null);
 });
+
+
+test('non-racing Cup spectator entry restores the parent HUD without overriding Hide UI or dialogs', () => {
+  class Game {update(){} dispose(){}} class Library {}
+  const game={},hud={isVisible:true};let enabled=false;
+  const spectator={get isEnabled(){return enabled;},set isEnabled(value){enabled=value;hud.isVisible=false;}};
+  const fs=new WeakMap([[game,spectator]]),_a=new WeakMap([[game,hud]]),Ma=new WeakMap([[game,true]]);
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','fs','_a','Ma',
+    `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,fs,_a,Ma)};
+  const native=connectNative(pml,{});
+  native.enableCupSpectator(game);assert.equal(enabled,true);assert.equal(hud.isVisible,true);
+  hud.isVisible=false;native.enableCupSpectator(game);assert.equal(hud.isVisible,false);
+  enabled=false;Ma.set(game,false);native.enableCupSpectator(game);assert.equal(hud.isVisible,false);
+  enabled=false;Ma.set(game,true);native.enableCupSpectator(game);assert.equal(hud.isVisible,true);
+});

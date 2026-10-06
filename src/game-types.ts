@@ -104,6 +104,7 @@ export interface NativeApi {
   trackLibrary?: TrackLibrary;
   read(game: NativeGame): GameInfo;
   renderer(game: NativeGame): { update: (...args: unknown[]) => unknown };
+  enableCupSpectator(game: NativeGame): void;
   hudElement(game: NativeGame): HTMLElement | null;
   presentation(game: NativeGame, cup: boolean, watching: boolean): void;
   carThumbnail(style: CarStyle): Promise<string>;

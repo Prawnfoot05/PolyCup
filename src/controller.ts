@@ -312,7 +312,7 @@ export class Controller {
     if (!this.#state || this.localPlayerId === null) return;
     const racing = Cup.activeIds(this.#state).includes(this.localPlayerId);
     const phase = this.cup.phase;
-    if (!racing && info.spectator) info.spectator.isEnabled = true;
+    if (!racing && info.spectator) this.#native.enableCupSpectator?.(game);
     const run = this.cup.runtime;
     if (
       run &&
