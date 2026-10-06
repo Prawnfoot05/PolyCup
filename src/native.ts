@@ -45,6 +45,11 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
       ui?.classList.toggle('polycup-watching', !!cup && !!watching && !ended);
       ui?.classList.toggle('polycup-session-ended', !!cup && ended);
       backdrop?.classList.toggle('polycup-session-ended', !!cup && ended);
+      if (cup && watching && !ended) {
+        const toolbar=Na.get(g);
+        toolbar.setVisible(!fa.get(g).isCursorHidden || toolbar.hasFocus() ||
+          !!ui?.querySelector('.polycup-toolbar-button:focus'));
+      }
     },
     records: g => ({ server: jd.get(da.get(g)), profiles: ha.get(g), store: da.get(g) }),
     carThumbnail: style => kr.F(style, new Sr.A()),

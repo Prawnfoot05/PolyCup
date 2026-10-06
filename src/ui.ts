@@ -1,6 +1,7 @@
 import type { RaceRecord, SessionRecord } from './types.ts';
 import type { InputVisualizer, LibraryTrack } from './game-types.ts';
 import type { Controller } from './controller.ts';
+import { downtimeLabel, roundSeconds } from './race-status.ts';
 import { roundStartCue } from './countdown.ts';
 import * as Cup from './cup.ts';
 import { element as h } from './dom.ts';
@@ -54,6 +55,8 @@ export class CupUI {
   #invite: CupInvite;
   #notice: HTMLElement;
   #startCue: HTMLElement;
+  #roundTimer: HTMLElement;
+  #downtime: HTMLElement;
   #practiceHud: HTMLElement;
   #finishCue: HTMLElement;
   #inputHud: HTMLElement;
@@ -106,6 +109,12 @@ export class CupUI {
     this.#startCue.setAttribute('role', 'status');
     this.#startCue.setAttribute('aria-live', 'assertive');
     this.#shadow.append(this.#startCue);
+    this.#roundTimer = h('aside', undefined, 'round-timer');
+    this.#roundTimer.setAttribute('aria-label', 'Round time remaining');
+    this.#downtime = h('div', undefined, 'downtime');
+    this.#downtime.hidden = true;
+    this.#downtime.setAttribute('role', 'status');
+    this.#shadow.append(this.#roundTimer, this.#downtime);
     this.#practiceHud = h('aside', undefined, 'practice-hud');
     this.#practiceHud.hidden = true;
     this.#finishCue = h('section', undefined, 'finish-cue');
@@ -128,6 +137,7 @@ export class CupUI {
       inputHud: this.#inputHud,
       practiceHud: this.#practiceHud,
       notice: this.#notice,
+      roundTimer: this.#roundTimer,
       toggle: () => this.#toggle.click(),
     });
     for (const type of ['keydown', 'keyup', 'keypress'] as const)
@@ -459,6 +469,13 @@ export class CupUI {
       if (grid) grid.scrollTop = gridScroll;
     }
     this.updateInputOverlay();
+    const seconds = this.#open ? null : roundSeconds(s, c.now());
+    this.#roundTimer.classList.toggle('visible', seconds !== null);
+    this.#roundTimer.setAttribute('aria-hidden', String(seconds === null));
+    if (seconds !== null) this.#roundTimer.textContent = `${seconds}s`;
+    const label = this.#open ? '' : downtimeLabel(s?.phase, c.recoveryRacers().length > 0);
+    this.#downtime.hidden = !label;
+    if (this.#downtime.textContent !== label) this.#downtime.textContent = label;
     this.#toolbar.sync(this.#open);
     for (const e of this.#shadow.querySelectorAll('[data-clock]')) {
       const run = s?.runtime;
@@ -1225,9 +1242,6 @@ export class CupUI {
           : names[s.phase],
       ),
     );
-    const clock = h('strong');
-    clock.dataset.clock = '';
-    status.append(clock);
     title.append(status);
     const records = s.records[id],
       tr = sessionRecord(s, id);

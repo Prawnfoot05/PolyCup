@@ -24,11 +24,12 @@ export class CupToolbar {
     inputHud,
     practiceHud,
     notice,
+    roundTimer,
     toggle,
   }: HudElements & { fallback: HTMLElement; toggle: () => void }) {
     this.#fallback = fallback;
 
-    this.#overlays = { hud, povHud, povRecordHud, inputHud, practiceHud, notice };
+    this.#overlays = { hud, povHud, povRecordHud, inputHud, practiceHud, notice, roundTimer };
     this.#button = document.createElement('button');
     this.#button.type = 'button';
     this.#button.className = 'button polycup-toolbar-button';

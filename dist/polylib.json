@@ -1,6 +1,6 @@
 {
   "shortdesc": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
   "changelogs": {
-    "0.2.18": "Returning racers can reclaim their active Cup slot using a profile-based signature and a Rejoin Cup prompt. Native account tokens remain local; organizer recovery remains available."
+    "0.2.19": "Returning racers can reclaim their active Cup slot using a profile-based signature and a Rejoin Cup prompt. Native account tokens remain local; organizer recovery remains available."
   }
 }

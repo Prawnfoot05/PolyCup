@@ -5,6 +5,7 @@ export interface HudElements {
   inputHud: HTMLElement;
   practiceHud: HTMLElement;
   notice: HTMLElement;
+  roundTimer?: HTMLElement;
 }
 interface Bounds {
   left: number;
@@ -68,6 +69,7 @@ export function layoutCupHud({
   inputHud,
   practiceHud,
   notice,
+  roundTimer,
 }: HudElements) {
   const native = [...document.querySelectorAll(nativeParts)]
     .map((e) => visibleHudRect(e))
@@ -77,7 +79,7 @@ export function layoutCupHud({
       element.style.setProperty(property, `${value}px`);
   };
   const placed = [];
-  for (const element of [povHud, povRecordHud, inputHud, practiceHud, notice]) {
+  for (const element of [povHud, povRecordHud, inputHud, practiceHud, notice, roundTimer]) {
     if (!element) continue;
     const clearance = edgeClearance(
       element.getBoundingClientRect(),

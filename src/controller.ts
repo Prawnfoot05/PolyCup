@@ -139,7 +139,7 @@ export class Controller {
 
   #lastHello: number = 0;
   #lastSaved: number = -1;
-  #auto: boolean = false;
+  #auto: boolean = true;
   #cameraTransport: CupTransport;
   #cameraBuffers: Map<number, CameraBuffer> = new Map();
   #subscriptions: Map<number, number> = new Map();
@@ -219,6 +219,10 @@ export class Controller {
   toggleAutomaticRounds() {
     this.requireHost();
     this.#auto = !this.#auto;
+    this.#nextAuto =
+      this.#auto && this.#state?.phase === 'between-rounds' && !this.recoveryRacers().length
+        ? Date.now() + 5000
+        : null;
   }
   onInputsChanged(callback: () => void) {
     this.#onSpectatorInputs = callback;
@@ -813,7 +817,7 @@ export class Controller {
           Date.now() >= this.#nextAuto
         ) {
           this.#nextAuto = null;
-          this.runRound();
+          if (!this.recoveryRacers().length) this.runRound();
         }
         if (Date.now() - this.#lastBroadcast > 1000 || this.#sentRevision !== this.cup.revision)
           this.broadcast();
@@ -1631,12 +1635,12 @@ export class Controller {
         !s.runtime!.dnfs.includes(id),
     );
     if (!missing.length) return;
-    this.#auto = false;
+    this.#nextAuto = null;
     if (s.disconnectPolicy === 'dnf' && s.phase === 'racing') {
       const before = standings(s).map((r) => r.id);
       for (const id of missing) Cup.markDNF(s, id);
       updateLiveMovement(s, before);
-      Cup.note(s, 'Disconnected racers received DNF. Automatic rounds stopped.');
+      Cup.note(s, 'Disconnected racers received DNF. Waiting for reconnect.');
     } else {
       this.#review.close(s, 'void');
       Cup.voidRound(s);
@@ -1725,13 +1729,15 @@ export class Controller {
   finishRound() {
     this.change(Cup.completeRound);
     this.#loadingSession = undefined;
-    this.#nextAuto = this.#auto && this.cup.phase === 'between-rounds' ? Date.now() + 5000 : null;
+    this.#nextAuto =
+      this.#auto && this.cup.phase === 'between-rounds' && !this.recoveryRacers().length
+        ? Date.now() + 5000
+        : null;
   }
   voidRound() {
     this.change(Cup.voidRound);
     this.#loadingSession = undefined;
     this.#nextAuto = null;
-    this.#auto = false;
   }
   exportData() {
     return {
@@ -1787,7 +1793,7 @@ export class Controller {
     this.#state = s;
     this.#startingCup = null;
     this.#tracks = tracks;
-    this.#auto = false;
+    this.#auto = true;
     this.#nextAuto = null;
     this.#needsRebind = new Set(s.roster.map((p) => p.id));
     this.#loadingSession = undefined;

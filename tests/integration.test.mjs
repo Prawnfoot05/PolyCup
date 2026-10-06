@@ -20,10 +20,18 @@ test('native presentation is reversible and scoped to the current game and ended
   const game={}, other={}, ui=node(), otherUI=node(), backdrop=node(), endScreen={};
   const _a=new WeakMap([[game,{element:ui}],[other,{element:otherUI}]]), ss=new WeakMap([[game,false]]);
   const Oa=new WeakMap(), Hr=new WeakMap([[endScreen,backdrop]]);
-  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','_a','ss','Oa','Hr',
-    `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,_a,ss,Oa,Hr)};
+  let visible=false,focused=false; const cursor={isCursorHidden:true};
+  const Na=new WeakMap([[game,{setVisible:v=>visible=v,hasFocus:()=>focused}]]),fa=new WeakMap([[game,cursor]]);
+  ui.querySelector=()=>null;
+  const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','_a','ss','Oa','Hr','Na','fa',
+    `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,_a,ss,Oa,Hr,Na,fa)};
   const native=connectNative(pml,{}), classes=n=>[...n.classList.values];
   native.presentation(game,true,true); assert.deepEqual(classes(ui),['polycup-watching']);
+  assert.equal(visible,false);
+  cursor.isCursorHidden=false;native.presentation(game,true,true);assert.equal(visible,true);
+  cursor.isCursorHidden=true;native.presentation(game,true,true);assert.equal(visible,false);
+  focused=true;native.presentation(game,true,true);assert.equal(visible,true);
+  focused=false;ui.querySelector=()=>({});native.presentation(game,true,true);assert.equal(visible,true);
   native.presentation(game,true,false); assert.deepEqual(classes(ui),[]);
   ss.set(game,true); Oa.set(game,endScreen);
   native.presentation(game,true,true);
@@ -163,11 +171,11 @@ test('finish reports bind to the current native session and round, ignoring late
   c.receiveFinish(1, m); assert.equal(c.state.runtime.finishes[1], 5000); assert.equal(c.state.runtime.checkpoints[1], 2000);
   c.receiveFinish(1, { ...m, frames: 4000 }); assert.equal(c.state.runtime.finishes[1], 5000);
 });
-test('disconnect choices produce DNF or a void, and stop automatic rounds', () => {
+test('disconnect choices produce DNF or a void, and pause the schedule without changing automatic preference', () => {
   for (const policy of ['dnf','void']) {
     const c = new Controller(() => {}); c.state = race(); c.state.disconnectPolicy = policy;
     c.auto = true; c.lobby = [1,3,5].map(id => ({ id })); c.checkDisconnects();
-    assert.equal(c.auto, false);
+    assert.equal(c.auto, true); assert.equal(c.nextAuto, null);
     if (policy === 'dnf') assert.deepEqual(c.state.runtime.dnfs, [7]);
     else { assert.equal(c.state.runtime, null); assert.equal(c.state.phase, 'between-rounds'); }
   }
@@ -199,7 +207,7 @@ test('ghost filtering keeps the driver or watched racer, follows new cars, and r
   // Native overlap rules deliberately keep one idle lobby car invisible.
   const Cs=function(){for(const [id,r] of as.get(this)) r.car.setVisible(id!==8);};
   const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','Xa','as','Cs',
-    `let bs=()=>{},Ss=()=>{};const ss=new WeakMap(),_a=new WeakMap(),Oa=new WeakMap(),Hr=new WeakMap();return ${code}`)(class{},class{},Game,Library,Xa,as,Cs)};
+    `let bs=()=>{},Ss=()=>{};const ss=new WeakMap(),_a=new WeakMap(),Oa=new WeakMap(),Hr=new WeakMap(),Na={get:()=>({setVisible(){},hasFocus:()=>false})},fa={get:()=>({isCursorHidden:false})};return ${code}`)(class{},class{},Game,Library,Xa,as,Cs)};
   const c=new Controller(()=>{}); c.native=connectNative(pml,c);c.game=game;c.connection={};c.state=race();c.selfId=1;c.isHost=true;
   c.info={sessionId:9,spectator:{isEnabled:true}};c.lobby=[1,3,5,7,8].map(id=>({id}));
   c.transport.broadcast=c.transport.send=c.cameraTransport.send=()=>{throw new Error('Visibility must not send race data');};
@@ -374,4 +382,16 @@ test('native record adapter combines persistent profile PB with online PB and re
   local=20000;assert.equal((await native.personalBest(game,'track')).frames,20000);
   assert.deepEqual(await native.worldRecord(game,'track'),{status:'ready',frames:22000,name:'Champion'});
   server.getLeaderboard=async()=>{throw new Error('Offline');};assert.deepEqual(await native.worldRecord(game,'other'),{status:'unavailable'});
+});
+
+
+test('automatic scheduling waits for recovery and resumes after a restarted round', () => {
+  const c=new Controller(()=>{});c.isHost=true;c.connection={};c.broadcast=()=>{};c.save=()=>{};
+  c.state=race();c.lobby=[1,3,5].map(id=>({id}));
+  for(const id of [1,3,5,7]) Cup.markDNF(c.state,id);
+  c.finishRound();assert.equal(c.auto,true);assert.equal(c.nextAuto,null);
+  c.lobby.push({id:7});Cup.beginRound(c.state);c.state.phase='countdown';Cup.startRace(c.state,Date.now());
+  for(const id of [1,3,5,7]) Cup.markDNF(c.state,id);
+  c.finishRound();assert.ok(c.nextAuto>Date.now());
+  c.toggleAutomaticRounds();assert.equal(c.auto,false);assert.equal(c.nextAuto,null);
 });
