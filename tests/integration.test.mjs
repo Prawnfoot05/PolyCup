@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Controller, validSnapshot } from '../src/controller.mjs';
-import * as Cup from '../src/cup.mjs';
-import { CameraBuffer, validPose, renderCarPose } from '../src/spectator.mjs';
-import { CupTransport, connectNative, beforeGameRender } from '../src/native.mjs';
+import { Controller, validSnapshot } from '../.research/test-src/controller.ts';
+import * as Cup from '../.research/test-src/cup.ts';
+import { CameraBuffer, validPose, renderCarPose } from '../.research/test-src/spectator.ts';
+import { CupTransport, connectNative, beforeGameRender } from '../.research/test-src/native.ts';
 import { pack, unpack } from '../scripts/asar.mjs';
 function race() {
   const s = Cup.newCup();
@@ -349,7 +349,7 @@ test('PB reports are informational, session-bound and identity-bound; stale reco
   c.receivePB(1,{cupId:c.state.id,trackId:id,pb});assert.deepEqual(c.state.records[id].pbs[1],{status:'ready',frames:12345,source:'profile'});
   c.receivePB(1,{cupId:c.state.id,trackId:id,pb:{...pb,frames:-1}});assert.equal(c.state.records[id].pbs[1].frames,12345);
   assert.ok(validSnapshot(c.networkState()));
-  let finish; c.native={personalBest:()=>new Promise(resolve=>finish=resolve),worldRecord:async()=>({status:'missing'})};c.refreshRecords();
+  let finish; c.game={}; c.native={personalBest:()=>new Promise(resolve=>finish=resolve),worldRecord:async()=>({status:'missing'})};c.refreshRecords();
   await Promise.resolve();c.state=Cup.newCup('New Cup');finish(pb);await new Promise(resolve=>setTimeout(resolve,0));assert.deepEqual(c.state.records,{});
 });
 test('compact live snapshots retain TR across tracks and round history truncation', () => {

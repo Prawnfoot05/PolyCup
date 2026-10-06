@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as Cup from '../src/cup.mjs';
-import { Controller, validSnapshot } from '../src/controller.mjs';
-import { resultRows } from '../src/results.mjs';
+import * as Cup from '../.research/test-src/cup.ts';
+import { Controller, validSnapshot } from '../.research/test-src/controller.ts';
+import { resultRows } from '../.research/test-src/results.ts';
 
 const trackId = 'a'.repeat(64);
 function setup() {

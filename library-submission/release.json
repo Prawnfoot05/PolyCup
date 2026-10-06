@@ -1,9 +1,0 @@
-{
-  "mod_id": "polytrack-world-cup",
-  "version": "0.2.11",
-  "game_versions": [
-    "0.6.3"
-  ],
-  "dependencies": [],
-  "changelog": "Use the native full-restart key to retire from a live round; checkpoint resets and practice restarts remain unchanged.\nLive rankings follow checkpoint progress with cumulative lap times, same-checkpoint gaps and green/red position arrows."
-}

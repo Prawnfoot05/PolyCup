@@ -2,15 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.11",
+  "version": "0.2.15",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
-  "description": "Simple live Cups for 2â€“8 racers: one track pick each, finalist scoring, smooth POV spectating, PB and record panels.",
-  "changelog": [
-    "Use the native full-restart key to retire from a live round; checkpoint resets and practice restarts remain unchanged.",
-    "Live rankings follow checkpoint progress with cumulative lap times, same-checkpoint gaps and green/red position arrows."
-  ]
+  "description": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
+  "changelog": "TypeScript source with strict checks, explicit native and network contracts, and runtime-private internal fields. No gameplay rule changes."
 }

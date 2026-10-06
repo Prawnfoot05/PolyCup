@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as Cup from '../src/cup.mjs';
-import { Controller, validSnapshot } from '../src/controller.mjs';
+import * as Cup from '../.research/test-src/cup.ts';
+import { Controller, validSnapshot } from '../.research/test-src/controller.ts';
 
 const id = n => String(n).repeat(64);
 const wr = frames => ({ status: 'ready', frames, name: 'Record holder' });

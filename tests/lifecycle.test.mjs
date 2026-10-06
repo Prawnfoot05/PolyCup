@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Controller } from '../src/controller.mjs';
-import * as Cup from '../src/cup.mjs';
-import { formatTime, formatGap } from '../src/time.mjs';
-import { roundStartCue } from '../src/countdown.mjs';
+import { Controller } from '../.research/test-src/controller.ts';
+import * as Cup from '../.research/test-src/cup.ts';
+import { beginBans, banTrack, banTurn } from '../.research/test-src/draft.ts';
+import { formatTime, formatGap } from '../.research/test-src/time.ts';
+import { roundStartCue } from '../.research/test-src/countdown.ts';
 
 test('center start cue uses the shared round timestamp, tolerates a late phase update, and clears on cancellation', () => {
   const state={phase:'countdown',runtime:{sessionId:7,startsAt:10000}};
@@ -52,7 +53,10 @@ test('Cup creation opens every panel once; personal panel changes are never shar
 
 test('each loading and start transition closes all panels; a manual reopen lasts until the next transition', () => {
   const { host, clients } = room(); host.create();
-  for (const id of [1, 2]) { Cup.addPlayer(host.state, id, `P${id}`); Cup.chooseTrack(host.state, id, { id: 'a'.repeat(64), name: 'Track' }); }
+  for (const id of [1, 2]) Cup.addPlayer(host.state, id, `P${id}`);
+  beginBans(host.state);
+  for (const hash of ['b','c']) banTrack(host.state, banTurn(host.state), { id: hash.repeat(64), name: hash, category: 'official' });
+  for (const id of [1, 2]) Cup.chooseTrack(host.state, id, { id: 'a'.repeat(64), name: 'Track' });
   Cup.lockRegistration(host.state); Cup.beginRound(host.state);
   for (const phase of ['loading', 'warmup', 'countdown', 'racing']) {
     host.state.phase = phase; host.state.runtime.sessionId = 7; host.state.runtime.startsAt = Date.now() + 3000;

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as Cup from '../src/cup.mjs';
-import { CheckpointProgress } from '../src/progress.mjs';
-import { standings, updateLiveMovement, sessionRecord } from '../src/standings.mjs';
-import { Controller, validSnapshot } from '../src/controller.mjs';
+import * as Cup from '../.research/test-src/cup.ts';
+import { CheckpointProgress } from '../.research/test-src/progress.ts';
+import { standings, updateLiveMovement, sessionRecord } from '../.research/test-src/standings.ts';
+import { Controller, validSnapshot } from '../.research/test-src/controller.ts';
 
 const trackId = 'a'.repeat(64);
 function race() {

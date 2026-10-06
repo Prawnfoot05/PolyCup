@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as Cup from '../src/cup.mjs';
-import { standings, sessionRecord } from '../src/standings.mjs';
+import * as Cup from '../.research/test-src/cup.ts';
+import { standings, sessionRecord } from '../.research/test-src/standings.ts';
 function grid(n = 4) {
   const s = Cup.newCup('Test cup');
   for (let i = 1; i <= n; i++) { Cup.addPlayer(s,i,`Racer ${i}`); Cup.chooseTrack(s,i,{id:String((i-1)%3+1).repeat(64),name:`Track ${i}`}); }
