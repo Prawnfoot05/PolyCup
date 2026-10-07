@@ -1,6 +1,6 @@
 {
   "shortdesc": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
   "changelogs": {
-    "0.2.22": "Playtest fixes: warmup restart recovery, adaptive spectator buffering, stable input overlay, hidden ghost skidmarks, accurate round status, local-player highlighting and country flags across Cup displays."
+    "0.2.23": "Hidden ghosts also hide smoke and dust. Country flags stay in the lobby to give race HUD names more room. Installation notes explain how to bypass a stale CDN latest-version lookup."
   }
 }

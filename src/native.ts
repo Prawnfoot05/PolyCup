@@ -7,14 +7,22 @@ import { renderCarPose } from './spectator.ts';
 import { profileIdentity } from './reconnect.ts';
 
 export function registerCarVisibility(pml: PolyModLoader, insertType: unknown) {
-  // PolyTrack keeps the nameplate outside the car model's scene group.
+  // Smoke, skidmarks and nameplates are separate scene objects in PolyTrack.
+  pml.registerGlobalMixin({
+    type: insertType,
+    token: 'e.scene.add((0, d.gn)(this, a, "f")),',
+    func: `Object.defineProperty(this, "setVisible", {
+      value: visible => { a.get(this).visible = visible; }
+    }),`,
+  });
   pml.registerGlobalMixin({
     type: insertType,
     token: '(0, l.gn)(this, me, "f").visible = e;',
     func: `if (!e) {
       if (Ae.get(this)) Ae.get(this).visible = false;
     }
-    for (const trail of Pe.get(this) || []) E.get(trail).visible = e;`,
+    for (const trail of Pe.get(this) || []) E.get(trail).visible = e;
+    Ue.get(this)?.setVisible(e);`,
   });
 }
 

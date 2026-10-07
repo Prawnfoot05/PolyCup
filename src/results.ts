@@ -1,5 +1,4 @@
 import { currentMatch, player } from './cup.ts';
-import { countryFlag } from './lobby.ts';
 import type { CupState } from './types.ts';
 
 export function resultRows(state: CupState) {
@@ -31,20 +30,6 @@ export async function resultsImage(
         image.src = url;
         await image.decode();
         return image;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  const flags = await Promise.all(
-    rows.map(async (r) => {
-      const url = countryFlag(player(state, r.id)?.countryCode);
-      if (!url) return null;
-      try {
-        const flag = new Image();
-        flag.src = url;
-        await flag.decode();
-        return flag;
       } catch {
         return null;
       }
@@ -98,8 +83,7 @@ export async function resultsImage(
         h = image.height * scale;
       ctx.drawImage(image, 118 + (90 - w) / 2, y + 4 + (60 - h) / 2, w, h);
     }
-    if (flags[i]) ctx.drawImage(flags[i], 222, y + 23, 30, 22);
-    text(r.name, flags[i] ? 264 : 225, y + 44, 32, ink, 'left', flags[i] ? 571 : 610);
+    text(r.name, 225, y + 44, 32, ink, 'left', 610);
     if (r.winner) text('WINNER', 840, y + 44, 25, ink);
     shape(992, y + 8, 146, 52, '#e9f1f8', 10);
     text(r.score, 1065, y + 43, 32, '#192042', 'center');

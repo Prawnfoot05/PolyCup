@@ -4,13 +4,13 @@ Live Cups for **2–8 racers** in PolyTrack **0.6.3**. By **Kiki**.
 
 ## Install
 
-Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods → Add**, import this URL with version **0.2.22**, then choose **Load → Apply**:
+Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods → Add**, import this URL with version **0.2.23**, then choose **Load → Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-All players and spectators need the same PolyCup version.
+All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN’s cached latest manifest, which may lag behind a release. Enter the version above explicitly if an older release is selected.
 
 For the bundled Windows installer, place this project folder beside PolyTrack.exe, close the game and run **Install-PolyCup.cmd**. **Restore-Original.cmd** restores the original installation; run it before switching from the bundled installer to a normal PML installation.
 

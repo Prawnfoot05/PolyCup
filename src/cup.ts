@@ -1,7 +1,7 @@
 import type { CupState, Match, RaceRecord, Track } from './types.ts';
 // Competition state is owned by the native multiplayer host. No game internals here.
 import { isBanned, picksOpen, resetDraft, rosterOpen } from './draft.ts';
-export const VERSION = '0.2.22';
+export const VERSION = '0.2.23';
 export const RULES = Object.freeze({
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   target: 140,

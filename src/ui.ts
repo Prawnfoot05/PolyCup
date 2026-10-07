@@ -585,7 +585,7 @@ export class CupUI {
     const list = h('div', undefined, 'rows');
     for (const p of s.roster) {
       const row = h('div', undefined, 'row');
-      row.append(this.racerName(p.id, p.name));
+      row.append(this.racerName(p.id, p.name, true));
       const pick = s.tracks.find((t) => t.id === s.picks[p.id]);
       row.append(h('span', pick?.name ?? 'Choosing a track…', pick ? 'badge' : 'muted'));
       const online = c.lobby.some((l) => l.id === p.id);
@@ -639,7 +639,7 @@ export class CupUI {
     this.#body.append(h('h3', 'Lobby & spectators'));
     for (const l of c.lobby) {
       const row = h('div', undefined, 'row');
-      row.append(this.racerName(l.id, l.nickname));
+      row.append(this.racerName(l.id, l.nickname, true));
       if (c.isHost && !l.isSelf && !c.hello.has(l.id))
         row.append(h('small', 'Awaiting mod', 'muted'));
       if (s.roster.some((p) => p.id === l.id)) row.append(h('span', 'Racer', 'badge'));
@@ -679,14 +679,14 @@ export class CupUI {
       ? `${[...code!.toUpperCase()].map((c) => String.fromCodePoint(127397 + c.charCodeAt(0))).join('')} ${name}`
       : name;
   }
-  playerLabel(id: number, name = this.name(id)) {
+  playerLabel(id: number, name = this.name(id), showFlag = false) {
     const label = h('span', undefined, 'player-label');
-    const flag = this.flag(this.country(id));
+    const flag = showFlag ? this.flag(this.country(id)) : null;
     if (flag) label.append(flag);
     label.append(h('span', name));
     return label;
   }
-  racerName(id: number, name: string) {
+  racerName(id: number, name: string, showFlag = false) {
     const group = h('span', undefined, 'racer-name grow'),
       image = h('img', undefined, 'car-skin');
     image.alt = '';
@@ -697,7 +697,7 @@ export class CupUI {
       if (url && image.isConnected) image.src = url;
     });
     group.append(image);
-    const flag = this.flag(this.country(id));
+    const flag = showFlag ? this.flag(this.country(id)) : null;
     if (flag) group.append(flag);
     group.append(h('span', name));
     return group;
@@ -1034,7 +1034,7 @@ export class CupUI {
     this.#body.append(h('p', 'Reconnect each returning player, then start the round.'));
     for (const racer of c.recoveryRacers()) {
       const row = h('div', undefined, 'row');
-      row.append(this.racerName(racer.id, racer.name));
+      row.append(this.racerName(racer.id, racer.name, true));
       const select = h('select');
       select.setAttribute('aria-label', `Reconnect ${racer.name}`);
       const placeholder = h('option', 'Choose returning player');
@@ -1251,9 +1251,6 @@ export class CupUI {
         if (holder.childNodes.length) holder.append(' / ');
         holder.append(this.playerLabel(id));
       }
-    } else if (record && 'countryCode' in record) {
-      const flag = this.flag(record.countryCode);
-      if (flag) holder.prepend(flag);
     }
     strip.append(
       h('strong', label),
@@ -1370,7 +1367,7 @@ export class CupUI {
     select.disabled = !racers.length;
     if (!racers.length) select.append(h('option', 'Waiting for racer'));
     for (const id of racers) {
-      const option = h('option', this.optionName(id));
+      const option = h('option', this.name(id));
       option.value = String(id);
       option.selected = id === c.watchId;
       select.append(option);
@@ -1447,7 +1444,7 @@ export class CupUI {
         this.#body.append(
           h(
             'p',
-            `Round ${r.round}: ${m.players.map((id) => `${this.optionName(id)} ${r.finishes[id] === undefined ? 'DNF' : time(r.finishes[id])}`).join(' / ')}${r.tiedFirst ? ' · Tied first: no finalist win' : ''}`,
+            `Round ${r.round}: ${m.players.map((id) => `${this.name(id)} ${r.finishes[id] === undefined ? 'DNF' : time(r.finishes[id])}`).join(' / ')}${r.tiedFirst ? ' · Tied first: no finalist win' : ''}`,
             'history',
           ),
         );

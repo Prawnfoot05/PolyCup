@@ -428,11 +428,28 @@ test('high latency and uneven arrivals retain smooth monotonic buffered playback
   }
   assert.ok(samples>400);assert.ok(stalls<5,`stalled on ${stalls} frames`);
 });
-test('ghost visibility also toggles its detached skidmark meshes without clearing shared buffers', () => {
-  let mixin;registerCarVisibility({registerGlobalMixin:m=>mixin=m},1);
-  const car={},trail={},mesh={visible:true},name={visible:true};
-  const apply=Function('e','Ae','Pe','E',mixin.func);
+test('ghost visibility includes existing and newly spawned particles, without affecting other cars', () => {
+  const mixins=[];registerCarVisibility({registerGlobalMixin:m=>mixins.push(m)},1);
+  const [particles,carVisibility]=mixins;
+  const meshes=new WeakMap();
+  const attach=Function('a',`${particles.func.slice(0,-1)};`);
+  const smoke=()=>{
+    const instance={},mesh={visible:true,count:3};
+    meshes.set(instance,mesh);attach.call(instance,meshes);
+    return {instance,mesh};
+  };
+  const remote=smoke(),local=smoke(),car={},trail={},mesh={visible:true},name={visible:true};
+  const apply=Function('e','Ae','Pe','E','Ue',carVisibility.func);
   const Ae=new WeakMap([[car,name]]),Pe=new WeakMap([[car,[trail]]]),E=new WeakMap([[trail,mesh]]);
-  apply.call(car,false,Ae,Pe,E);assert.equal(mesh.visible,false);assert.equal(name.visible,false);
-  apply.call(car,true,Ae,Pe,E);assert.equal(mesh.visible,true);
+  const Ue=new WeakMap([[car,remote.instance]]);
+  apply.call(car,false,Ae,Pe,E,Ue);
+  assert.equal(mesh.visible,false);assert.equal(name.visible,false);
+  assert.equal(remote.mesh.visible,false);assert.equal(remote.mesh.count,3);
+  remote.mesh.count=6; // Native particle updates continue while the mesh is hidden.
+  assert.equal(remote.mesh.visible,false);assert.equal(local.mesh.visible,true);
+  apply.call(car,true,Ae,Pe,E,Ue);
+  assert.equal(mesh.visible,true);assert.equal(remote.mesh.visible,true);
+  assert.equal(remote.mesh.count,6);
+  Ue.set(car,null); // Particles disabled at lower graphics settings.
+  assert.doesNotThrow(()=>apply.call(car,false,Ae,Pe,E,Ue));
 });

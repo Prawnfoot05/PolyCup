@@ -65,7 +65,7 @@ export function lobbyPanel(ui: CupUI) {
       undefined,
       `lobby-racer${view.turn === id ? ' current-turn' : ''}${id === c.selfId ? ' you' : ''}`,
     );
-    const identity = ui.racerName(id, ui.name(id));
+    const identity = ui.racerName(id, ui.name(id), true);
     const car = identity.querySelector('.car-skin');
     if (car) row.append(car);
     row.append(identity);
@@ -89,12 +89,12 @@ export function lobbyPanel(ui: CupUI) {
   if (spectators.length) {
     const more = h('details', undefined, 'lobby-spectators');
     more.append(h('summary', `Spectators · ${spectators.length}`));
-    for (const p of spectators) more.append(ui.racerName(p.id, p.nickname));
+    for (const p of spectators) more.append(ui.racerName(p.id, p.nickname, true));
     roster.append(more);
   }
   const actionTitle = h('h2', view.title);
   if (view.mode === 'ban' && view.turn !== c.selfId && view.turn !== null) {
-    actionTitle.replaceChildren(ui.playerLabel(view.turn), '’s ban');
+    actionTitle.replaceChildren(ui.playerLabel(view.turn, ui.name(view.turn), true), '’s ban');
   }
   action.append(actionTitle);
   if (!s.draft && !view.joined) action.append(ui.joinControls());
