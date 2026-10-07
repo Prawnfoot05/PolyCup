@@ -182,6 +182,8 @@ export class Controller {
   #sentRevision: number | undefined;
   #savedReview: number = 0;
   #savedAt: number = 0;
+  #backgrounded: boolean = false;
+  #lastResume: number = 0;
 
   #onSpectatorInputs?: () => void;
   constructor(onChange: () => void) {
@@ -234,6 +236,26 @@ export class Controller {
     if (this.#timer !== undefined) return;
     this.#native = connectNative(pml, this);
     this.#timer = setInterval(() => this.tick(), 100);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') this.#backgrounded = true;
+        else if (this.#backgrounded) {
+          this.#backgrounded = false;
+          this.resumeFromBackground();
+        }
+      });
+    }
+  }
+  resumeFromBackground() {
+    const now = Date.now();
+    if (now - this.#lastResume < 250) return;
+    this.#lastResume = now;
+    this.#lastHello = 0;
+    this.#lastBroadcast = 0;
+    this.#lastSubscribe = 0;
+    this.#transport.recover();
+    this.#cameraTransport.recover();
+    this.#onChange();
   }
   now() {
     return Date.now() + (this.#isHost ? 0 : this.#offset);
@@ -858,8 +880,20 @@ export class Controller {
           this.#nextAuto &&
           Date.now() >= this.#nextAuto
         ) {
-          this.#nextAuto = null;
-          if (!this.recoveryRacers().length) this.runRound();
+          if (!this.recoveryRacers().length) {
+            const ready = Cup.activeIds(this.#state).every(
+              (id) => id === this.#selfId || (this.#hello.has(id) && this.#transport.has(id)),
+            );
+            if (ready) {
+              this.#nextAuto = null;
+              this.runRound();
+            } else {
+              // A background tab can temporarily lose its mod data channel
+              // while native multiplayer remains connected. Keep automatic
+              // rounds pending until that client completes its hello again.
+              this.#nextAuto = Date.now() + 1000;
+            }
+          }
         }
         if (Date.now() - this.#lastBroadcast > 1000 || this.#sentRevision !== this.cup.revision)
           this.broadcast();

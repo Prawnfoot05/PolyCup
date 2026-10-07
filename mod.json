@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Live Cups for 2–8 racers: bans, picks, finalist scoring, buffered POV and native spectator inputs.",
-  "changelog": "Hidden ghosts also hide smoke and dust. Country flags stay in the lobby to give race HUD names more room. Installation notes explain how to bypass a stale CDN latest-version lookup."
+  "changelog": "Background-tab recovery rebuilds Cup channels and keeps automatic rounds pending while a racer reconnects."
 }

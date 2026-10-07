@@ -313,13 +313,25 @@ test('spectator playback uses the buffered stream independent of native car play
   assert.equal(shown.id,1); assert.equal(shown.p.position[0],5); assert.equal(shown.p.carPosition[0],5);
 });
 test('transport binds messages to native peer identity, drops oversized/flooded packets, and uses separate camera channel', () => {
-  let opts, received=[]; const ch={readyState:'open',bufferedAmount:0,close(){},send(){}};
-  const pc={ connectionState:'connected',createDataChannel(name,o){opts=o;return ch;} };
+  let opts, created=0, received=[]; const channels=[];
+  const makeChannel=()=>{const ch={readyState:'open',bufferedAmount:0,close(){this.readyState='closed';},send(){}};channels.push(ch);return ch;};
+  const pc={ connectionState:'connected',createDataChannel(name,o){opts=o;created++;return makeChannel();} };
   const t = new CupTransport((id,m)=>received.push([id,m]),()=>{}, {channelId:43,realtime:true}); t.sync([{id:7,pc}]);
   assert.deepEqual(opts,{negotiated:true,id:43,ordered:false,maxRetransmits:0});
-  for(let i=0;i<40;i++) ch.onmessage({data:JSON.stringify({protocol:1,type:'camera',id:999})});
+  const ch=channels[0]; ch.readyState='closed'; t.sync([{id:7,pc}]); assert.equal(created,2);
+  const replacement=channels[1];
+  for(let i=0;i<40;i++) replacement.onmessage({data:JSON.stringify({protocol:1,type:'camera',id:999})});
   assert.equal(received.length,30); assert.ok(received.every(([id])=>id===7));
-  ch.onmessage({data:'x'.repeat(2001)}); assert.equal(received.length,30); t.sync([]); assert.equal(t.channels.size,0);
+  replacement.onmessage({data:'x'.repeat(2001)}); assert.equal(received.length,30); t.sync([]); assert.equal(t.channels.size,0);
+});
+test('background recovery rebuilds mod channels and reopens the Cup handshake', () => {
+  const c = new Controller(() => {}), recovered = [];
+  c.transport.recover = () => recovered.push('cup');
+  c.cameraTransport.recover = () => recovered.push('camera');
+  c.lastHello = Date.now(); c.lastBroadcast = Date.now(); c.lastSubscribe = Date.now();
+  c.resumeFromBackground();
+  assert.deepEqual(recovered, ['cup', 'camera']);
+  assert.equal(c.lastHello, 0); assert.equal(c.lastBroadcast, 0); assert.equal(c.lastSubscribe, 0);
 });
 test('ASAR repacking preserves binary content, empty files, nested assets, and rejects corrupt offsets', () => {
   const files = new Map([['a.bin',Buffer.from([0,255,1])],['nested/empty',Buffer.alloc(0)],['package.json',Buffer.from('{"version":"0.6.3"}')]]);

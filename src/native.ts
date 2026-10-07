@@ -248,26 +248,39 @@ export class CupTransport {
   sync(peers: { id: number; pc: RTCPeerConnection }[]) {
     const pcs = new Set(peers.map((p) => p.pc));
     for (const [pc, entry] of this.#peers)
-      if (!pcs.has(pc)) {
+      if (!pcs.has(pc) || entry.channel.readyState === 'closed') {
         entry.channel.close();
-        this.#peers.delete(pc);
-        this.#channels.delete(entry.id);
+        this.#drop(pc, entry);
         this.#onChange();
       }
     for (const { id, pc } of peers)
       if (!this.#peers.has(pc) && pc.connectionState !== 'closed') {
-        const channel = pc.createDataChannel(
-          `polytrack-world-cup-${this.#channelId}`,
-          this.#realtime
-            ? { negotiated: true, id: this.#channelId, ordered: false, maxRetransmits: 0 }
-            : { negotiated: true, id: this.#channelId, ordered: true },
-        );
+        let channel: RTCDataChannel;
+        try {
+          channel = pc.createDataChannel(
+            `polytrack-world-cup-${this.#channelId}`,
+            this.#realtime
+              ? { negotiated: true, id: this.#channelId, ordered: false, maxRetransmits: 0 }
+              : { negotiated: true, id: this.#channelId, ordered: true },
+          );
+        } catch {
+          // A browser may still be finishing the SCTP stream reset after a
+          // background tab closed the old channel. Retry on the next sync.
+          continue;
+        }
         const entry = { id, channel, windowAt: performance.now(), count: 0 };
         this.#peers.set(pc, entry);
         this.#channels.set(id, channel);
         channel.onopen = () => this.#onChange();
-        channel.onclose = () => this.#onChange();
-        channel.onerror = () => this.#onChange();
+        channel.onclose = () => {
+          if (this.#peers.get(pc)?.channel === channel) this.#drop(pc, entry);
+          this.#onChange();
+        };
+        channel.onerror = () => {
+          if (channel.readyState === 'closed' && this.#peers.get(pc)?.channel === channel)
+            this.#drop(pc, entry);
+          this.#onChange();
+        };
         channel.onmessage = (event) => {
           if (typeof event.data !== 'string' || event.data.length > (this.#realtime ? 2000 : 60000))
             return;
@@ -288,6 +301,13 @@ export class CupTransport {
           }
         };
       }
+  }
+  recover() {
+    for (const [pc, entry] of this.#peers) {
+      entry.channel.close();
+      this.#drop(pc, entry);
+    }
+    this.#onChange();
   }
   send(id: number, message: Message) {
     const channel = this.#channels.get(id);
@@ -312,5 +332,10 @@ export class CupTransport {
     for (const entry of this.#peers.values()) entry.channel.close();
     this.#peers.clear();
     this.#channels.clear();
+  }
+  #drop(pc: RTCPeerConnection, entry: { id: number; channel: RTCDataChannel }) {
+    if (this.#peers.get(pc)?.channel !== entry.channel) return;
+    this.#peers.delete(pc);
+    if (this.#channels.get(entry.id) === entry.channel) this.#channels.delete(entry.id);
   }
 }
