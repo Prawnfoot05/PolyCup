@@ -410,6 +410,17 @@ test('automatic scheduling waits for recovery and resumes after a restarted roun
   c.finishRound();assert.ok(c.nextAuto>Date.now());
   c.toggleAutomaticRounds();assert.equal(c.auto,false);assert.equal(c.nextAuto,null);
 });
+test('automatic rounds wait for a backgrounded racer channel and retain the preference', () => {
+  const c=new Controller(()=>{});let started=0;
+  c.isHost=true;c.selfId=1;c.game={};c.state=race();c.state.phase='between-rounds';c.state.runtime=null;
+  c.lobby=[1,2,3,4].map(id=>({id}));c.hello=new Set([2,3,4]);c.connection={
+    getPlayers:()=>c.lobby.map(p=>({...p,isSelf:p.id===1})),startNewSession:()=>{started++;},
+  };c.info={connection:c.connection,sessionId:9,disposed:false,spectator:{isEnabled:false}};
+  c.native={read:()=>c.info,peers:()=>[]};c.broadcast=()=>{};c.save=()=>{};
+  const trackId=Cup.nextTrack(c.state);c.tracks.set(trackId,{trackMetadata:{},trackData:{},code:''});
+  c.transport.has=()=>false;c.nextAuto=Date.now()-1;c.tick();
+  assert.equal(started,0);assert.equal(c.auto,true);assert.ok(c.nextAuto>Date.now()-10);
+});
 
 
 test('non-racing Cup spectator entry restores the parent HUD without overriding Hide UI or dialogs', () => {
