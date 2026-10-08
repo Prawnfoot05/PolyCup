@@ -1,16 +1,16 @@
 # PolyCup
 
-Live Cups for **2–8 racers** in PolyTrack **0.6.3**. By **Kiki**.
+Live Cups for **2 to 8 racers** in PolyTrack **0.6.3**. By **Kiki**.
 
 ## Install
 
-Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods → Add**, import this URL with version **0.2.23**, then choose **Load → Apply**:
+Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods > Add**, import this URL with latest version, then choose **Load > Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN’s cached latest manifest, which may lag behind a release. Enter the version above explicitly if an older release is selected.
+All players and spectators need the same PolyCup version. Leaving the version empty uses the CDNâ€™s cached latest manifest, which may lag behind a release. Enter the version above explicitly if an older release is selected.
 
 For the bundled Windows installer, place this project folder beside PolyTrack.exe, close the game and run **Install-PolyCup.cmd**. **Restore-Original.cmd** restores the original installation; run it before switching from the bundled installer to a normal PML installation.
 
@@ -29,7 +29,7 @@ For the bundled Windows installer, place this project folder beside PolyTrack.ex
 
 Both use main and community tracks. **Allow custom tracks** adds saved custom tracks and, during drafting, share-code entry. Presets also control points per place, bans/picks, warmup timing, the finish window and round breaks. Custom tracks are available only when bans per racer is zero; enabling bans turns custom tracks off. Rules lock when drafting starts; **Reopen setup** clears bans and picks.
 
-**Upload leaderboard times** enables the game�s Casual mode for Cup rounds and warmups. Leave it unchecked for Competitive mode with session-only times (the default). Native account and track eligibility rules still apply.
+**Upload leaderboard times** enables the game’s Casual mode for Cup rounds and warmups. Leave it unchecked for Competitive mode with session-only times (the default). Native account and track eligibility rules still apply.
 
 Editing a rule changes the preset name to **Custom**. Use the pencil button to name it, then the save icon to keep it. The adjacent import/export icons share rules only. Cup import/export includes the tournament and results.
 
@@ -39,11 +39,11 @@ Rejoining the lobby with the same PolyTrack profile automatically recovers your 
 
 ## Rules and controls
 
-- With **Finalist** enabled, reach the preset’s target, then win a later round outright. Without it, the highest score at or above the target wins; a tied lead continues.
+- With **Finalist** enabled, reach the presetâ€™s target, then win a later round outright. Without it, the highest score at or above the target wins; a tied lead continues.
 - Default points are **10 / 8 / 6 / 5 / 4 / 3 / 2 / 1**; DNF awards zero. Exact finish ties share place points. A finalist must finish first outright to win.
 - Rounds per track are fixed by the preset. Drafted playlists repeat; random rotation chooses another map after each block.
-- Standard first-visit practice lasts **1.5× WR, minimum 30 seconds** (90 seconds without a WR). Everyone choosing Ready ends practice early.
-- **G** toggles other players’ ghosts; rebind it in Settings → Controls → PolyCup.
+- Standard first-visit practice lasts **1.5Ã— WR, minimum 30 seconds** (90 seconds without a WR). Everyone choosing Ready ends practice early.
+- **G** toggles other playersâ€™ ghosts; rebind it in Settings â†’ Controls â†’ PolyCup.
 - **[ / ]** switch spectator targets. Automatic spectating after finishing can be disabled in settings.
 - Your **full restart** key means DNF during a live round. **Checkpoint reset** returns you to the start before the first checkpoint, keeping your elapsed Cup time; after that it uses the normal checkpoint respawn.
 
