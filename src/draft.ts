@@ -1,4 +1,5 @@
 import type { CupState, Track } from './types.ts';
+import { rulesFor } from './presets.ts';
 // Optional on old saves; every newly created Cup enables the ban draft.
 function requireThat(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
@@ -6,20 +7,26 @@ function requireThat(ok: unknown, message: string): asserts ok {
 export const rosterOpen = (s: CupState) =>
   s.phase === 'registration' && (!s.draft || s.draft.stage === 'roster');
 export const picksOpen = (s: CupState) =>
-  s.phase === 'registration' && (!s.draft || s.draft.stage === 'picks');
+  rulesFor(s).selection === 'draft' &&
+  s.phase === 'registration' &&
+  (!s.draft || s.draft.stage === 'picks');
+export const banEntries = (s: CupState) =>
+  s.draft?.banHistory ??
+  Object.entries(s.draft?.bans ?? {}).map(([id, track]) => ({ racerId: Number(id), track }));
 export const banTurn = (s: CupState) =>
-  s.draft?.stage === 'bans' ? s.draft.order[Object.keys(s.draft.bans).length] : null;
-export const isBanned = (s: CupState, id: string) =>
-  Object.values(s.draft?.bans ?? {}).some((t) => t.id === id);
+  s.draft?.stage === 'bans' ? s.draft.order[banEntries(s).length % s.draft.order.length] : null;
+export const isBanned = (s: CupState, id: string) => banEntries(s).some((b) => b.track.id === id);
 export function resetDraft(s: CupState) {
   requireThat(s.phase === 'registration', 'The Cup has already started.');
   s.draft = { stage: 'roster', order: [], bans: {} };
   s.picks = {};
+  s.selections = {};
   s.tracks = [];
   s.records = {};
   s.revision++;
 }
 export function beginBans(s: CupState, random = Math.random) {
+  requireThat(rulesFor(s).selection === 'draft', 'Random Cups do not have a draft.');
   requireThat(rosterOpen(s), 'Bans have already started.');
   requireThat(s.roster.length >= 2, 'At least two racers are required.');
   const order = s.roster.map((p) => p.id);
@@ -27,8 +34,9 @@ export function beginBans(s: CupState, random = Math.random) {
     const j = Math.floor(random() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
   }
-  s.draft = { stage: 'bans', order, bans: {} };
+  s.draft = { stage: rulesFor(s).bansPerRacer ? 'bans' : 'picks', order, bans: {} };
   s.picks = {};
+  s.selections = {};
   s.tracks = [];
   s.records = {};
   s.revision++;
@@ -46,14 +54,21 @@ export function banTrack(
     track && ['official', 'community'].includes(track.category) && /^[a-f0-9]{64}$/i.test(track.id),
     'Bans must come from the main or community track pool.',
   );
+  requireThat(
+    rulesFor(s).pool.includes(track.category as 'official' | 'community'),
+    'That track category is not allowed by this preset.',
+  );
   requireThat(!isBanned(s, track.id), 'That track is already banned.');
+  const history = banEntries(s);
   s.draft.bans[actor] = {
     id: track.id,
     name: String(track.name)
       .replace(/[\u0000-\u001f\u007f]/g, '')
       .slice(0, 64),
   };
-  if (Object.keys(s.draft.bans).length === s.draft.order.length) s.draft.stage = 'picks';
+  s.draft.banHistory = [...history, { racerId: actor, track: s.draft.bans[actor] }];
+  if (s.draft.banHistory.length === s.draft.order.length * rulesFor(s).bansPerRacer)
+    s.draft.stage = 'picks';
   s.revision++;
 }
 export function validDraft(s: CupState) {
@@ -65,26 +80,30 @@ export function validDraft(s: CupState) {
     !Array.isArray(d.order) ||
     !d.bans ||
     typeof d.bans !== 'object' ||
-    Array.isArray(d.bans)
+    Array.isArray(d.bans) ||
+    (d.banHistory !== undefined &&
+      (!Array.isArray(d.banHistory) ||
+        d.banHistory.some((b) => !b || !b.track || typeof b.track.id !== 'string')))
   )
     return false;
   const keys = Object.keys(d.bans),
     bans = Object.values(d.bans);
   if (d.stage === 'roster')
     return (
-      s.phase === 'registration' &&
+      (s.phase === 'registration' || rulesFor(s).selection === 'random') &&
       !d.order.length &&
       !keys.length &&
-      !s.tracks.length &&
+      (!s.tracks.length || rulesFor(s).selection === 'random') &&
       !Object.keys(s.picks).length
     );
   if (
     d.order.length < 2 ||
-    d.order.length !== s.roster.length ||
+    (d.order.length !== s.roster.length &&
+      (s.phase === 'registration' || !rulesFor(s).allowRacerChanges)) ||
     new Set(d.order).size !== d.order.length ||
     !d.order.every((id) => s.roster.some((p) => p.id === id)) ||
     keys.length > d.order.length ||
-    !keys.every((id) => d.order.slice(0, keys.length).includes(Number(id))) ||
+    !keys.every((id) => d.order.includes(Number(id))) ||
     !bans.every(
       (t) =>
         t &&
@@ -97,10 +116,33 @@ export function validDraft(s: CupState) {
     s.tracks.some((t) => isBanned(s, t.id))
   )
     return false;
+  const entries = banEntries(s),
+    total = d.order.length * rulesFor(s).bansPerRacer;
+  if (d.banHistory !== undefined && (!Array.isArray(d.banHistory) || entries.length > 24))
+    return false;
+  if (
+    entries.length > total ||
+    entries.some(
+      (b, i) =>
+        !b ||
+        b.racerId !== d.order[i % d.order.length] ||
+        !b.track ||
+        typeof b.track.id !== 'string' ||
+        !/^[a-f0-9]{64}$/i.test(b.track.id) ||
+        typeof b.track.name !== 'string' ||
+        b.track.name.length > 64,
+    ) ||
+    new Set(entries.map((b) => b.track.id)).size !== entries.length ||
+    keys.some(
+      (id) =>
+        entries.filter((b) => b.racerId === Number(id)).at(-1)?.track.id !== d.bans[Number(id)].id,
+    )
+  )
+    return false;
   return d.stage === 'bans'
     ? s.phase === 'registration' &&
-        keys.length < d.order.length &&
+        entries.length < total &&
         !s.tracks.length &&
         !Object.keys(s.picks).length
-    : keys.length === d.order.length;
+    : entries.length === total;
 }

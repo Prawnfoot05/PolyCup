@@ -1,14 +1,18 @@
 import * as Cup from './cup.ts';
+import { rulesFor } from './presets.ts';
 import type { CupState, SessionRecord } from './types.ts';
 export function standings(s: CupState) {
   const m = Cup.currentMatch(s);
   if (!m) return [];
-  const ranking = Cup.rankMatch(s, m),
+  const ranking = Cup.rankMatch(s, m).filter(
+      (id) =>
+        s.phase === 'complete' || (!s.withdrawn?.includes(id) && !s.pendingRacers?.includes(id)),
+    ),
     live = s.phase === 'racing';
   const last = m.roundsLog.at(-1),
     scored = !s.runtime && !!last;
   const finishes = live ? s.runtime!.finishes : scored ? last.finishes : {};
-  const finishOrder = m.players
+  const finishOrder = ranking
     .filter((id) => id in finishes)
     .sort((a, b) => finishes[a] - finishes[b]);
   const splits = live ? (s.runtime!.splits ?? {}) : {};
@@ -26,7 +30,9 @@ export function standings(s: CupState) {
     const finishPlace = finishOrder.findIndex((other) => finishes[other] === finishes[id]) + 1;
     const gain =
       live && finishPlace > 0 && !(id in m.finalists)
-        ? Math.min(m.target - m.scores[id], Cup.RULES.points[finishPlace - 1])
+        ? rulesFor(s).finalist
+          ? Math.min(m.target - m.scores[id], rulesFor(s).points[finishPlace - 1])
+          : rulesFor(s).points[finishPlace - 1]
         : scored
           ? (last.points[id] ?? 0)
           : 0;

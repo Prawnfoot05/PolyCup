@@ -2,6 +2,7 @@ import type { PolyModLoader } from './game-types.ts';
 import { Controller } from './controller.ts';
 import { registerCarVisibility } from './native.ts';
 import { CupUI } from './ui.ts';
+import { registerVersionCheck } from './version-check.ts';
 const { PolyMod, MixinType } = (await import(new URL('PolyTypes.js', document.baseURI).href)) as {
   PolyMod: new () => object;
   MixinType: { INSERT: unknown };
@@ -26,10 +27,14 @@ class PolyCup extends PolyMod {
   init(pml: PolyModLoader) {
     this.#controller = new Controller(() => this.#ui?.render());
     try {
+      registerVersionCheck(pml, MixinType.INSERT);
       this.#controller.init(pml);
       pml.registerSettingCategory('PolyCup');
       pml.registerSetting('Spectate after finishing', 'PolyCupAutoSpectate', 'boolean', true);
       pml.registerBindCategory('PolyCup');
+      pml.registerKeybind('Open Cup chat', 'PolyCupChat', 'keydown', 'KeyY', null, (event) =>
+        this.#ui?.chatHotkey(event),
+      );
       pml.registerKeybind(
         "Toggle other players' ghosts",
         'PolyCupToggleGhosts',

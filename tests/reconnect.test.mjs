@@ -46,48 +46,51 @@ test('proofs are single-use, peer-bound, Cup-bound, and invalid after Cup closur
   registry.reset('');assert.equal(registry.owner(2),null);assert.equal(registry.challenge(2,a.publicKey),null);
 });
 
-test('host recovery messages require ownership and a live Cup; accepting restores the slot without host interaction',async()=>{
+test('account proof automatically restores a disconnected racer at a safe boundary',async()=>{
   const {Controller}=await import('../.research/test-src/controller.ts');
   const Cup=await import('../.research/test-src/cup.ts');
   const host=new Controller(()=>{});host.isHost=true;host.selfId=1;host.connection={};
-  host.state=Cup.newCup('Reconnect');host.state.phase='between-rounds';
-  host.state.roster=[{id:2,name:'Anonymous'}];
+  host.state=Cup.newCup('Reconnect');
+  host.state.roster=[{id:2,name:'Anonymous'},{id:1,name:'Host'}];
+  const trackId='a'.repeat(64);host.state.tracks=[{id:trackId,name:'Track'}];host.state.picks={1:trackId,2:trackId};
+  Cup.lockRegistration(host.state);host.state.matches[0].scores[2]=48;
   host.lobby=[{id:1,isSelf:true,nickname:'Host'},{id:2,nickname:'Anonymous'}];host.hello=new Set([2,9,8]);
   host.transport.has=()=>true;host.save=()=>{};host.broadcast=()=>{};
   const replies=[];host.transport.send=(id,m)=>{replies.push({id,...m});return true;};
   const identity=await profileIdentity('test-profile-A',host.state.id);
   const cupId=host.state.id;
-  const register=async id=>{
-    await host.receiveReconnect(id,{type:'identity-open',cupId,publicKey:identity.publicKey});
+  const register=async (id,key=identity)=>{
+    await host.receiveReconnect(id,{type:'identity-open',cupId,publicKey:key.publicKey});
     const challenge=replies.at(-1);
-    await host.receiveReconnect(id,{type:'identity-proof',cupId,nonce:challenge.nonce,signature:await identity.sign(challenge.nonce)});
+    await host.receiveReconnect(id,{type:'identity-proof',cupId,nonce:challenge.nonce,signature:await key.sign(challenge.nonce)});
   };
   await register(2);
   host.lobby=[{id:1,isSelf:true,nickname:'Host'},{id:9,nickname:'Renamed'},{id:8,nickname:'Anonymous'}];
-  host.syncReconnect();await register(9);
-  assert.equal(replies.at(-1).type,'reconnect-offer');assert.equal(replies.at(-1).racerId,2);
-  await host.receiveReconnect(8,{type:'reconnect-accept',cupId,racerId:2});assert.equal(host.state.roster[0].id,2);
+  host.syncReconnect();
+  await register(8,await profileIdentity('another-profile',cupId));
+  assert.equal(host.state.roster[0].id,2,'same name cannot recover another account');
+  assert.throws(()=>host.rebindRacer(2,8,'Anonymous'),/proved ownership/);
   host.state.runtime={id:'live'};
-  await host.receiveReconnect(9,{type:'reconnect-accept',cupId,racerId:2});assert.equal(host.state.roster[0].id,2);
-  host.state.runtime=null;
-  await host.receiveReconnect(9,{type:'reconnect-accept',cupId:'ended-cup',racerId:2});assert.equal(host.state.roster[0].id,2);
-  await host.receiveReconnect(9,{type:'reconnect-accept',cupId,racerId:2});
+  await register(9);
+  assert.equal(replies.at(-1).type,'reconnect-queued');assert.equal(host.state.roster[0].id,2);
+  host.applyReconnects();assert.equal(host.state.roster[0].id,2,'no mid-race identity changes');
+  host.state.runtime=null;host.applyReconnects();
   assert.equal(host.state.roster[0].id,9);assert.equal(host.state.roster[0].name,'Renamed');
-  host.state=null;
-  await assert.doesNotReject(()=>host.receiveReconnect(9,{type:'reconnect-accept',cupId,racerId:2}));
+  assert.equal(host.state.matches[0].scores[9],48);assert.equal(host.state.matches[0].scores[2],undefined);
+  assert.equal(host.state.picks[9],trackId);
+  assert.equal(host.pendingReconnects.size,0);
+  host.state=null;await assert.doesNotReject(()=>host.receiveReconnect(9,{type:'identity-open',cupId,publicKey:identity.publicKey}));
 });
 
-
-test('returning client prompt accepts only current host offers and honors staying a spectator',async()=>{
+test('automatic return notice accepts only the current host and never opens a prompt',async()=>{
  const {Controller}=await import('../.research/test-src/controller.ts');
  const Cup=await import('../.research/test-src/cup.ts');
  const c=new Controller(()=>{});c.selfId=9;c.state=Cup.newCup();c.state.roster=[{id:2,name:'Original'}];
- const offer={type:'reconnect-offer',cupId:c.state.id,racerId:2};
- await c.receiveReconnect(8,offer);assert.equal(c.reconnectOffer,null);
- await c.receiveReconnect(0,{...offer,cupId:'ended'});assert.equal(c.reconnectOffer,null);
- await c.receiveReconnect(0,offer);assert.equal(c.reconnectOffer,2);assert.equal(c.panelRequest.open,true);
- let sent;c.transport.send=(id,message)=>{sent={id,...message};return true;};
- c.acceptReconnect();assert.equal(sent.type,'reconnect-accept');assert.equal(sent.racerId,2);
- c.declineReconnect();await c.receiveReconnect(0,offer);assert.equal(c.reconnectOffer,null);
- c.state=null;await c.receiveReconnect(0,offer);assert.equal(c.reconnectOffer,null);
+ const notice={type:'reconnect-queued',cupId:c.state.id,racerId:2};
+ await c.receiveReconnect(8,notice);assert.equal(c.reconnectPending,false);
+ await c.receiveReconnect(0,{...notice,cupId:'ended'});assert.equal(c.reconnectPending,false);
+ await c.receiveReconnect(0,notice);assert.equal(c.reconnectPending,true);assert.equal(c.panelRequest.open,false);
+ c.requestPanel(true);await c.receiveReconnect(0,notice);assert.equal(c.panelRequest.open,true,'repeated notices must not close a manually opened panel');
+ c.connection={};c.native={};c.state.roster[0].id=9;c.syncReconnect();assert.equal(c.reconnectPending,false);
+ c.state=null;await c.receiveReconnect(0,notice);assert.equal(c.reconnectPending,false);
 });

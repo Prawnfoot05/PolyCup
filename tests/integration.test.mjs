@@ -120,20 +120,25 @@ test('leaving Cup POV restores the selected native camera and normal car volumes
   let orbit=true, finished=false, camera;
   const own={cameraOrbit:{name:'orbit'},cameraCockpit:{name:'cockpit'},hasFinished:()=>finished,audioVolume:0};
   const spectator={isEnabled:true}, remote={car:{audioVolume:1}};
-  Xa.set(game,own);fs.set(game,spectator);la.set(game,{setCamera:value=>{camera=value;}});
+  const renderer={camera:null,setCamera:value=>{camera=value;renderer.camera=value;}};
+  Xa.set(game,own);fs.set(game,spectator);la.set(game,renderer);
   ua.set(game,{getSettingBoolean:()=>orbit});as.set(game,new Map([[2,remote]]));vs.set(game,.4);
   const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','Xa','fs','la','ua','as','vs','P',
     `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,Xa,fs,la,ua,as,vs,{A:{DefaultCameraMode:3}})};
   const native=connectNative(pml,{});
-  for(const [setting,hasFinished,expected] of [[true,false,'orbit'],[false,false,'cockpit'],[false,true,'orbit']]) {
-    orbit=setting;finished=hasFinished;spectator.isEnabled=true;own.audioVolume=0;remote.car.audioVolume=1;
-    native.release(game);
+  for(const [setting,view,freecam,restored,expected] of [
+    [false,'cameraOrbit',false,undefined,'orbit'],[true,'cameraCockpit',false,undefined,'cockpit'],
+    [false,'cameraCockpit',true,undefined,'orbit'],[true,'cameraOrbit',true,1,'cockpit'],
+    [false,'cameraCockpit',true,0,'orbit']]) {
+    orbit=setting;spectator.isEnabled=freecam;renderer.camera=own[view];own.audioVolume=0;remote.car.audioVolume=1;
+    native.release(game,restored);
     assert.equal(camera.name,expected);assert.equal(spectator.isEnabled,false);
     assert.equal(own.audioVolume,1);assert.equal(remote.car.audioVolume,.4);
   }
 });
 test('library selection retains an exportable custom track for transfer and autosave', async () => {
   const c = new Controller(() => {}); c.isHost = true; c.connection = {}; c.state = Cup.newCup(); c.selfId=1; Cup.addPlayer(c.state,1,'Host'); c.broadcast = () => {};
+  c.state.preset.rules.pool.push('custom');c.state.preset.rules.bansPerRacer=0;
   const id = 'a'.repeat(64), metadata = { name: 'Locally saved track' };
   const track = { trackMetadata: metadata, trackData: { hasStartingPoint: () => true, getId: () => id,
     toExportString: m => { assert.equal(m, metadata); return 'complete-custom-track'; } } };
@@ -171,11 +176,14 @@ test('finish reports bind to the current native session and round, ignoring late
   c.receiveFinish(1, m); assert.equal(c.state.runtime.finishes[1], 5000); assert.equal(c.state.runtime.checkpoints[1], 2000);
   c.receiveFinish(1, { ...m, frames: 4000 }); assert.equal(c.state.runtime.finishes[1], 5000);
 });
-test('disconnect choices produce DNF or a void, and pause the schedule without changing automatic preference', () => {
+test('disconnect choices apply after a grace period without disabling automatic rounds', () => {
   for (const policy of ['dnf','void']) {
     const c = new Controller(() => {}); c.state = race(); c.state.disconnectPolicy = policy;
-    c.auto = true; c.lobby = [1,3,5].map(id => ({ id })); c.checkDisconnects();
-    assert.equal(c.auto, true); assert.equal(c.nextAuto, null);
+    c.auto = true; c.lobby = [1,3,5].map(id => ({ id })); c.selfId=1;
+    c.hello=new Set([3,5]);c.transport.has=()=>true;
+    c.checkDisconnects();assert.deepEqual(c.state.runtime.dnfs,[]);
+    c.unavailableSince.set(7,Date.now()-15000);c.checkDisconnects();
+    assert.equal(c.auto, true);
     if (policy === 'dnf') assert.deepEqual(c.state.runtime.dnfs, [7]);
     else { assert.equal(c.state.runtime, null); assert.equal(c.state.phase, 'between-rounds'); }
   }
@@ -313,25 +321,13 @@ test('spectator playback uses the buffered stream independent of native car play
   assert.equal(shown.id,1); assert.equal(shown.p.position[0],5); assert.equal(shown.p.carPosition[0],5);
 });
 test('transport binds messages to native peer identity, drops oversized/flooded packets, and uses separate camera channel', () => {
-  let opts, created=0, received=[]; const channels=[];
-  const makeChannel=()=>{const ch={readyState:'open',bufferedAmount:0,close(){this.readyState='closed';},send(){}};channels.push(ch);return ch;};
-  const pc={ connectionState:'connected',createDataChannel(name,o){opts=o;created++;return makeChannel();} };
+  let opts, received=[]; const ch={readyState:'open',bufferedAmount:0,close(){},send(){}};
+  const pc={ connectionState:'connected',createDataChannel(name,o){opts=o;return ch;} };
   const t = new CupTransport((id,m)=>received.push([id,m]),()=>{}, {channelId:43,realtime:true}); t.sync([{id:7,pc}]);
   assert.deepEqual(opts,{negotiated:true,id:43,ordered:false,maxRetransmits:0});
-  const ch=channels[0]; ch.readyState='closed'; t.sync([{id:7,pc}]); assert.equal(created,2);
-  const replacement=channels[1];
-  for(let i=0;i<40;i++) replacement.onmessage({data:JSON.stringify({protocol:1,type:'camera',id:999})});
-  assert.equal(received.length,30); assert.ok(received.every(([id])=>id===7));
-  replacement.onmessage({data:'x'.repeat(2001)}); assert.equal(received.length,30); t.sync([]); assert.equal(t.channels.size,0);
-});
-test('background recovery rebuilds mod channels and reopens the Cup handshake', () => {
-  const c = new Controller(() => {}), recovered = [];
-  c.transport.recover = () => recovered.push('cup');
-  c.cameraTransport.recover = () => recovered.push('camera');
-  c.lastHello = Date.now(); c.lastBroadcast = Date.now(); c.lastSubscribe = Date.now();
-  c.resumeFromBackground();
-  assert.deepEqual(recovered, ['cup', 'camera']);
-  assert.equal(c.lastHello, 0); assert.equal(c.lastBroadcast, 0); assert.equal(c.lastSubscribe, 0);
+  for(let i=0;i<80;i++) ch.onmessage({data:JSON.stringify({protocol:1,type:'camera',id:999})});
+  assert.equal(received.length,60); assert.ok(received.every(([id])=>id===7));
+  ch.onmessage({data:'x'.repeat(2001)}); assert.equal(received.length,60); t.sync([]); assert.equal(t.channels.size,0);
 });
 test('ASAR repacking preserves binary content, empty files, nested assets, and rejects corrupt offsets', () => {
   const files = new Map([['a.bin',Buffer.from([0,255,1])],['nested/empty',Buffer.alloc(0)],['package.json',Buffer.from('{"version":"0.6.3"}')]]);
@@ -343,6 +339,7 @@ test('ASAR repacking preserves binary content, empty files, nested assets, and r
 test('two controllers transfer a remote custom track and bind self-registration to native identity', async () => {
   const host=new Controller(()=>{}), client=new Controller(()=>{}); host.isHost=true; host.selfId=1; client.selfId=2;
   host.connection={}; client.connection={}; host.state=Cup.newCup(); client.state=Cup.publicState(host.state);
+  host.state.preset.rules.pool.push('custom');client.state.preset.rules.pool.push('custom');host.state.preset.rules.bansPerRacer=0;client.state.preset.rules.bansPerRacer=0;
   host.lobby=[{id:1,nickname:'Organizer'},{id:2,nickname:'Remote'}]; host.hello.add(2);
   host.transport.send=(id,m)=>{assert.equal(id,2);client.receive(0,m);return true;};
   host.transport.broadcast=m=>client.receive(0,m);
@@ -400,26 +397,15 @@ test('native record adapter combines persistent profile PB with online PB and re
 });
 
 
-test('automatic scheduling waits for recovery and resumes after a restarted round', () => {
+test('automatic scheduling remains enabled when a racer leaves', () => {
   const c=new Controller(()=>{});c.isHost=true;c.connection={};c.broadcast=()=>{};c.save=()=>{};
   c.state=race();c.lobby=[1,3,5].map(id=>({id}));
   for(const id of [1,3,5,7]) Cup.markDNF(c.state,id);
-  c.finishRound();assert.equal(c.auto,true);assert.equal(c.nextAuto,null);
+  c.finishRound();assert.equal(c.auto,true);assert.ok(c.nextAuto>Date.now());
   c.lobby.push({id:7});Cup.beginRound(c.state);c.state.phase='countdown';Cup.startRace(c.state,Date.now());
   for(const id of [1,3,5,7]) Cup.markDNF(c.state,id);
   c.finishRound();assert.ok(c.nextAuto>Date.now());
   c.toggleAutomaticRounds();assert.equal(c.auto,false);assert.equal(c.nextAuto,null);
-});
-test('automatic rounds wait for a backgrounded racer channel and retain the preference', () => {
-  const c=new Controller(()=>{});let started=0;
-  c.isHost=true;c.selfId=1;c.game={};c.state=race();c.state.phase='between-rounds';c.state.runtime=null;
-  c.lobby=[1,2,3,4].map(id=>({id}));c.hello=new Set([2,3,4]);c.connection={
-    getPlayers:()=>c.lobby.map(p=>({...p,isSelf:p.id===1})),startNewSession:()=>{started++;},
-  };c.info={connection:c.connection,sessionId:9,disposed:false,spectator:{isEnabled:false}};
-  c.native={read:()=>c.info,peers:()=>[]};c.broadcast=()=>{};c.save=()=>{};
-  const trackId=Cup.nextTrack(c.state);c.tracks.set(trackId,{trackMetadata:{},trackData:{},code:''});
-  c.transport.has=()=>false;c.nextAuto=Date.now()-1;c.tick();
-  assert.equal(started,0);assert.equal(c.auto,true);assert.ok(c.nextAuto>Date.now()-10);
 });
 
 
@@ -475,4 +461,17 @@ test('ghost visibility includes existing and newly spawned particles, without af
   assert.equal(remote.mesh.count,6);
   Ue.set(car,null); // Particles disabled at lower graphics settings.
   assert.doesNotThrow(()=>apply.call(car,false,Ae,Pe,E,Ue));
+});
+
+
+test('Cup leaderboard guard suppresses record saving and restores each native game default',()=>{
+ class Game {update(){}dispose(){}}class Library{}
+ const game={},editor={},other={},ya=new WeakMap([[game,true],[editor,false],[other,true]]);
+ const pml={polyVersion:'0.6.3',getFromPolyTrack:code=>Function('ii','vc','Is','du','ya',
+ `let bs=()=>{},Ss=()=>{};return ${code}`)(class{},class{},Game,Library,ya)};
+ const native=connectNative(pml,{});
+ for(let i=0;i<100;i++){native.leaderboardUploads(game,false);assert.equal(ya.get(game),false);}
+ assert.equal(ya.get(other),true);native.leaderboardUploads(game,true);assert.equal(ya.get(game),true);
+ native.leaderboardUploads(game,false);native.leaderboardUploads(game);assert.equal(ya.get(game),true);
+ native.leaderboardUploads(editor,true);assert.equal(ya.get(editor),false);native.leaderboardUploads(editor);assert.equal(ya.get(editor),false);
 });

@@ -113,15 +113,17 @@ export class CupInvite {
       ['hidden', 'loading'].includes(state.status) || this.#copying === connection;
     const feedback = ready && this.#feedbackUntil > Date.now() ? this.#feedback : '';
     this.#text.textContent =
-      feedback === 'copied'
-        ? 'Copied!'
-        : ready
-          ? 'Copy'
-          : state.status === 'expired'
-            ? 'Renew'
-            : state.status === 'loading'
-              ? 'Copy'
-              : 'Retry';
+      this.#copying === connection && connection
+        ? 'Copying…'
+        : feedback === 'copied'
+          ? 'Copied!'
+          : ready
+            ? 'Copy'
+            : state.status === 'expired'
+              ? 'Renew'
+              : state.status === 'loading'
+                ? 'Creating…'
+                : 'Retry';
     this.#button.setAttribute(
       'aria-label',
       ready

@@ -21,6 +21,7 @@ export interface Draft {
   stage: 'roster' | 'bans' | 'picks';
   order: PlayerId[];
   bans: Record<PlayerId, Track>;
+  banHistory?: { racerId: PlayerId; track: Track }[];
 }
 export interface RaceRecord {
   countryCode?: string | null;
@@ -44,13 +45,23 @@ export interface Split {
   frames: number;
   bestFrames: number;
 }
+export type RecordAward = 'PB' | 'TR' | 'WR';
+export interface RecordBaselines {
+  wr?: number;
+  tr?: number;
+  pbs: Record<PlayerId, number | null>;
+}
 export interface Round {
+  recordBaselines?: RecordBaselines;
+  recordAwards?: Record<PlayerId, RecordAward>;
+  racers?: PlayerId[];
   id: string;
   round: number;
   trackId: TrackId;
   warmup: boolean;
   sessionId: number | null;
   ready: PlayerId[];
+  sittingOut?: PlayerId[];
   practiceReady?: PlayerId[];
   startsAt: number | null;
   deadline: number | null;
@@ -66,6 +77,7 @@ export interface Finalist {
   checkpoint: number | null;
 }
 export interface ScoredRound {
+  recordAwards?: Record<PlayerId, RecordAward>;
   beforeRanking: PlayerId[];
   round: number;
   trackId: TrackId;
@@ -76,6 +88,7 @@ export interface ScoredRound {
   tiedFirst: boolean;
 }
 export interface Match {
+  randomTrack?: { id: TrackId; fromRound: number; rounds: number };
   name: string;
   players: PlayerId[];
   target: number;
@@ -91,6 +104,10 @@ export interface Match {
   ranking: PlayerId[];
 }
 export interface CupState {
+  withdrawn?: PlayerId[];
+  pendingRacers?: PlayerId[];
+  preset?: import('./presets.ts').CupPreset;
+  selections?: Record<PlayerId, TrackId[]>;
   schema: 2;
   version: string;
   id: string;
@@ -144,6 +161,7 @@ export interface CameraPose {
   carPosition: number[];
   carQuaternion: number[];
   view: number;
+  resetCounter?: number;
 }
 export type ReviewOutcome = 'pending' | 'finished' | 'dnf' | 'void' | 'undone' | 'interrupted';
 export interface ReviewFlag {

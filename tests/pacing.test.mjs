@@ -17,18 +17,15 @@ function dnfRound(s) {
   Cup.beginRound(s); s.phase = 'countdown'; Cup.startRace(s, 0); Cup.completeRound(s);
 }
 
-test('WR pacing rounds to four minutes and permits short and long track lengths', () => {
-  for (const [frames, rounds] of [[25000, 10], [30000, 8], [45000, 5], [60000, 4],
-    [90000, 3], [120000, 2], [300000, 1], [3600000, 1], [1000, 240]]) {
-    assert.equal(Cup.roundsForRecord(wr(frames)), rounds);
-  }
-  for (const record of [null, {}, { status: 'missing' }, { status: 'unavailable' },
-    ...[0, -1, NaN, Infinity, 1.5, '30000', 3600001].map(wr)]) {
-    assert.equal(Cup.roundsForRecord(record), 4);
+test('rounds per track are fixed by the preset regardless of WR length or availability', () => {
+  for (const rounds of [1,3,4,30]) for(const record of [wr(1000),wr(25000),wr(3600000),{status:'missing'}]) {
+    const s=registration();s.preset.rules.roundsPerTrack=rounds;
+    s.records[id(1)]={pbs:{},wr:record};Cup.lockRegistration(s);
+    assert.deepEqual(Object.values(s.matches[0].trackRounds),[rounds,rounds,rounds]);
   }
 });
 
-test('unequal track visits repeat without a Cup cap, preserve points and only warm up on the first visit', () => {
+test('fixed track visits repeat without a Cup cap, preserve points and only warm up on the first visit', () => {
   const s = registration();
   for (const [n, frames] of [[1, 25000], [2, 30000], [3, 60000]]) s.records[id(n)] = { pbs: {}, wr: wr(frames) };
   Cup.lockRegistration(s, () => .999);
@@ -37,12 +34,12 @@ test('unequal track visits repeat without a Cup cap, preserve points and only wa
   // A newer live WR must not move the schedule after it has been frozen.
   s.records[id(1)].wr = wr(120000);
   for (let i = 0; i < 45; i++) {
-    const offset = i % 22, track = offset < 10 ? 1 : offset < 18 ? 2 : 3;
-    const visitRound = offset < 10 ? offset + 1 : offset < 18 ? offset - 9 : offset - 17;
-    const expected = { trackId: id(track), round: visitRound, rounds: [10, 8, 4][track - 1] };
+    const offset = i % 12, track = Math.floor(offset/4)+1;
+    const visitRound = offset%4+1;
+    const expected = { trackId: id(track), round: visitRound, rounds: 4 };
     assert.deepEqual(Cup.trackProgress(s), expected);
     Cup.beginRound(s); assert.equal(s.runtime.trackId, expected.trackId);
-    assert.equal(s.runtime.warmup, visitRound === 1 && i < 22);
+    assert.equal(s.runtime.warmup, visitRound === 1 && i < 12);
     assert.deepEqual(Cup.trackProgress(s, s.runtime.round - 1), expected);
     s.phase = 'countdown'; Cup.startRace(s, 0); Cup.completeRound(s);
     assert.equal(s.phase, 'between-rounds'); assert.equal(s.matches[0].scores[1], 80);
@@ -52,7 +49,7 @@ test('unequal track visits repeat without a Cup cap, preserve points and only wa
 });
 
 test('void, undo and JSON restoration retain the frozen schedule at a track boundary', () => {
-  const s = registration(); s.records[id(1)] = { pbs: {}, wr: wr(120000) };
+  const s = registration(); s.preset.rules.roundsPerTrack=2;s.records[id(1)] = { pbs: {}, wr: wr(120000) };
   Cup.lockRegistration(s, () => .999); dnfRound(s);
   Cup.beginRound(s); Cup.voidRound(s);
   assert.deepEqual(Cup.trackProgress(s), { trackId: id(1), round: 2, rounds: 2 });
@@ -70,7 +67,7 @@ test('snapshots require a complete bounded schedule; existing 100-point saves re
     { ...s.matches[0].trackRounds, [id(4)]: 4 }]) {
     const copy = structuredClone(s); copy.matches[0].trackRounds = bad; assert.equal(validSnapshot(copy), false);
   }
-  s.matches[0].target = 100; delete s.matches[0].trackRounds;
+  delete s.preset;s.matches[0].target = 100; delete s.matches[0].trackRounds;
   assert.ok(validSnapshot(s)); s.matches[0].rounds = 4;
   assert.deepEqual(Cup.trackProgress(s), { trackId: s.matches[0].order[1], round: 1, rounds: 4 });
 });
@@ -98,7 +95,7 @@ test('host fetches every unique track before starting and shares frozen counts w
   await pending;
   assert.equal(host.startingCup, null); assert.equal(sessions.length, 1); assert.equal(host.state.phase, 'loading');
   const match = host.state.matches[0];
-  assert.deepEqual(match.trackRounds, { [id(1)]: 10, [id(2)]: 4, [id(3)]: 4 });
+  assert.deepEqual(match.trackRounds, { [id(1)]: 4, [id(2)]: 4, [id(3)]: 4 });
   assert.equal(match.target, 140); assert.deepEqual(client.state.matches[0], match);
   assert.deepEqual(Cup.trackProgress(client.state), Cup.trackProgress(host.state));
   assert.ok(validSnapshot(client.state));

@@ -101,6 +101,7 @@ test('native checkpoint events travel guest to organizer to spectators with roun
   let cpCallback,finishCallback,index=1,frames=10000;
   const car={addCheckpointCallback:f=>cpCallback=f,addFinishCallback:f=>finishCallback=f,
     getNextCheckpointIndex:()=>index,getTime:()=>({numberOfFrames:frames})};
+  guest.info.car=car;
   guest.hookFinish(car,guest.state.runtime); cpCallback(0);
   for(const c of [host,guest,observer]) {assert.deepEqual(order(c.state),[2,1,3]);assert.equal(row(c.state,2).splitFrames,10000);}
   const late=new Controller(()=>{});late.receive(0,host.syncMessage());assert.deepEqual(order(late.state),[2,1,3]);
@@ -108,10 +109,63 @@ test('native checkpoint events travel guest to organizer to spectators with roun
   for(const patch of [{cupId:'old'},{roundId:'old'},{sessionId:8}]) host.receive(3,{...message,...patch});
   host.receive(99,{...message,id:1}); assert.equal(JSON.stringify(host.state),unchanged);
   host.receive(3,{...message,id:1,frames:10320}); assert.equal(row(host.state,3).delta,320);assert.equal(row(host.state,1).splitFrames,undefined);
+  guest.lastCheckpointSend=-Infinity;
   index=3;frames=24300;cpCallback(1);assert.equal(row(host.state,2).checkpoint,2,'current native index handles multi-checkpoint frames');
   index=5;frames=25000;cpCallback(3);assert.equal(row(host.state,2).checkpoint,2,'finish checkpoint is not a split');
   finishCallback();assert.equal(row(host.state,2).frames,25000);
   Cup.voidRound(host.state);Cup.beginRound(host.state);host.state.phase='countdown';Cup.startRace(host.state,0);
   host.transport.broadcast(host.syncMessage());const fresh=JSON.stringify(host.state);index=2;frames=15000;cpCallback(1);
   assert.equal(JSON.stringify(host.state),fresh,'old native car callback cannot leak into new round');
+});
+
+test('checkpoint updates survive failed sends and receiver drops until a host snapshot acknowledges them', () => {
+  const host=new Controller(()=>{}),guest=new Controller(()=>{});
+  host.state=race();host.isHost=true;host.selfId=1;host.info={sessionId:9,checkpointCount:5};host.now=()=>30000;host.hello=new Set([2]);
+  guest.state=structuredClone(host.state);guest.selfId=2;
+  let callback,frames=10000,index=1,attempts=0,deliver=false,open=false;
+  const car={addCheckpointCallback:f=>callback=f,addFinishCallback(){},
+    getNextCheckpointIndex:()=>index,getTime:()=>({numberOfFrames:frames})};
+  guest.info={sessionId:9,checkpointCount:5,car};
+  guest.transport.send=(id,message)=>{
+    attempts++; assert.equal(id,0);
+    if(open && deliver) host.receive(2,structuredClone(message));
+    return open;
+  };
+  host.transport.broadcast=()=>{};
+  guest.hookFinish(car,guest.state.runtime);
+  callback(0);
+  assert.equal(attempts,1);assert.equal(row(host.state,2).splitFrames,undefined);
+  guest.flushCheckpoints();assert.equal(attempts,1,'retry interval prevents flooding');
+  open=true;guest.lastCheckpointSend=-Infinity;guest.flushCheckpoints();
+  assert.equal(attempts,2);assert.equal(row(host.state,2).splitFrames,undefined,'queued bytes can still be dropped by the receiver');
+  frames=11000;callback(0);
+  deliver=true;guest.lastCheckpointSend=-Infinity;guest.flushCheckpoints();
+  assert.equal(row(host.state,2).splitFrames,10000,'retry retains the original crossing time');
+  const revision=host.state.revision;
+  guest.lastCheckpointSend=-Infinity;guest.flushCheckpoints();
+  assert.equal(host.state.revision,revision,'duplicate deliveries do not mutate standings');
+  guest.receive(0,host.syncMessage());
+  const acknowledgedAttempts=attempts;
+  guest.lastCheckpointSend=-Infinity;guest.flushCheckpoints();
+  assert.equal(attempts,acknowledgedAttempts);assert.equal(guest.pendingCheckpoints.size,0);
+  assert.equal(row(guest.state,2).splitFrames,10000);
+});
+
+test('pending checkpoint updates cannot leak into a new round, racer identity or native session', () => {
+  for(const change of ['round','identity','session','ended','car']) {
+    const c=new Controller(()=>{});c.state=race();c.selfId=2;
+    let callback,sends=0;
+    const car={addCheckpointCallback:f=>callback=f,addFinishCallback(){},
+      getNextCheckpointIndex:()=>1,getTime:()=>({numberOfFrames:10000})};
+    c.info={sessionId:9,checkpointCount:5,car};
+    c.transport.send=()=>{sends++;return false;};
+    c.hookFinish(car,c.state.runtime);callback(0);assert.equal(sends,1);
+    if(change==='round') c.state.runtime={...c.state.runtime,id:'new-round'};
+    if(change==='identity') c.selfId=3;
+    if(change==='session') c.info.sessionId=10;
+    if(change==='ended') c.state.phase='between-rounds';
+    if(change==='car') {c.info.car={};callback(0);assert.equal(sends,1);continue;}
+    c.lastCheckpointSend=-Infinity;c.flushCheckpoints();
+    assert.equal(sends,1,change);assert.equal(c.pendingCheckpoints.size,0,change);
+  }
 });

@@ -264,7 +264,7 @@ export class ReviewLog {
       data.cupId !== state.id ||
       JSON.stringify(data).length > REVIEW_LIMITS.bytes ||
       !obj(data.identities) ||
-      Object.keys(data.identities).length > 8 ||
+      Object.keys(data.identities).length > 128 ||
       !Object.entries(data.identities).every(
         ([id, key]) => state.roster.some((p) => p.id === Number(id)) && text(key),
       ) ||

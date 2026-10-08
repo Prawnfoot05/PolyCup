@@ -12,6 +12,7 @@ export interface NativeCar {
   getQuaternion(): NativeVector;
   update(delta: number): void;
   getTime(): { numberOfFrames: number };
+  getFinishTime(): { numberOfFrames: number } | null;
   getNextCheckpointIndex(): number;
   addCheckpointCallback(callback: (index: number) => void): void;
   addFinishCallback(callback: () => void): void;
@@ -47,7 +48,10 @@ export interface LobbyPlayer {
   carStyle?: CarStyle;
 }
 export interface NativeConnection {
+  dispose(): void;
   getPlayers(): LobbyPlayer[];
+  getPing?(id: number): number | null;
+  kickPlayer?(id: number): void;
   isInviteAllowed(): boolean;
   getInviteIsLoading(): boolean;
   getInvite(): {
@@ -93,6 +97,8 @@ export interface TrackLibrary {
   isCommunityTrack(id: string): boolean;
 }
 export interface NativeApi {
+  watchGames(callback: (sessions: WeakMap<NativeGame, unknown>) => void): void;
+  pruneClosedPeers(connection: NativeConnection): void;
   reconnectIdentity(
     game: NativeGame,
     cupId: string,
@@ -107,6 +113,7 @@ export interface NativeApi {
   enableCupSpectator(game: NativeGame): void;
   hudElement(game: NativeGame): HTMLElement | null;
   presentation(game: NativeGame, cup: boolean, watching: boolean): void;
+  leaderboardUploads(game: NativeGame, enabled?: boolean): void;
   carThumbnail(style: CarStyle): Promise<string>;
   readInputs(game: NativeGame): { frames: number; controls: DrivingControls };
   watchInputs(game: NativeGame, callback: () => void): () => void;
@@ -114,11 +121,19 @@ export interface NativeApi {
   clearInput(game: NativeGame): void;
   camera(game: NativeGame): Omit<CameraPose, 'at'>;
   remoteCar(game: NativeGame, id: number): NativeCar | undefined;
+  chatKeys?(game: NativeGame): string[];
   ghostKeys(game: NativeGame): string[];
   autoSpectate(game: NativeGame): boolean;
   restartPressed(game: NativeGame, event: KeyboardEvent): boolean;
+  startRespawnPressed(game: NativeGame, event: KeyboardEvent): boolean;
+  showRoundTime(game: NativeGame, frames: number): void;
+  showRoundCheckpoint(game: NativeGame, frames: number): void;
+  showRoundFinish(game: NativeGame, frames: number): void;
+  drivingBindings(game: NativeGame): import('./held-inputs.ts').DrivingBindings;
+  applyDrivingInput(game: NativeGame, controls: DrivingControls): void;
   visibility(game: NativeGame, ids: number[] | null, self: number | null): void;
-  release(game: NativeGame): void;
+  drivingView(game: NativeGame): 0 | 1;
+  release(game: NativeGame, view?: 0 | 1): void;
   follow(game: NativeGame, pose: CameraView, id: number): void;
   peers(connection: NativeConnection): { id: number; pc: RTCPeerConnection }[];
   parse(code: string): LoadedTrack | null;
@@ -157,6 +172,12 @@ export interface NativeApi {
   };
 }
 export interface PolyModLoader {
+  registerClassMixin(
+    path: string,
+    method: string,
+    mixin: { type: unknown; token: string; func: string },
+  ): void;
+  registerFuncMixin(path: string, mixin: { type: unknown; token: string; func: string }): void;
   polyVersion: string;
   getFromPolyTrack(source: string): unknown;
   registerGlobalMixin(mixin: { type: unknown; token: string; func: string }): void;

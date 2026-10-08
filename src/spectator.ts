@@ -33,7 +33,8 @@ export function validPose(p: CameraPose) {
     Math.abs(p.speed) < 100000 &&
     vector(p.carPosition) &&
     rotation(p.carQuaternion) &&
-    [0, 1].includes(p.view)
+    [0, 1].includes(p.view) &&
+    (p.resetCounter === undefined || (Number.isSafeInteger(p.resetCounter) && p.resetCounter >= 0))
   );
 }
 function mixRotation(a: number[], b: number[], t: number) {
@@ -126,7 +127,12 @@ export class CameraBuffer {
     if (!validPose(p)) return false;
     const last = this.#frames.at(-1);
     if (last && last.sessionId === p.sessionId && last.at >= p.at) return false;
-    if (last && (last.sessionId !== p.sessionId || p.frames < last.frames)) {
+    if (
+      last &&
+      (last.sessionId !== p.sessionId ||
+        p.frames < last.frames ||
+        p.resetCounter !== last.resetCounter)
+    ) {
       this.#frames = [];
       this.#arrivalAges = [];
       this.#delay = VIEW_DELAY_MS;

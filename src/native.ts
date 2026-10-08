@@ -5,6 +5,20 @@ import type { Message } from './protocol.ts';
 // Version-specific access is isolated here. These symbols were inspected in PML v0.6.3-1.
 import { renderCarPose } from './spectator.ts';
 import { profileIdentity } from './reconnect.ts';
+import type { NativeGame } from './game-types.ts';
+
+export function watchGameSessions<T>(
+  sessions: WeakMap<NativeGame, T>,
+  created: (game: NativeGame) => void,
+) {
+  const set = sessions.set;
+  sessions.set = function (game, session) {
+    const result = set.call(this, game, session);
+    // Session fields are assigned during construction; wait until the car and HUD exist.
+    if (session) queueMicrotask(() => created(game));
+    return result;
+  };
+}
 
 export function registerCarVisibility(pml: PolyModLoader, insertType: unknown) {
   // Smoke, skidmarks and nameplates are separate scene objects in PolyTrack.
@@ -49,6 +63,28 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
   if (pml.polyVersion !== '0.6.3') throw new Error('PolyCup requires PolyTrack 0.6.3.');
   const api = pml.getFromPolyTrack(`({
     Host: ii, Client: vc, Game: Is, TrackLibrary: du,
+    watchGames: callback => callback(Za),
+    leaderboardUploads: (() => {
+      const defaults = new WeakMap();
+      return (game, enabled) => {
+        if (enabled === undefined) {
+          if (defaults.has(game)) { ya.set(game, defaults.get(game)); defaults.delete(game); }
+          return;
+        }
+        if (!defaults.has(game)) defaults.set(game, ya.get(game));
+        ya.set(game, defaults.get(game) && enabled);
+      };
+    })(),
+    pruneClosedPeers: c => {
+      if (!(c instanceof ii)) return;
+      for (const peer of [...Mn.get(c), ..._n.get(c)]) {
+        if (['closed', 'failed'].includes(peer.peerConnection.connectionState) || peer.dataChannel.readyState === 'closed') {
+          // Reuse native departure cleanup, including player-list broadcasts and slot release.
+          peer.peerConnection.close();
+          peer.dataChannel.onclose?.(new Event('close'));
+        }
+      }
+    },
     renderer: g => la.get(g),
     hudElement: g => _a.get(g)?.element,
     enableCupSpectator: g => {
@@ -78,6 +114,11 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
       update: controls => view.update(controls), dispose: () => view.dispose() }; },
     clearInput: g => { const c=qa.get(g); if(c) for(const key of ['up','right','down','left','reset']) c[key]=false;
       const s=fs.get(g); if(s) for(const field of [ft,pt,gt,mt,vt,At,yt]) field.set(s,false); },
+    drivingBindings: g => { const settings=ua.get(g); return {
+      up:settings.getKeyBindings(ge.A.VehicleAccelerate), right:settings.getKeyBindings(ge.A.VehicleTurnRight),
+      down:settings.getKeyBindings(ge.A.VehicleBrake), left:settings.getKeyBindings(ge.A.VehicleTurnLeft) }; },
+    applyDrivingInput: (g, controls) => { const input=qa.get(g);
+      for(const key of ['up','right','down','left']) input[key]=controls[key]; },
     read: g => ({ connection: Za.get(g)?.multiplayerConnection, sessionId: Za.get(g)?.sessionId,
       trackData: Ta.get(g), metadata: Sa.get(g), car: Xa.get(g), spectator: fs.get(g),
       disposed: ss.get(g), checkpointCount: ra.get(g).getTotalNumberOfCheckpointIndices() }),
@@ -85,18 +126,38 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
       sessionId: Za.get(g).sessionId, position:c.position.toArray(), quaternion:c.quaternion.toArray(),
       fov:c.fov, frames:car.getTime().numberOfFrames, speed:car.getSpeedKmh(),
       carPosition:car.getPosition().toArray(), carQuaternion:car.getQuaternion().toArray(),
-      view:c===car.cameraCockpit?1:0 }; },
+      resetCounter:os.get(g), view:c===car.cameraCockpit?1:0 }; },
     remoteCar: (g,id) => as.get(g).get(id)?.car,
+    chatKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupChat).map(key=>key ? ve(key) : '').filter(Boolean),
     ghostKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupToggleGhosts).map(key=>key ? ve(key) : '').filter(Boolean),
     autoSpectate: g => ua.get(g).getSettingBoolean(P.A.PolyCupAutoSpectate),
     restartPressed: (g,event) => !fs.get(g).isEnabled && !bs.call(g) && Ps.call(g) &&
       Xa.get(g).hasStarted() && !Xa.get(g).hasFinished() &&
       ua.get(g).checkKeyBinding(event,ge.A.VehicleStartReset) &&
       !ua.get(g).checkKeyBinding(event,ge.A.VehicleCheckpointReset),
+    startRespawnPressed: (g,event) => {
+      const car=Xa.get(g);
+      if (I.ip() || fs.get(g).isEnabled || bs.call(g) || !Ps.call(g) || !car.hasStarted() ||
+          car.hasFinished() || car.getNextCheckpointIndex() !== 0 ||
+          !ua.get(g).checkKeyBinding(event,ge.A.VehicleCheckpointReset)) return false;
+      return true;
+    },
+    showRoundTime: (g,frames) => za.get(g).update({getTime:()=>new xt.A(frames),getFinishTime:()=>null}),
+    showRoundCheckpoint: (g,frames) => za.get(g).showCheckpointTime(new xt.A(frames),null),
+    showRoundFinish: (g,frames) => {
+      const banner=_a.get(g)?.element.querySelector('.time-announcer-ui');
+      const time=banner?.querySelector('.current .time');
+      if(time) time.textContent=He.A.formatTimeString(new xt.A(frames));
+      banner?.querySelectorAll('.record,.difference').forEach(node=>node.classList.add('hidden'));
+      banner?.querySelector('.current')?.classList.remove('show-position');
+    },
     visibility: (g,ids,self) => { Cs.call(g); Xa.get(g).setVisible(ids===null||ids.includes(self));
       for(const [id,r] of as.get(g)) if(ids!==null&&!ids.includes(id)) r.car.setVisible(false); },
-    release: g => { const car=Xa.get(g); fs.get(g).isEnabled=false;
-      la.get(g).setCamera(car.hasFinished() || ua.get(g).getSettingBoolean(P.A.DefaultCameraMode) ? car.cameraOrbit : car.cameraCockpit);
+    drivingView: g => !fs.get(g).isEnabled && la.get(g).camera === Xa.get(g).cameraCockpit ? 1 : 0,
+    release: (g,view) => { const car=Xa.get(g), renderer=la.get(g);
+      const cockpit=view === undefined ? !fs.get(g).isEnabled && renderer.camera === car.cameraCockpit : view === 1;
+      fs.get(g).isEnabled=false;
+      renderer.setCamera(cockpit ? car.cameraCockpit : car.cameraOrbit);
       car.audioVolume=1; for(const r of as.get(g).values()) r.car.audioVolume=vs.get(g); },
     follow: (g,p,id) => { const camera=fs.get(g).camera; camera.position.fromArray(p.position);
       camera.quaternion.fromArray(p.quaternion); camera.fov=p.fov; camera.updateProjectionMatrix();
@@ -212,10 +273,19 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
   };
   const dispose = api.Game.prototype.dispose;
   api.Game.prototype.dispose = function (...args) {
+    controller.rememberDrivingView(this);
     const result = dispose.apply(this, args);
     controller.gameDisposed(this);
     return result;
   };
+  for (const Connection of [api.Host, api.Client]) {
+    const disposeConnection = Connection.prototype.dispose;
+    if (!disposeConnection) continue;
+    Connection.prototype.dispose = function () {
+      controller.connectionDisposed(this);
+      return disposeConnection.call(this);
+    };
+  }
   api.guard((game) => controller.shouldBlock(game));
   api.guardRestart((game) => controller.handleRestart(game));
   return api;
@@ -248,39 +318,26 @@ export class CupTransport {
   sync(peers: { id: number; pc: RTCPeerConnection }[]) {
     const pcs = new Set(peers.map((p) => p.pc));
     for (const [pc, entry] of this.#peers)
-      if (!pcs.has(pc) || entry.channel.readyState === 'closed') {
+      if (!pcs.has(pc)) {
         entry.channel.close();
-        this.#drop(pc, entry);
+        this.#peers.delete(pc);
+        this.#channels.delete(entry.id);
         this.#onChange();
       }
     for (const { id, pc } of peers)
       if (!this.#peers.has(pc) && pc.connectionState !== 'closed') {
-        let channel: RTCDataChannel;
-        try {
-          channel = pc.createDataChannel(
-            `polytrack-world-cup-${this.#channelId}`,
-            this.#realtime
-              ? { negotiated: true, id: this.#channelId, ordered: false, maxRetransmits: 0 }
-              : { negotiated: true, id: this.#channelId, ordered: true },
-          );
-        } catch {
-          // A browser may still be finishing the SCTP stream reset after a
-          // background tab closed the old channel. Retry on the next sync.
-          continue;
-        }
+        const channel = pc.createDataChannel(
+          `polytrack-world-cup-${this.#channelId}`,
+          this.#realtime
+            ? { negotiated: true, id: this.#channelId, ordered: false, maxRetransmits: 0 }
+            : { negotiated: true, id: this.#channelId, ordered: true },
+        );
         const entry = { id, channel, windowAt: performance.now(), count: 0 };
         this.#peers.set(pc, entry);
         this.#channels.set(id, channel);
         channel.onopen = () => this.#onChange();
-        channel.onclose = () => {
-          if (this.#peers.get(pc)?.channel === channel) this.#drop(pc, entry);
-          this.#onChange();
-        };
-        channel.onerror = () => {
-          if (channel.readyState === 'closed' && this.#peers.get(pc)?.channel === channel)
-            this.#drop(pc, entry);
-          this.#onChange();
-        };
+        channel.onclose = () => this.#onChange();
+        channel.onerror = () => this.#onChange();
         channel.onmessage = (event) => {
           if (typeof event.data !== 'string' || event.data.length > (this.#realtime ? 2000 : 60000))
             return;
@@ -289,7 +346,8 @@ export class CupTransport {
             entry.windowAt = now;
             entry.count = 0;
           }
-          if (++entry.count > (this.#realtime ? 30 : 35)) return;
+          // A spectator handoff temporarily carries two camera streams at 20 Hz each.
+          if (++entry.count > (this.#realtime ? 60 : 35)) return;
           try {
             const candidate: unknown = JSON.parse(event.data);
             if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return;
@@ -301,13 +359,6 @@ export class CupTransport {
           }
         };
       }
-  }
-  recover() {
-    for (const [pc, entry] of this.#peers) {
-      entry.channel.close();
-      this.#drop(pc, entry);
-    }
-    this.#onChange();
   }
   send(id: number, message: Message) {
     const channel = this.#channels.get(id);
@@ -332,10 +383,5 @@ export class CupTransport {
     for (const entry of this.#peers.values()) entry.channel.close();
     this.#peers.clear();
     this.#channels.clear();
-  }
-  #drop(pc: RTCPeerConnection, entry: { id: number; channel: RTCDataChannel }) {
-    if (this.#peers.get(pc)?.channel !== entry.channel) return;
-    this.#peers.delete(pc);
-    if (this.#channels.get(entry.id) === entry.channel) this.#channels.delete(entry.id);
   }
 }

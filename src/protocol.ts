@@ -7,9 +7,10 @@ import type {
   PublicCupState,
   RaceRecord,
 } from './types.ts';
-export type ActionType = 'join' | 'leave' | 'ban' | 'dnf' | 'practice-ready';
+export type ActionType = 'join' | 'leave' | 'ban' | 'dnf' | 'practice-ready' | 'remove-pick';
 export interface ActionMessage {
   type: ActionType;
+  requestId?: string;
   cupId?: string;
   value?: string;
 }
@@ -47,12 +48,13 @@ export interface InputViewMessage extends InputContext {
   events: InputEvent[];
 }
 export type Message =
+  | import('./chat.ts').ChatMessage
   | { type: 'identity-open'; cupId: string; publicKey: string }
   | { type: 'identity-challenge'; cupId: string; nonce: string }
   | { type: 'identity-proof'; cupId: string; nonce: string; signature: string }
-  | { type: 'reconnect-offer'; cupId: string; racerId: number }
-  | { type: 'reconnect-accept'; cupId: string; racerId: number }
+  | { type: 'reconnect-queued'; cupId: string; racerId: number }
   | ActionMessage
+  | { type: 'action-ack'; requestId: string; error?: string }
   | FinishMessage
   | CheckpointMessage
   | ReadyMessage
@@ -61,7 +63,7 @@ export type Message =
   | InputViewMessage
   | { type: 'hello'; version: string; sentAt: number }
   | { type: 'hello-ack'; version: string; sentAt: number; hostAt: number }
-  | { type: 'watch'; value: number | null }
+  | { type: 'watch'; value: number | null; previous?: number | null }
   | { type: 'pb'; cupId: string; trackId: string; pb: RaceRecord }
   | { type: 'track-ack'; transferId: string; error?: string }
   | { type: 'state'; sequence: number; state: PublicCupState | null }

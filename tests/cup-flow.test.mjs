@@ -147,7 +147,8 @@ test('automatic finish POV honors the setting, supports manual watching, and rel
   assert.equal(c.canSpectate(),false); c.watchRemaining(); assert.equal(c.canSpectate(),true);
   c.bufferCamera(2,pose()); c.beforeRender(c.game); assert.equal(c.watchId,2);
   assert.ok(events.includes('follow')); assert.equal(events.includes('publish'),false);
-  Cup.markDNF(c.state,2); c.beforeRender(c.game); assert.equal(c.watchId,3);
+  Cup.markDNF(c.state,2); c.beforeRender(c.game); assert.equal(c.watchId,2,'hold the old view until the next camera is available');
+  c.bufferCamera(3,pose());c.beforeRender(c.game);assert.equal(c.watchId,3);
   Cup.completeRound(c.state); Cup.beginRound(c.state); c.state.phase = 'countdown';
   c.beforeRender(c.game); assert.equal(c.canSpectate(),false); assert.equal(c.watchedPose,null);
   assert.equal(events.filter(e=>e==='release').length,1);

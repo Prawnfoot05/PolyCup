@@ -98,6 +98,12 @@ export class ReconnectRegistry {
     const key = this.#peers.get(id);
     return key ? (this.#owners.get(key) ?? null) : null;
   }
+  key(id: number) {
+    return this.#peers.get(id);
+  }
+  authenticated(id: number) {
+    return this.#peers.has(id);
+  }
   rebind(oldId: number, newId: number) {
     for (const [key, id] of this.#owners) if (id === oldId) this.#owners.delete(key);
     const key = this.#peers.get(newId);
