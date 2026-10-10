@@ -161,6 +161,12 @@ export class ReviewLog {
     r.checkpoints.push([index, frames]);
     this.#revision++;
   }
+  undoTrackVisit(trackId: string, fromRound: number) {
+    for (const run of this.#runs)
+      if (run.trackId === trackId && run.round > fromRound) run.outcome = 'undone';
+    this.analyze();
+    this.#revision++;
+  }
   close(state: Pick<CupState, 'runtime'>, outcome: 'scored' | ReviewOutcome = 'scored') {
     const run = state?.runtime;
     if (!run) return;

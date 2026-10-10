@@ -130,6 +130,19 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
     remoteCar: (g,id) => as.get(g).get(id)?.car,
     chatKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupChat).map(key=>key ? ve(key) : '').filter(Boolean),
     ghostKeys: g => ua.get(g).getKeyBindings(ge.A.PolyCupToggleGhosts).map(key=>key ? ve(key) : '').filter(Boolean),
+    freecamPressed: (g,event) => !I.ip() && ua.get(g).checkKeyBinding(event,ge.A.ToggleSpectatorCamera),
+    enterFreecam: g => {
+      const camera=la.get(g).camera, spectator=fs.get(g);
+      if (camera!==spectator.camera) {
+        spectator.camera.position.copy(camera.position);
+        spectator.camera.quaternion.copy(camera.quaternion);
+        spectator.camera.fov=camera.fov;
+        spectator.camera.updateProjectionMatrix();
+      }
+      spectator.isEnabled=true;
+      la.get(g).setCamera(spectator.camera);
+      _a.get(g).isVisible=Ma.get(g)!==false;
+    },
     autoSpectate: g => ua.get(g).getSettingBoolean(P.A.PolyCupAutoSpectate),
     restartPressed: (g,event) => !fs.get(g).isEnabled && !bs.call(g) && Ps.call(g) &&
       Xa.get(g).hasStarted() && !Xa.get(g).hasFinished() &&
@@ -137,7 +150,7 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
       !ua.get(g).checkKeyBinding(event,ge.A.VehicleCheckpointReset),
     startRespawnPressed: (g,event) => {
       const car=Xa.get(g);
-      if (I.ip() || fs.get(g).isEnabled || bs.call(g) || !Ps.call(g) || !car.hasStarted() ||
+      if (I.ip() || fs.get(g).isEnabled || bs.call(g) || !Ps.call(g) ||
           car.hasFinished() || car.getNextCheckpointIndex() !== 0 ||
           !ua.get(g).checkKeyBinding(event,ge.A.VehicleCheckpointReset)) return false;
       return true;

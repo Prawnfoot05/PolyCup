@@ -189,3 +189,10 @@ test('preset selection compares rules independently of JSON property order and l
  assert.equal(presetKey(p),presetKey(reordered));delete reordered.rules.uploadLeaderboardTimes;assert.equal(presetKey(p),presetKey(reordered));
  reordered.rules.uploadLeaderboardTimes=true;assert.notEqual(presetKey(p),presetKey(reordered));
 });
+
+test('host moving a recovering racer to spectators cancels automatic readmission and keeps their score',()=>{
+ const c=controller();c.state.matches[0].scores[2]=42;c.resumeRacers.add(2);
+ c.moveToSpectators(2);c.checkDisconnects();
+ assert.ok(c.state.withdrawn.includes(2));assert.ok(!c.resumeRacers.has(2));assert.equal(c.state.matches[0].scores[2],42);
+ c.isHost=false;assert.throws(()=>c.moveToSpectators(1));assert.ok(Cup.activeIds(c.state).includes(1));
+});

@@ -48,6 +48,8 @@ export interface InputViewMessage extends InputContext {
   events: InputEvent[];
 }
 export type Message =
+  | { type: 'physics'; cupId: string; report: import('./physics-integrity.ts').PhysicsReport }
+  | { type: 'viewers'; cupId: string; roundId: string; count: number }
   | import('./chat.ts').ChatMessage
   | { type: 'identity-open'; cupId: string; publicKey: string }
   | { type: 'identity-challenge'; cupId: string; nonce: string }

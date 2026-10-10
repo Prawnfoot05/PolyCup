@@ -84,7 +84,7 @@ test('input relay binds sender, Cup, round, session and sequence; archives never
   assert.deepEqual(sent.map(([id])=>id),[3]);assert.equal(sent[0][1].type,'input-view');assert.equal('review' in sent[0][1],false);
   assert.equal(c.receiveInputs(2,packet(c,{seq:1,through:14000})),false);
   assert.equal('review' in c.networkState(),false);assert.equal('inputs' in c.networkState(),false);
-  assert.ok(c.exportData().review);c.isHost=false;assert.equal('review' in c.exportData(),false);
+  assert.ok(c.saveData().review);c.isHost=false;assert.equal('review' in c.saveData(),false);
 });
 test('warmup resets recover the selected input stream and practice is never added to the review log', () => {
   const c=host();c.state.phase='warmup';assert.ok(c.receiveInputs(2,packet(c)));
@@ -103,13 +103,13 @@ test('a guest spectator receives live selected inputs only, and switching racers
   guest.receiveInputView(0,{...packet(c),type:'input-view',racerId:2});assert.equal(guest.watchedInputs(),null);
   guest.receiveInputView(0,{...packet(c),type:'input-view',racerId:1});assert.notEqual(guest.watchedInputs(),null);
 });
-test('native finish flushes final input coverage before scoring and a reviewed Cup exports/restores without public leakage', () => {
+test('native finish flushes final input coverage before scoring and a reviewed Cup saves/restores without public leakage', () => {
   const c=host();let finish;c.native={readInputs:()=>({frames:0,controls:{up:true}})};
   c.captureInputs();c.native.readInputs=()=>({frames:15000,controls:{up:true,right:true}});
   c.hookFinish({addCheckpointCallback(){},addFinishCallback(fn){finish=fn;},getTime:()=>({numberOfFrames:15000})},c.state.runtime);
   finish();assert.equal(c.review.current(c.state.runtime.id,1).through,15000);assert.equal(c.state.runtime.finishes[1],15000);
   c.change(Cup.completeRound);assert.equal(c.review.runs[0].outcome,'finished');assert.equal(c.review.runs[0].gap,false);
-  const save=JSON.stringify(c.exportData());c.native.parse=()=>({trackData:{getId:()=>track.id,hasStartingPoint:()=>true}});
+  const save=JSON.stringify(c.saveData());c.native.parse=()=>({trackData:{getId:()=>track.id,hasStartingPoint:()=>true}});
   const data=JSON.parse(save);data.tracks=[{id:track.id,code:'native fixture'}];c.restore(JSON.stringify(data));
   assert.equal(c.review.runs[0].outcome,'finished');assert.ok(c.review.identities[-1]);assert.equal('review' in c.networkState(),false);
 });

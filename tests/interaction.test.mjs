@@ -35,7 +35,8 @@ test('host rejects stale actions, acknowledges accepted actions, and peers canno
   guest.transport.send = (id, message) => { requests.push(message); return true; };
   host.transport.send = (id, message) => { replies.push(message); return true; };
   const join = guest.action('join'); assert.equal(guest.action('join'), join);
-  host.receive(2, requests[0]); assert.equal(host.state.roster[0].id, 2);
+  host.reconnect.authenticated = () => true;
+  host.receive(2, requests[0]); await new Promise(r => setImmediate(r)); assert.equal(host.state.roster[0].id, 2);
   let done = false; join.then(() => { done = true; });
   guest.receive(3, replies[0]); await Promise.resolve(); assert.equal(done, false);
   guest.receive(0, replies[0]); await join;
@@ -79,7 +80,7 @@ test('version handshake rejects missing/mismatched guests before allocating a pe
   registerVersionCheck({ registerClassMixin: (path, method, hook) => hooks.push({ path, method, ...hook }),
     registerFuncMixin: (path, hook) => hooks.push({ path, ...hook }) }, 1);
   const host = Function('o', 'e', 't', `${hooks[0].func}; return 'accepted';`);
-  for (const mods of [[], ['polytrack-world-cup:0.2.23'], ['polytrack-world-cup:0.3.1'],
+  for (const mods of [[], ['polytrack-world-cup:0.2.23'], ['polytrack-world-cup:9.9.9'],
     ['polytrack-world-cup:0.3.0','polytrack-world-cup:0.2.23']]) {
     const declined = [];
     assert.equal(host({ mods }, { send: text => declined.push(JSON.parse(text)) }, 'session'), undefined);
@@ -93,5 +94,5 @@ test('version handshake rejects missing/mismatched guests before allocating a pe
   let error, closed = false;
   guest({ mods: ['polytrack-world-cup:0.2.23'] }, e => { error = e; }, { close: () => { closed = true; } }, JoinError);
   assert.equal(closed, true); assert.equal(error.errorType, 'polycup-version');
-  assert.match(error.message, /Host: 0.2.23.*Installed: 0.3.0/);
+  assert.match(error.message, new RegExp(`Host: 0.2.23.*Installed: ${Cup.VERSION}`));
 });

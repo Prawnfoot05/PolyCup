@@ -29,6 +29,7 @@ export class ChatUI {
   #selectedSpeaker: number | null = null;
   #hidePreview = h('input');
   #expanded = false;
+  #persistent = false;
   #cupId = '';
   #shownRevision = -1;
   #known = 0;
@@ -44,10 +45,11 @@ export class ChatUI {
     this.#root.setAttribute('aria-label', 'Cup chat');
     this.#button.type = 'button';
     this.#button.addEventListener('click', () => (this.#expanded ? this.close() : this.open()));
+    this.#panel.id = 'cup-chat-panel';
     this.#panel.setAttribute('aria-label', 'Chat history');
     const heading = h('div', undefined, 'chat-heading');
     heading.append(h('strong', 'Cup chat'));
-    const close = h('button', 'Close', 'quiet');
+    const close = h('button', 'Close', 'quiet chat-close');
     close.type = 'button';
     close.addEventListener('click', () => this.close());
     heading.append(close);
@@ -118,7 +120,21 @@ export class ChatUI {
     shadow.append(this.#root);
     this.#panel.hidden = true;
     this.#root.hidden = true;
-    this.#panel.addEventListener('focusin', () => ui.c.clearDrivingInput());
+    this.#panel.addEventListener('focusin', () => {
+      ui.c.clearDrivingInput();
+      if (this.#persistent) {
+        this.#expanded = true;
+        ui.c.setChatTyping(true);
+      }
+    });
+    this.#panel.addEventListener('focusout', () => {
+      queueMicrotask(() => {
+        if (this.#persistent && !this.#panel.contains(shadow.activeElement)) {
+          this.#expanded = false;
+          ui.c.setChatTyping(false);
+        }
+      });
+    });
     for (const type of ['keydown', 'keyup', 'keypress'] as const)
       window.addEventListener(
         type,
@@ -128,6 +144,7 @@ export class ChatUI {
           event.stopImmediatePropagation();
           if (type === 'keydown' && !event.isComposing) {
             if (event.code === 'Tab') {
+              if (this.#persistent) return;
               event.preventDefault();
               const focusable = [
                 ...this.#panel.querySelectorAll<HTMLElement>(
@@ -166,8 +183,18 @@ export class ChatUI {
       { capture: true },
     );
   }
+  get unread() {
+    return Math.max(0, this.#ui.c.chat.lines.length - this.#read);
+  }
   get isOpen() {
     return this.#expanded;
+  }
+  mount(target: HTMLElement | null, persistent = false) {
+    this.#persistent = !!target && persistent;
+    this.#root.classList.toggle('chat-docked', !!target);
+    const parent = target ?? this.#shadow;
+    if (this.#root.parentNode !== parent) parent.append(this.#root);
+    this.#panel.querySelector<HTMLElement>('.chat-close')!.hidden = this.#persistent;
   }
   hotkey(event: KeyboardEvent) {
     if (
@@ -275,17 +302,17 @@ export class ChatUI {
       this.#input.focus();
     const lines = chat.cupId === state.id ? chat.lines : [];
     if (lines.length > this.#known) {
-      this.#expires = Date.now() + 8000;
+      this.#expires = Date.now() + 4000;
       this.#known = lines.length;
     }
-    if (this.#expanded && this.#stickBottom) this.#read = lines.length;
+    if ((this.#expanded || this.#persistent) && this.#stickBottom) this.#read = lines.length;
     const unread = Math.max(0, lines.length - this.#read);
     const keys = c.game && !c.info?.disposed ? (c.native.chatKeys?.(c.game) ?? []) : [];
     this.#button.textContent = `Chat${unread ? ` (${unread})` : ''}${keys.length ? ` · ${keys.join(' / ')}` : ''}`;
     this.#button.setAttribute('aria-expanded', String(this.#expanded));
-    this.#root.classList.toggle('chat-open', this.#expanded);
-    this.#panel.hidden = !this.#expanded;
-    this.#button.hidden = this.#expanded;
+    this.#root.classList.toggle('chat-open', this.#expanded || this.#persistent);
+    this.#panel.hidden = !this.#expanded && !this.#persistent;
+    this.#button.hidden = this.#expanded || this.#ui.panelOpen;
     this.#preview.hidden =
       this.#expanded ||
       this.#ui.panelOpen ||

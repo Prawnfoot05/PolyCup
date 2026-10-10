@@ -1,3 +1,4 @@
+import { STOCK_PHYSICS, validPhysicsReport, type PhysicsReport } from './physics-integrity.ts';
 import type { CameraView } from './types.ts';
 import type { LobbyPlayer } from './game-types.ts';
 import * as Cup from './cup.ts';
@@ -46,8 +47,72 @@ import { validPB, validSnapshot, validWR } from './validation.ts';
 const RECONNECT_GRACE_MS = 15000;
 const LOAD_GRACE_MS = 30000;
 export class Controller {
+  #physicsSource: () => PhysicsReport = () => ({ hash: null, driveForce: null });
+  #physicsReports = new Map<number, { cupId: string; report: PhysicsReport }>();
+  #lastPhysics = 0;
+  #freecam = false;
+  #freecamGame: NativeGame | null = null;
+  #viewerCount = 0;
+  #viewerRound = '';
+  #lastViewers = 0;
+  setPhysicsSource(source: () => PhysicsReport) {
+    this.#physicsSource = source;
+  }
+  get physicsWarnings() {
+    if (!this.#isHost || !this.#state) return [];
+    return this.#state.roster.flatMap((p) => {
+      if (!this.#lobby.some((peer) => peer.id === p.id)) return [];
+      const entry = this.#physicsReports.get(p.id);
+      if (entry?.cupId !== this.#state!.id || !entry.report.hash) return [];
+      return entry.report.hash === STOCK_PHYSICS
+        ? []
+        : [{ id: p.id, driveForce: entry.report.driveForce }];
+    });
+  }
+  get viewerCount() {
+    return this.#state?.runtime?.id === this.#viewerRound ? this.#viewerCount : 0;
+  }
+  syncDiagnostics() {
+    const s = this.#state;
+    if (!s || this.#selfId === null) return;
+    const now = Date.now();
+    if (now - this.#lastPhysics >= 3000) {
+      const report = this.#physicsSource();
+      if (this.#isHost) this.#physicsReports.set(this.#selfId, { cupId: s.id, report });
+      else this.#transport.send(0, { type: 'physics', cupId: s.id, report });
+      this.#lastPhysics = now;
+    }
+    if (!this.#isHost || !s.runtime || now - this.#lastViewers < 1000) return;
+    this.#lastViewers = now;
+    const counts = new Map<number, number>();
+    for (const [viewer, target] of this.#subscriptions) {
+      if (
+        this.#lobby.some((p) => p.id === viewer) &&
+        Cup.mayWatch(s, viewer) &&
+        this.watchable().includes(target)
+      )
+        counts.set(target, (counts.get(target) ?? 0) + 1);
+    }
+    if (
+      this.canSpectate() &&
+      !this.#freecam &&
+      this.watchId !== null &&
+      this.watchable().includes(this.watchId)
+    )
+      counts.set(this.watchId, (counts.get(this.watchId) ?? 0) + 1);
+    for (const id of Cup.racingIds(s)) {
+      const count = counts.get(id) ?? 0;
+      if (id === this.#selfId) {
+        this.#viewerCount = count;
+        this.#viewerRound = s.runtime.id;
+      } else
+        this.#transport.send(id, { type: 'viewers', cupId: s.id, roundId: s.runtime.id, count });
+    }
+  }
+  #setupDepartures = new Map<string, string>();
   #enrolling = new Set<number>();
   #resumeRacers = new Set<number>();
+  #removingTrack = false;
   #preparingRandom: Promise<void> | null = null;
   get preparingRandom() {
     return !!this.#preparingRandom;
@@ -280,6 +345,11 @@ export class Controller {
     const ping = this.#connection?.getPing?.(id);
     return typeof ping === 'number' && Number.isFinite(ping) && ping >= 0 ? Math.round(ping) : null;
   }
+  moveToSpectators(id: number) {
+    this.requireHost();
+    this.change((state) => Cup.leaveRunningCup(state, id));
+    this.#resumeRacers.delete(id);
+  }
   kickPlayer(id: number) {
     this.requireHost();
     if (id === this.#selfId || !this.#lobby.some((p) => p.id === id))
@@ -325,7 +395,7 @@ export class Controller {
         if (!this.#state || this.#chatTyping) return;
         if (this.#game) this.#heldDrivingInputs.bind(this.#native.drivingBindings(this.#game));
         this.#heldDrivingInputs.press(event);
-        if (this.checkpointHotkey(event)) {
+        if (this.freecamHotkey(event) || this.checkpointHotkey(event)) {
           event.preventDefault();
           event.stopImmediatePropagation();
         }
@@ -649,7 +719,6 @@ export class Controller {
       this.now() < run.startsAt ||
       !Cup.racingIds(state).includes(id) ||
       Cup.roundDone(state, id) ||
-      event.repeat ||
       event.isComposing ||
       event.ctrlKey ||
       event.metaKey ||
@@ -658,6 +727,7 @@ export class Controller {
     )
       return false;
     if (!this.#native.startRespawnPressed(this.#game, event)) return false;
+    if (event.repeat) return true;
     this.captureInputs();
     // Keep time spent on earlier attempts, including the car replacement interval.
     this.#raceTimeOffset = Math.max(
@@ -971,7 +1041,34 @@ export class Controller {
       ? (this.#liveInputs.get(this.watchId!)?.sample(this.#watchedPose.frames, this.now()) ?? null)
       : null;
   }
+  freecamHotkey(event: KeyboardEvent) {
+    if (
+      !this.#state ||
+      !this.#game ||
+      this.#chatTyping ||
+      isEditing(event) ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      !this.#native.freecamPressed?.(this.#game, event) ||
+      !Cup.mayWatch(this.#state, this.#selfId)
+    )
+      return false;
+    if (event.repeat) return true;
+    if (rulesFor(this.#state).allowSpectatorFreecam === false) return true;
+    this.#freecam = !this.#freecam;
+    this.#freecamGame = null;
+    this.#lastSubscribe = 0;
+    if (this.#freecam) {
+      this.#followingGame = null;
+      this.#followingId = null;
+      if (!this.#isHost) this.#transport.send(0, { type: 'watch', value: null });
+    }
+    this.#onChange();
+    return true;
+  }
   canSpectate() {
+    if (this.#freecam) return false;
     if (!this.#state?.runtime) return false;
     if (this.#info && this.#info.sessionId !== this.#state.runtime.sessionId) return false;
     if (this.localPlayerId === null) return false;
@@ -1019,9 +1116,41 @@ export class Controller {
     }
     this.#onChange();
   }
+  stopWatchSubscription() {
+    if (
+      !this.#isHost &&
+      Date.now() - this.#lastSubscribe > 1000 &&
+      this.#transport.send(0, { type: 'watch', value: null })
+    )
+      this.#lastSubscribe = Date.now();
+  }
   beforeRender(game: NativeGame) {
     if (game !== this.#game) return;
     this.captureInputs();
+    if (
+      this.#freecam &&
+      (!Cup.mayWatch(this.#state, this.#selfId) ||
+        rulesFor(this.#state).allowSpectatorFreecam === false)
+    ) {
+      this.#freecam = false;
+      this.#freecamGame = null;
+    }
+    if (this.#freecam && this.#state && !this.#info?.disposed && this.#selfId !== null) {
+      this.stopWatchSubscription();
+      if (this.#freecamGame !== game) {
+        this.#native.enterFreecam?.(game);
+        this.#freecamGame = game;
+      }
+      this.#native.presentation?.(game, true, true);
+      this.#native.visibility(
+        game,
+        this.#hideOtherGhosts ? [] : Cup.racingIds(this.#state),
+        this.#selfId,
+      );
+      this.#filteredCars = true;
+      this.#onSpectatorInputs?.();
+      return;
+    }
     const spectating = !this.#info?.disposed && this.canSpectate() && this.watchable().length > 0;
     // Native session-end screens still render after the session stops accepting
     // controls. Update their presentation before the disposed-session guard.
@@ -1054,6 +1183,7 @@ export class Controller {
       else this.#cameraTransport.send(0, { type: 'camera', pose });
     }
     if (!spectating) {
+      this.stopWatchSubscription();
       if (this.#raceTimeOffset > 0 && this.#raceClockRound === this.#state.runtime?.id)
         this.#native.showRoundTime?.(
           game,
@@ -1164,6 +1294,7 @@ export class Controller {
       this.#transport.sync(this.#native.peers(this.#connection));
       this.#cameraTransport.sync(this.#native.peers(this.#connection));
       this.syncReconnect();
+      this.syncDiagnostics();
       this.#chat.tick();
       if (Date.now() - this.#lastHello > 2000) {
         this.#lastHello = Date.now();
@@ -1201,7 +1332,7 @@ export class Controller {
         this.applyReconnects();
         this.admitRacers();
         this.advanceClock();
-        if (this.cup.phase === 'racing') {
+        if (this.cup.phase === 'racing' && !this.#removingTrack) {
           const run = this.round;
           if (
             Cup.allFinished(this.#state) ||
@@ -1233,6 +1364,9 @@ export class Controller {
     }
   }
   create(name: string) {
+    this.#setupDepartures.clear();
+    this.#physicsReports.clear();
+    this.#lastPhysics = 0;
     this.#enrolling.clear();
     this.#resumeRacers.clear();
     this.#preparingRandom = null;
@@ -1296,6 +1430,11 @@ export class Controller {
     if (this.#state?.phase !== 'complete')
       throw new Error('Finish the Cup before starting a rematch.');
     const next = Cup.rematch(this.#state, newTracks);
+    const online = new Set(this.#lobby.map((p) => p.id));
+    if (next.roster.some((p) => !online.has(p.id))) {
+      resetDraft(next);
+      for (const p of [...next.roster]) if (!online.has(p.id)) Cup.removePlayer(next, p.id);
+    }
     const needsDraft = rulesFor(next).selection === 'draft' && next.draft?.stage === 'roster';
     const launch = !newTracks && !needsDraft && next.roster.length >= 2;
     if (launch) {
@@ -1304,7 +1443,13 @@ export class Controller {
         throw new Error('A rematch track is missing. Choose new tracks instead.');
     }
     this.save();
+    this.#freecam = false;
+    this.#freecamGame = null;
     this.#state = next;
+    this.#setupDepartures.clear();
+    this.#needsRebind.clear();
+    this.#pendingReconnects.clear();
+    this.#unavailableSince.clear();
     this.#startingCup = null;
     if (newTracks || needsDraft) this.#tracks.clear();
     this.#enrolling.clear();
@@ -1343,6 +1488,8 @@ export class Controller {
     this.#viewCupId = s?.id ?? null;
   }
   releaseCup(message: string) {
+    this.#freecam = false;
+    this.#freecamGame = null;
     this.#enrolling.clear();
     this.#resumeRacers.clear();
     this.#preparingRandom = null;
@@ -1568,12 +1715,14 @@ export class Controller {
     return tracks;
   }
   allowedTracks() {
-    return this.availableTracks().filter((t) =>
-      rulesFor(this.cup).pool.includes(t.category as TrackCategory),
+    return this.availableTracks().filter(
+      (t) =>
+        rulesFor(this.cup).pool.includes(t.category as TrackCategory) &&
+        !this.cup.removedTracks?.includes(t.id),
     );
   }
-  async loadRandomTrack(state: CupState, timeoutMs = 20000) {
-    const pool = this.allowedTracks();
+  async loadRandomTrack(state: CupState, timeoutMs = 20000, excluded?: string) {
+    const pool = this.allowedTracks().filter((t) => t.id !== excluded);
     const previous = Cup.currentMatch(state)?.randomTrack?.id;
     const choices = pool.length > 1 ? pool.filter((t) => t.id !== previous) : pool;
     if (!choices.length) throw new Error('No tracks are available in the preset’s track pool.');
@@ -1672,6 +1821,23 @@ export class Controller {
   restoreRacer(id: number) {
     const s = this.#state,
       owner = this.#reconnect.owner(id);
+    const key = this.#reconnect.key(id);
+    if (
+      s &&
+      rosterOpen(s) &&
+      key &&
+      this.#setupDepartures.get(key) === s.id &&
+      !Cup.player(s, id) &&
+      s.roster.length < 8 &&
+      !s.roster.some((p) => this.#reconnect.key(p.id) === key)
+    ) {
+      const peer = this.#lobby.find((p) => p.id === id);
+      if (peer) {
+        Cup.addPlayer(s, id, peer.nickname);
+        this.#setupDepartures.delete(key);
+        this.broadcast();
+      }
+    }
     if (
       !s ||
       s.phase === 'complete' ||
@@ -1819,8 +1985,13 @@ export class Controller {
     if (m.type === 'join') {
       const p = this.#lobby.find((p) => p.id === actor);
       if (!p) return false;
-      if (this.#state.phase === 'registration') Cup.addPlayer(this.#state, actor, p.nickname);
-      else Cup.enterRunningCup(this.#state, actor, p.nickname);
+      if (this.#state.phase === 'registration') {
+        Cup.addPlayer(this.#state, actor, p.nickname);
+        this.#reconnect.sync(
+          this.#lobby.map((p) => p.id),
+          this.#state.roster.map((p) => p.id),
+        );
+      } else Cup.enterRunningCup(this.#state, actor, p.nickname);
     } else if (m.type === 'leave') {
       if (this.#state.phase === 'registration') {
         Cup.removePlayer(this.#state, actor);
@@ -1853,7 +2024,12 @@ export class Controller {
   async enrollRacer(id: number, action: ActionMessage) {
     const state = this.#state,
       connection = this.#connection;
-    if (!state || action.cupId !== state.id || !rulesFor(state).allowRacerChanges)
+    if (!this.#hello.has(id)) throw new Error('The multiplayer connection changed.');
+    if (
+      !state ||
+      action.cupId !== state.id ||
+      (state.phase !== 'registration' && !rulesFor(state).allowRacerChanges)
+    )
       throw new Error('This preset locks the racer roster during the Cup.');
     const deadline = Date.now() + 10000;
     while (!this.#reconnect.authenticated(id) && !Cup.player(state, id)) {
@@ -1881,6 +2057,31 @@ export class Controller {
     } else this.handleAction(id, action);
   }
   receive(id: number, m: Message) {
+    if (m.type === 'physics') {
+      if (
+        this.#isHost &&
+        this.#hello.has(id) &&
+        m.cupId === this.#state?.id &&
+        validPhysicsReport(m.report)
+      )
+        this.#physicsReports.set(id, { cupId: m.cupId, report: { ...m.report } });
+      return;
+    }
+    if (m.type === 'viewers') {
+      if (
+        !this.#isHost &&
+        id === 0 &&
+        m.cupId === this.#state?.id &&
+        m.roundId === this.#state?.runtime?.id &&
+        Number.isSafeInteger(m.count) &&
+        m.count >= 0 &&
+        m.count <= 128
+      ) {
+        this.#viewerCount = m.count;
+        this.#viewerRound = m.roundId;
+      }
+      return;
+    }
     if (m.type.startsWith('chat-')) {
       if (this.#isHost ? this.#hello.has(id) : id === 0) this.#chat.receive(id, m as ChatMessage);
       return;
@@ -1945,11 +2146,7 @@ export class Controller {
           (typeof action.requestId !== 'string' || action.requestId.length > 80)
         )
           return;
-        if (
-          action.type === 'join' &&
-          this.#state?.phase !== 'registration' &&
-          !Cup.player(this.#state, id)
-        ) {
+        if (action.type === 'join' && !Cup.player(this.#state, id)) {
           if (this.#enrolling.has(id)) return;
           this.#enrolling.add(id);
           void this.enrollRacer(id, action)
@@ -2109,7 +2306,13 @@ export class Controller {
       connection = this.#connection,
       game = this.#game;
     const setup = () =>
-      JSON.stringify([state.roster, state.picks, state.selections, state.draft, state.preset]);
+      JSON.stringify([
+        state.roster.map((p) => p.id),
+        state.picks,
+        state.selections,
+        state.draft,
+        state.preset,
+      ]);
     const before = setup();
     // Validate before any requests, then again after they settle in case a racer left.
     const random = rulesFor(state).selection === 'random';
@@ -2226,7 +2429,47 @@ export class Controller {
       state: this.#state ? this.networkState() : null,
     };
   }
+  async removeTrack() {
+    this.requireHost();
+    const state = this.cup,
+      visit = Cup.currentTrackVisit(state),
+      connection = this.#connection;
+    if (!visit || this.#removingTrack) return;
+    this.#removingTrack = true;
+    this.#nextAuto = null;
+    try {
+      const match = Cup.currentMatch(state);
+      const needsReplacement =
+        rulesFor(state).selection === 'random' ||
+        !match.order.some((id) => id !== visit.trackId && !state.removedTracks?.includes(id));
+      const replacement = needsReplacement
+        ? await this.loadRandomTrack(state, 20000, visit.trackId)
+        : null;
+      if (
+        state !== this.#state ||
+        connection !== this.#connection ||
+        Cup.currentTrackVisit(state)?.trackId !== visit.trackId
+      )
+        throw new Error('The Cup changed while preparing the next track.');
+      this.#review.close(state, 'void');
+      if (replacement) this.#tracks.set(replacement.entry.id, replacement.track);
+      Cup.removeCurrentTrack(
+        state,
+        replacement ? { id: replacement.entry.id, name: replacement.entry.name } : undefined,
+        replacement?.wr,
+      );
+      this.#review.undoTrackVisit(visit.trackId, visit.fromRound);
+      this.#loadingSession = undefined;
+      this.broadcast();
+      this.save(true);
+    } finally {
+      this.#removingTrack = false;
+      this.#onChange();
+    }
+    return this.runRound();
+  }
   runRound(): void | Promise<void> {
+    if (this.#removingTrack) return;
     this.requireHost();
     if (this.#preparingRandom) return this.#preparingRandom;
     if (!['dnf', 'void'].includes(this.cup.disconnectPolicy))
@@ -2323,6 +2566,22 @@ export class Controller {
   }
   checkDisconnects() {
     const s = this.#state;
+    if (s?.phase === 'registration') {
+      const missing = s.roster.filter((p) => !this.#lobby.some((peer) => peer.id === p.id));
+      if (missing.length) {
+        if (!rosterOpen(s)) resetDraft(s);
+        for (const p of missing) {
+          const key = this.#reconnect.ownerKey(p.id);
+          if (key) this.#setupDepartures.set(key, s.id);
+          Cup.removePlayer(s, p.id);
+          this.#needsRebind.delete(p.id);
+          this.#unavailableSince.delete(p.id);
+        }
+        this.pruneTrackData();
+        this.broadcast();
+      }
+      return;
+    }
     this.updateAvailability();
     if (s && rulesFor(s).allowRacerChanges && !['registration', 'complete'].includes(s.phase)) {
       for (const id of this.#resumeRacers) {
@@ -2420,6 +2679,7 @@ export class Controller {
     Cup.touch(this.#state);
   }
   advanceClock() {
+    if (this.#removingTrack) return;
     const s = this.#state,
       run = s?.runtime;
     if (!run) return;
@@ -2479,7 +2739,7 @@ export class Controller {
     this.#loadingSession = undefined;
     this.#nextAuto = null;
   }
-  exportData() {
+  saveData() {
     return {
       format: 'polytrack-world-cup',
       schema: 1,
@@ -2511,9 +2771,7 @@ export class Controller {
       data.tracks.length > 1000 ||
       !Array.isArray(data.state.history)
     )
-      throw new Error(
-        'This is not a Simple Cup save. Older PolyCup exports remain readable as JSON but cannot be resumed in this format.',
-      );
+      throw new Error('This autosave cannot be restored by this version of PolyCup.');
     const tracks = new Map<string, LoadedTrack>();
     for (const value of data.tracks as unknown[]) {
       if (!value || typeof value !== 'object') throw new Error('Invalid saved track.');
@@ -2562,13 +2820,14 @@ export class Controller {
     )
       return;
     try {
-      localStorage.setItem('pwc-save-v2', JSON.stringify(this.exportData()));
+      localStorage.setItem('pwc-save-v2', JSON.stringify(this.saveData()));
       this.#lastSaved = this.cup.revision;
       this.#savedReview = this.#review.revision;
       this.#savedChat = this.#chat.revision;
       this.#savedAt = Date.now();
     } catch {
-      this.#error = 'Autosave is full or unavailable. Export the tournament to keep results.';
+      this.#error =
+        'Autosave is full or unavailable. Cup progress could not be saved on this device.';
     }
   }
 }

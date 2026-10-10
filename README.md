@@ -4,13 +4,13 @@ Live Cups for **2 to 8 racers** in PolyTrack **0.6.3**. By **Kiki**.
 
 ## Install
 
-Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. In **Mods > Add**, import this URL with latest version, then choose **Load > Apply**:
+Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTrack 0.6.3. Install PolyCup from the **Mod Library**, or import this URL through **Mods > Add** with the latest version, then choose **Load > Apply**:
 
 ```text
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-All players and spectators need the same PolyCup version. Leaving the version empty uses the CDNâ€™s cached latest manifest, which may lag behind a release. Enter the version above explicitly if an older release is selected.
+All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN's cached latest manifest, which may lag behind a release. Enter **0.3.1** explicitly if an older release is selected.
 
 For the bundled Windows installer, place this project folder beside PolyTrack.exe, close the game and run **Install-PolyCup.cmd**. **Restore-Original.cmd** restores the original installation; run it before switching from the bundled installer to a normal PML installation.
 
@@ -18,7 +18,7 @@ For the bundled Windows installer, place this project folder beside PolyTrack.ex
 
 1. Host a multiplayer lobby and open **PolyCup** from the toolbar or **F8**.
 2. Create a Cup, share the lobby code, and join as racers.
-3. Choose **Standard**, **Quickplay**, or a saved preset in the lobby. Use **Customize rules** to edit them; valid changes apply automatically.
+3. Choose **Standard**, **Quickplay**, or a saved preset in the lobby. Edit the rules directly below the preset selector; valid changes apply automatically.
 4. Standard runs bans, then picks in the same panel. Quickplay starts directly on a random map.
 5. **Start Cup**. Rounds advance automatically until someone wins.
 
@@ -31,23 +31,23 @@ Both use main and community tracks. **Allow custom tracks** adds saved custom tr
 
 **Upload leaderboard times** enables the game’s Casual mode for Cup rounds and warmups. Leave it unchecked for Competitive mode with session-only times (the default). Native account and track eligibility rules still apply.
 
-Editing a rule changes the preset name to **Custom**. Use the pencil button to name it, then the save icon to keep it. The adjacent import/export icons share rules only. Cup import/export includes the tournament and results.
+Editing a rule changes the preset name to **Custom**. Use the pencil button to name it, then the save icon to keep it. The adjacent import/export icons share rules only.
 
-The organizer must stay connected. Native room capacity includes spectators. **Hide** closes your panel; **End Cup for everyone** ends Cup mode for the whole lobby.
+The organizer must stay connected. Native room capacity includes spectators. **Hide** closes your panel; **End Cup** ends Cup mode for the whole lobby.
 
-Rejoining the lobby with the same PolyTrack profile automatically recovers your racer slot and points at the next round boundary, subject to available racer slots. When **Allow mid-Cup racer changes** is enabled, spectators can join the next round at zero points and racers can leave without rehosting; returning racers keep their score. Profile ownership is checked with a Cup-specific signature; account tokens stay local. Disconnected racers sit out after a short grace period without blocking the Cup. Imported saves still require the organizer to identify their saved racers.
+Rejoining the lobby with the same PolyTrack profile automatically recovers your racer slot and points at the next round boundary, subject to available racer slots. When **Allow mid-Cup racer changes** is enabled, spectators can join the next round at zero points and racers can leave without rehosting; returning racers keep their score. Profile ownership is checked with a Cup-specific signature; account tokens stay local. Disconnected racers sit out after a short grace period without blocking the Cup. Restored autosaves still require the organizer to identify their saved racers.
 
 ## Rules and controls
 
-- With **Finalist** enabled, reach the presetâ€™s target, then win a later round outright. Without it, the highest score at or above the target wins; a tied lead continues.
+- With **Finalist** enabled, reach the preset’s target, then win a later round outright. Without it, the highest score at or above the target wins; a tied lead continues.
 - Default points are **10 / 8 / 6 / 5 / 4 / 3 / 2 / 1**; DNF awards zero. Exact finish ties share place points. A finalist must finish first outright to win.
 - Rounds per track are fixed by the preset. Drafted playlists repeat; random rotation chooses another map after each block.
-- Standard first-visit practice lasts **1.5Ã— WR, minimum 30 seconds** (90 seconds without a WR). Everyone choosing Ready ends practice early.
-- **G** toggles other playersâ€™ ghosts; rebind it in Settings â†’ Controls â†’ PolyCup.
-- **[ / ]** switch spectator targets. Automatic spectating after finishing can be disabled in settings.
+- Standard first-visit practice lasts **1.5× WR, minimum 30 seconds** (90 seconds without a WR). Everyone choosing Ready ends practice early.
+- **G** toggles other players’ ghosts; rebind it in Settings → Controls → PolyCup.
+- **[ / ]** switch spectator targets. The native free-camera key is available to spectators when the preset allows it; an eye counter shows how many spectators are following you. Automatic spectating after finishing can be disabled in settings.
 - Your **full restart** key means DNF during a live round. **Checkpoint reset** returns you to the start before the first checkpoint, keeping your elapsed Cup time; after that it uses the normal checkpoint respawn.
 
-Organizer controls include round recovery, autosave restoration, and Cup import/export. Exports contain Cup state and results, not game replays. Private review flags use client-reported data and are not proof of cheating.
+Host round controls and run review are in the main Cup panel. Use the arrow beside a player in the lobby or scoreboard to manage their racer slot or kick them. Restore the local autosave from the Cup start screen. Removing a track excludes it for the rest of the Cup and rolls back only the current visit; earlier visits keep their scores. If no drafted track remains, a replacement is drawn from the preset’s pool. Private review flags and physics-binary mismatch warnings use client-reported data and are not proof of cheating. Physics warnings are visible only to the host and do not block racing.
 
 ## Development
 
@@ -68,6 +68,6 @@ Independent community mod. PolyTrack artwork belongs to Kodub; toolbar trophy: i
 
 ### Chat
 
-Press **Y** (rebindable in PolyCup controls) or click **Chat**. Enter sends; Escape returns to driving. Racers and spectators share one chat. The full filtered history stays with the Cup and is included in the organizer's save/export. Older messages remain scrollable; previews can be hidden.
+During setup, chat sits below the player list. During a Cup, use **Chat** in the panel header, or press **Y** (rebindable in PolyCup controls). Enter sends; Escape leaves the message box. Racers and spectators share one chat. The full filtered history stays with the Cup and is included in the organizer's local autosave. Older messages remain scrollable; previews can be hidden.
 
 Common slurs and explicit hate phrases are masked with asterisks; ordinary profanity is allowed. The organizer can click a name in chat to mute or unmute that participant. Mutes follow verified profiles when they reconnect.

@@ -116,7 +116,7 @@ test('fresh rematches retain only players and optional picks, leaving previous s
   assert.equal(JSON.stringify(s), original); assert.throws(() => Cup.rematch(setup()), /Finish/);
 });
 
-test('quick rematch starts one new native session, rejects missing racers, and new picks retain the lobby', async () => {
+test('quick rematch starts one new native session and missing racers return the rematch to setup', async () => {
   const c = room(complete()); let starts = 0;
   c.connection.startNewSession = () => starts++;
   c.tracks.set(trackId, { trackMetadata: {}, trackData: {} }); c.native.worldRecord = async () => ({status:'missing'});
@@ -124,8 +124,8 @@ test('quick rematch starts one new native session, rejects missing racers, and n
   await c.rematch(); assert.equal(starts, 1); assert.equal(c.state.phase, 'loading'); assert.notEqual(c.state.id, old);
   assert.deepEqual(c.state.matches[0].scores, {1:0,2:0,3:0});
   c.state = complete(); c.lobby = [{id:1},{id:2}]; const completed = c.state;
-  await assert.rejects(c.rematch(), /connected/); assert.equal(c.state, completed);
-  await c.rematch(true); assert.equal(c.state.phase,'registration'); assert.equal(c.state.roster.length,3);
+  await c.rematch(); assert.equal(c.state.phase,'registration'); assert.deepEqual(c.state.roster.map(p=>p.id),[1,2]);
+  c.state = completed; await c.rematch(true); assert.equal(c.state.phase,'registration'); assert.equal(c.state.roster.length,2);
   assert.deepEqual(c.state.picks,{}); assert.equal(c.tracks.size,0); assert.equal(starts,1);
 });
 

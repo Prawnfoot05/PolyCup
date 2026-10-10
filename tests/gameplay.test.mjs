@@ -77,7 +77,7 @@ test('start respawns preserve cumulative Cup time through repeated attempts, che
 
 test('start respawn rejects menus, countdown, spectators, completed runs and stale sessions',()=>{
   const c=racer();const initial=c.info.car;
-  for(const event of [key('KeyT'),key('KeyR',{repeat:true}),key('KeyR',{ctrlKey:true}),key('KeyR',{composedPath:()=>[{tagName:'INPUT'}]})])
+  for(const event of [key('KeyT'),key('KeyR',{ctrlKey:true}),key('KeyR',{composedPath:()=>[{tagName:'INPUT'}]})])
     assert.equal(c.checkpointHotkey(event),false);
   for(const phase of ['warmup','countdown','between-rounds']) {c.state.phase=phase;assert.equal(c.checkpointHotkey(key('KeyR')),false);}
   c.state.phase='racing';c.info.sessionId=8;assert.equal(c.checkpointHotkey(key('KeyR')),false);c.info.sessionId=9;
@@ -175,4 +175,10 @@ test('open chat blocks restart hotkeys even if a new game takes keyboard focus',
   assert.equal(c.checkpointHotkey(key('KeyR')),false);assert.equal(c.restartHotkey(key('KeyT')),false);
   const first=c.info.car;c.state.phase='warmup';c.handleRestart(c.game);assert.equal(c.info.car,first);
   c.state.phase='racing';c.setChatTyping(false);assert.equal(c.checkpointHotkey(key('KeyR')),true);
+});
+
+test('held checkpoint reset is consumed without resetting or leaking to another Enter action',()=>{
+ const c=racer(), initial=c.info.car;
+ assert.equal(c.checkpointHotkey(key('KeyR',{repeat:true})),true);
+ assert.equal(c.info.car,initial);assert.deepEqual(c.state.runtime.dnfs,[]);
 });

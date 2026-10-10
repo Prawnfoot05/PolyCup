@@ -344,7 +344,8 @@ test('two controllers transfer a remote custom track and bind self-registration 
   host.transport.send=(id,m)=>{assert.equal(id,2);client.receive(0,m);return true;};
   host.transport.broadcast=m=>client.receive(0,m);
   client.transport.send=(id,m)=>{assert.equal(id,0);host.receive(2,m);return true;};
-  client.action('join', {id:1,name:'Impersonation'}); assert.equal(host.state.roster[0].id,2); assert.equal(host.state.roster[0].name,'Remote');
+  host.reconnect.authenticated=()=>true;
+  await client.action('join', {id:1,name:'Impersonation'}); assert.equal(host.state.roster[0].id,2); assert.equal(host.state.roster[0].name,'Remote');
   const code='custom-track-data-'.repeat(3000), id='b'.repeat(64);
   host.native={parse:value=>{assert.equal(value,code);return {trackMetadata:{name:'Custom'},trackData:{getId:()=>id,hasStartingPoint:()=>true}};}};
   await client.importTrack(code); assert.equal(host.tracks.get(id).code,code); assert.equal(client.state.picks[2],id);

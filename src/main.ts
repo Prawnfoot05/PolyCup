@@ -3,6 +3,7 @@ import { Controller } from './controller.ts';
 import { registerCarVisibility } from './native.ts';
 import { CupUI } from './ui.ts';
 import { registerVersionCheck } from './version-check.ts';
+import { PhysicsIntegrity } from './physics-integrity.ts';
 const { PolyMod, MixinType } = (await import(new URL('PolyTypes.js', document.baseURI).href)) as {
   PolyMod: new () => object;
   MixinType: { INSERT: unknown };
@@ -10,6 +11,7 @@ const { PolyMod, MixinType } = (await import(new URL('PolyTypes.js', document.ba
 class PolyCup extends PolyMod {
   #controller!: Controller;
   #ui?: CupUI;
+  #physics = new PhysicsIntegrity();
 
   constructor() {
     super();
@@ -22,10 +24,12 @@ class PolyCup extends PolyMod {
     }
   }
   preInit(pml: PolyModLoader) {
+    this.#physics.install(pml);
     registerCarVisibility(pml, MixinType.INSERT);
   }
   init(pml: PolyModLoader) {
     this.#controller = new Controller(() => this.#ui?.render());
+    this.#controller.setPhysicsSource(() => this.#physics.report);
     try {
       registerVersionCheck(pml, MixinType.INSERT);
       this.#controller.init(pml);

@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Live Cups for 2–8 racers with customizable presets, track drafting, live rankings and buffered spectator POV.",
-  "changelog": "Preset checkbox for native Casual mode and leaderboard uploads, with session-only record saving when disabled. Lobby connection indicators and host kick controls, animated rankings, PB/TR/WR record tabs, and a preset rename button. Cup chat with saved history, username colors, name-click mute controls and slur filtering. Late round starts count toward Cup time. Custom tracks are disabled when bans are enabled. Streamlined lobby controls with editable preset names and automatic rule updates. Customizable Standard and Quickplay presets, preset import/export, fixed rounds per track, optional custom tracks and mid-Cup racer changes. Automatic racer recovery, start respawns with cumulative timing, held inputs and camera choice across rounds, continuous spectator handoffs, pending action feedback, and multiplayer version checks."
+  "changelog": "Track removal with score rollback, spectator freecam and viewer counts, and host-only physics warnings. Unified fixed-height lobby with inline preset editing, embedded chat, simpler player controls and lighter labels. Fixed setup disconnects and duplicate racers, rapid checkpoint-reset DNFs, rematch setup, preset icons and lingering notices. Removed tournament/review exports, separate organizer screens and the spectator dropdown; preset sharing and local autosaves remain."
 }
