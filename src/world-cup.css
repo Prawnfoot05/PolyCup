@@ -483,9 +483,10 @@ button.lobby-kick:hover,button.lobby-kick:focus-visible { color:#ffaaaa; backgro
 .score-entry { position:relative; isolation:isolate; }
 .score-entry .score-row { position:relative; z-index:2; }
 .full-scoreboard { margin-right:34px; }
-.record-badge { position:absolute; left:calc(100% - 8px); top:50%; z-index:1; padding:4px 8px 4px 13px; font:italic 700 14px/1 ForcedSquare,Arial,sans-serif; color:#13213a; background:#91e9c5; clip-path:polygon(0 0,100% 0,calc(100% - 5px) 100%,0 100%); transform:translateY(-50%); animation:record-pop 300ms cubic-bezier(.2,.7,.25,1) both; }
+.record-badge { position:absolute; left:calc(100% - 8px); top:50%; z-index:1; padding:4px 8px 4px 13px; font:italic 700 14px/1 ForcedSquare,Arial,sans-serif; color:#13213a; background:#91e9c5; clip-path:polygon(0 0,100% 0,calc(100% - 5px) 100%,0 100%); transform:translateY(-50%); animation:record-pop 300ms cubic-bezier(.2,.7,.25,1) both,record-return 240ms ease-in forwards; }
 .record-badge-tr { background:#8edcf4; }.record-badge-wr { background:#ffd26b; }
 @keyframes record-pop { from { transform:translate(-100%,-50%); } to { transform:translate(0,-50%); } }
+@keyframes record-return { from { transform:translate(0,-50%); } to { transform:translate(-100%,-50%); } }
 @media(prefers-reduced-motion:reduce) { .record-badge { animation:none; } }
 
 .hud { width:min(458px,calc(100vw - 8px)); padding-right:38px; }

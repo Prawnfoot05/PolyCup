@@ -9,5 +9,5 @@
     "UI"
   ],
   "description": "Live Cups for 2–8 racers with customizable presets, track drafting, live rankings and buffered spectator POV.",
-  "changelog": "Fixed split-update stutters in longer Cups, missing last-checkpoint splits (including single-checkpoint tracks such as Desert 3), and chat scrolling when switching lobby tabs. Improved finish delivery under high latency and packet backlogs. Removed Cup autosaves, restoration, and player-management arrows from final results."
+  "changelog": "Fixed split-update stutters in longer Cups, missing last-checkpoint splits (including single-checkpoint tracks such as Desert 3), stale TR/WR badges after faster finishes, and chat scrolling when switching lobby tabs. Record badges now slide back under racer cards. Improved finish delivery under high latency and packet backlogs. Removed Cup autosaves, restoration, and player-management arrows from final results."
 }

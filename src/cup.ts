@@ -1,4 +1,4 @@
-import { recordAward, recordBaselines } from './record-awards.ts';
+import { awardFinish, recordBaselines } from './record-awards.ts';
 import type { CupState, Match, RaceRecord, Track } from './types.ts';
 // Competition state is owned by the native multiplayer host. No game internals here.
 import { isBanned, picksOpen, resetDraft, rosterOpen } from './draft.ts';
@@ -415,8 +415,7 @@ export function recordFinish(state: CupState, id: number, frames: number, now: n
   if (frames > now - run.startsAt + 2000) return false;
   if (run.deadline !== null && (now > run.deadline + 1500 || frames > run.deadline - run.startsAt))
     return false;
-  const award = recordAward(run, id, frames);
-  if (award) (run.recordAwards ??= {})[id] = award;
+  awardFinish(run, id, frames);
   run.finishes[id] = frames;
   const finishAt = run.startsAt + frames;
   run.deadline = Math.min(

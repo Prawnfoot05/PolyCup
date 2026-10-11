@@ -1,4 +1,4 @@
-import type { RaceRecord, SessionRecord } from './types.ts';
+import type { RaceRecord, RecordAward, SessionRecord } from './types.ts';
 import type { InputVisualizer, LibraryTrack } from './game-types.ts';
 import type { Controller } from './controller.ts';
 import { downtimeLabel, roundSeconds } from './race-status.ts';
@@ -41,7 +41,7 @@ export class CupUI {
     this.#chatUI.hotkey(event);
   }
   #recordCueScope = '';
-  #recordCues = new Map<number, number>();
+  #recordCues = new Map<number, { since: number; award: RecordAward; exitAt: number }>();
   #presetEditor = new PresetEditor(this);
   #lobbyStart: HTMLButtonElement | null = null;
   setLobbyStart(button: HTMLButtonElement) {
@@ -1483,21 +1483,27 @@ export class CupUI {
       entry.dataset.rankingOrder = String(i);
       entry.append(row);
       const award = run?.recordAwards?.[r.id];
+      const now = Date.now();
+      let cue = this.#recordCues.get(r.id);
       if (award) {
-        if (!this.#recordCues.has(r.id)) this.#recordCues.set(r.id, Date.now());
-        const since = this.#recordCues.get(r.id)!;
-        if (Date.now() < since + 6000) {
-          const badge = h('small', award, `record-badge record-badge-${award.toLowerCase()}`);
-          badge.title =
-            award === 'WR'
-              ? 'New world-record time'
-              : award === 'TR'
-                ? 'New Cup track record'
-                : 'New personal best';
-          badge.dataset.recordUntil = String(since + 6000);
-          badge.style.animationDelay = `${-Math.min(300, Date.now() - since)}ms`;
-          entry.append(badge);
-        }
+        if (!cue) {
+          cue = { since: now, award, exitAt: now + 6000 };
+          this.#recordCues.set(r.id, cue);
+        } else cue.award = award;
+      } else if (cue) cue.exitAt = Math.min(cue.exitAt, now);
+      if (cue && now < cue.exitAt + 240) {
+        const badge = h('small', cue.award, `record-badge record-badge-${cue.award.toLowerCase()}`);
+        badge.title =
+          cue.award === 'WR'
+            ? 'New world-record time'
+            : cue.award === 'TR'
+              ? 'New Cup track record'
+              : 'New personal best';
+        badge.dataset.recordUntil = String(cue.exitAt + 240);
+        // Resume both animations after redraws instead of replaying the entrance
+        // or removing the badge before its return under the card has finished.
+        badge.style.animationDelay = `${cue.since - now}ms, ${cue.exitAt - now}ms`;
+        entry.append(badge);
       }
       board.append(entry);
     }

@@ -12,7 +12,7 @@ test('record badges use pre-race PBs and select WR over TR over PB',()=>{
  assert.ok(Cup.recordFinish(s,2,10500,12500));assert.equal(s.runtime.recordAwards[2],'TR');
  assert.ok(Cup.recordFinish(s,3,9000,12600));assert.equal(s.runtime.recordAwards[3],'WR');
  assert.ok(validSnapshot(Cup.publicState(s)));
- Cup.completeRound(s);assert.deepEqual(s.matches[0].roundsLog[0].recordAwards,{1:'PB',2:'TR',3:'WR'});
+ Cup.completeRound(s);assert.deepEqual(s.matches[0].roundsLog[0].recordAwards,{1:'PB',3:'WR'});
  Cup.rebindPlayer(s,1,10,'Returned');assert.equal(s.matches[0].roundsLog[0].recordAwards[10],'PB');assert.ok(validSnapshot(Cup.publicState(s)));
 });
 test('ties, unknown records, late invalid finishes and slower subsequent records do not claim improvements',()=>{
@@ -20,6 +20,26 @@ test('ties, unknown records, late invalid finishes and slower subsequent records
  assert.ok(Cup.recordFinish(s,2,10000,11000));assert.equal(s.runtime.recordAwards[2],undefined);
  assert.equal(Cup.recordFinish(s,3,999999,12000),false);assert.equal(s.runtime.recordAwards[3],undefined);
  s.runtime.recordAwards[2]='FAKE';assert.equal(validSnapshot(Cup.publicState(s)),false);
+});
+
+test('the first track record follows the fastest finish and replaces provisional record badges',()=>{
+ const s=race();delete s.runtime.recordBaselines.tr;
+ Cup.recordFinish(s,1,12000,12000);assert.equal(s.runtime.recordAwards[1],'TR');
+ Cup.recordFinish(s,2,11000,12500);
+ assert.deepEqual(s.runtime.recordAwards,{1:'PB',2:'TR'});
+ Cup.recordFinish(s,3,9000,13000);
+ assert.deepEqual(s.runtime.recordAwards,{1:'PB',3:'WR'},'only the fastest report keeps a global record badge; unknown PBs stay unknown');
+ assert.ok(validSnapshot(Cup.publicState(s)));
+ Cup.completeRound(s);assert.deepEqual(s.matches[0].roundsLog[0].recordAwards,{1:'PB',3:'WR'});
+});
+
+test('a delayed faster world record supersedes an earlier WR, while a tie does not duplicate it',()=>{
+ const s=race();s.runtime.recordBaselines.pbs[2]=12000;
+ Cup.recordFinish(s,1,9500,10000);assert.equal(s.runtime.recordAwards[1],'WR');
+ Cup.recordFinish(s,2,9000,11000);assert.deepEqual(s.runtime.recordAwards,{1:'PB',2:'WR'});
+ Cup.recordFinish(s,3,9000,12000);assert.deepEqual(s.runtime.recordAwards,{1:'PB',2:'WR',3:'PB'});
+ assert.equal(Cup.recordFinish(s,1,8500,12000),false);
+ assert.deepEqual(s.runtime.recordAwards,{1:'PB',2:'WR',3:'PB'});
 });
 test('a missing PB can become a first PB, while an unavailable PB is not guessed',()=>{
  const s=race();s.runtime.recordBaselines.tr=5000;s.runtime.recordBaselines.wr=4000;
