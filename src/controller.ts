@@ -742,10 +742,9 @@ export class Controller {
   }
   hookFinish(car: NativeCar, run: Round) {
     let checkpoint: number | null = null;
-    const checkpointIndex = this.gameInfo.checkpointCount - 2;
-    car.addCheckpointCallback((index) => {
-      if (index === checkpointIndex && checkpointIndex >= 0)
-        checkpoint = this.lapFrames(car.getTime().numberOfFrames);
+    // Native counts distinct checkpoint numbers; neither start nor finish is included.
+    const checkpointIndex = this.gameInfo.checkpointCount - 1;
+    car.addCheckpointCallback(() => {
       if (
         this.localPlayerId === null ||
         this.#state?.phase !== 'racing' ||
@@ -766,6 +765,7 @@ export class Controller {
         index: reached,
         frames: this.lapFrames(car.getTime().numberOfFrames),
       };
+      if (reached === checkpointIndex && checkpoint === null) checkpoint = message.frames;
       if (this.#raceTimeOffset > 0)
         this.#native.showRoundCheckpoint?.(this.activeGame, message.frames);
       if (this.#isHost) this.receiveCheckpoint(this.localPlayerId, message);

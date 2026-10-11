@@ -117,7 +117,7 @@ export class ReviewLog {
         name: p.name,
         outcome: 'pending',
         finish: null,
-        expectedCheckpoints: Math.max(0, checkpointCount - 1),
+        expectedCheckpoints: Math.max(0, checkpointCount),
         checkpoints: [],
         inputs: [],
         through: -1,

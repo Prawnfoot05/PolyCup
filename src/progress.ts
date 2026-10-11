@@ -26,7 +26,7 @@ export class CheckpointProgress {
       !Number.isSafeInteger(checkpointCount) ||
       !Number.isSafeInteger(index) ||
       index < 0 ||
-      index >= checkpointCount - 1 ||
+      index >= checkpointCount ||
       !Number.isSafeInteger(frames) ||
       frames <= 0 ||
       frames > 3600000 ||

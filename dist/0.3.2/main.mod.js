@@ -1707,7 +1707,7 @@ var CheckpointProgress = class {
   }
   record(state, id, index, frames, now, checkpointCount) {
     const run = state?.runtime;
-    if (state?.phase !== "racing" || !run || !activeIds(state).includes(id) || roundDone(state, id) || !Number.isSafeInteger(checkpointCount) || !Number.isSafeInteger(index) || index < 0 || index >= checkpointCount - 1 || !Number.isSafeInteger(frames) || frames <= 0 || frames > 36e5 || run.startsAt === null || frames > now - run.startsAt + 2e3 || run.deadline !== null && (now > run.deadline + 1500 || frames > run.deadline - run.startsAt))
+    if (state?.phase !== "racing" || !run || !activeIds(state).includes(id) || roundDone(state, id) || !Number.isSafeInteger(checkpointCount) || !Number.isSafeInteger(index) || index < 0 || index >= checkpointCount || !Number.isSafeInteger(frames) || frames <= 0 || frames > 36e5 || run.startsAt === null || frames > now - run.startsAt + 2e3 || run.deadline !== null && (now > run.deadline + 1500 || frames > run.deadline - run.startsAt))
       return false;
     const previous = run.splits?.[id];
     if (previous && (index <= previous.index || frames < previous.frames)) return false;
@@ -1819,7 +1819,7 @@ var ReviewLog = class _ReviewLog {
         name: p.name,
         outcome: "pending",
         finish: null,
-        expectedCheckpoints: Math.max(0, checkpointCount - 1),
+        expectedCheckpoints: Math.max(0, checkpointCount),
         checkpoints: [],
         inputs: [],
         through: -1,
@@ -3059,10 +3059,8 @@ var Controller = class {
   }
   hookFinish(car, run) {
     let checkpoint = null;
-    const checkpointIndex = this.gameInfo.checkpointCount - 2;
-    car.addCheckpointCallback((index) => {
-      if (index === checkpointIndex && checkpointIndex >= 0)
-        checkpoint = this.lapFrames(car.getTime().numberOfFrames);
+    const checkpointIndex = this.gameInfo.checkpointCount - 1;
+    car.addCheckpointCallback(() => {
       if (this.localPlayerId === null || this.#state?.phase !== "racing" || this.cup.runtime?.id !== run.id || this.#info?.sessionId !== run.sessionId || this.#info.car !== car)
         return;
       const reached = car.getNextCheckpointIndex() - 1;
@@ -3075,6 +3073,7 @@ var Controller = class {
         index: reached,
         frames: this.lapFrames(car.getTime().numberOfFrames)
       };
+      if (reached === checkpointIndex && checkpoint === null) checkpoint = message.frames;
       if (this.#raceTimeOffset > 0)
         this.#native.showRoundCheckpoint?.(this.activeGame, message.frames);
       if (this.#isHost) this.receiveCheckpoint(this.localPlayerId, message);

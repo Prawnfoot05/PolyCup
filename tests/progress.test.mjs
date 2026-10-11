@@ -14,6 +14,35 @@ function race() {
 const order = s => standings(s).map(r=>r.id);
 const row = (s,id) => standings(s).find(r=>r.id===id);
 
+test('one numbered checkpoint is a valid split and the final numbered checkpoint is included', () => {
+  for(const count of [1,2,3]) {
+    const s=race(),progress=new CheckpointProgress();
+    for(let index=0;index<count;index++) {
+      assert.equal(progress.record(s,1,index,1000*(index+1),30000,count),true);
+      assert.equal(row(s,1).checkpoint,index);
+    }
+    assert.equal(progress.record(s,1,count-1,count*1000+100,30000,count),false,'alternate gate or revisit of the same number does not overwrite its first time');
+    assert.equal(progress.record(s,1,count,10000,30000,count),false,'finish is not another numbered checkpoint');
+    assert.deepEqual(s.matches[0].scores,{1:0,2:0,3:0});
+  }
+});
+
+test('single-checkpoint native event reaches host, guest and spectator and is counted in review', () => {
+  const host=new Controller(()=>{}),guest=new Controller(()=>{}),spectator=new Controller(()=>{});
+  host.state=race();host.isHost=true;host.selfId=1;host.info={sessionId:9,checkpointCount:1};host.now=()=>30000;host.hello.add(2);
+  guest.state=structuredClone(host.state);guest.selfId=2;guest.connection={};spectator.selfId=4;
+  host.transport.broadcast=m=>{guest.receive(0,structuredClone(m));spectator.receive(0,structuredClone(m));};
+  host.transport.send=(id,m)=>{guest.receive(0,structuredClone(m));return true;};
+  guest.transport.send=(id,m)=>{host.receive(2,structuredClone(m));return true;};
+  let onCheckpoint,onFinish,frames=10000;
+  const car={getNextCheckpointIndex:()=>1,getTime:()=>({numberOfFrames:frames}),addCheckpointCallback:f=>onCheckpoint=f,addFinishCallback:f=>onFinish=f};
+  guest.info={sessionId:9,checkpointCount:1,car};guest.hookFinish(car,guest.state.runtime);onCheckpoint(0);
+  for(const c of [host,guest,spectator])assert.equal(row(c.state,2).splitFrames,10000);
+  const review=host.review.current(host.state.runtime.id,2);assert.equal(review.expectedCheckpoints,1);assert.deepEqual(review.checkpoints,[[0,10000]]);
+  frames=11000;onCheckpoint(0);frames=15000;onFinish();
+  assert.equal(host.state.runtime.checkpoints[2],10000);assert.equal(row(host.state,2).frames,15000);
+});
+
 test('checkpoint ranking uses cumulative times and compares gaps only at matching checkpoints', () => {
   const s=race(), p=new CheckpointProgress();
   const pass=(id,index,frames)=>assert.equal(p.record(s,id,index,frames,60000,5),true);
@@ -59,9 +88,9 @@ test('finishes replace checkpoint readings, DNF goes last, and only finish resul
 
 test('reject malformed, duplicate, regressive, future, expired and non-racer checkpoint reports', () => {
   const s=race(),p=new CheckpointProgress();
-  for(const [id,index,frames,count] of [[4,0,1000,5],[1,-1,1000,5],[1,4,1000,5],[1,0.5,1000,5],
+  for(const [id,index,frames,count] of [[4,0,1000,5],[1,-1,1000,5],[1,5,1000,5],[1,0.5,1000,5],
     [1,0,0,5],[1,0,-1,5],[1,0,1.5,5],[1,0,NaN,5],[1,0,Infinity,5],[1,0,3600001,5],
-    [1,0,33000,5],[1,0,1000,undefined],[1,0,1000,1]]) assert.equal(p.record(s,id,index,frames,30000,count),false);
+    [1,0,33000,5],[1,0,1000,undefined],[1,0,1000,0]]) assert.equal(p.record(s,id,index,frames,30000,count),false);
   for(const phase of ['loading','warmup','countdown','between-rounds','complete']) {
     s.phase=phase; assert.equal(p.record(s,1,0,1000,30000,5),false);
   }
@@ -111,8 +140,11 @@ test('native checkpoint events travel guest to organizer to spectators with roun
   host.receive(3,{...message,id:1,frames:10320}); assert.equal(row(host.state,3).delta,320);assert.equal(row(host.state,1).splitFrames,undefined);
   guest.lastCheckpointSend=-Infinity;
   index=3;frames=24300;cpCallback(1);assert.equal(row(host.state,2).checkpoint,2,'current native index handles multi-checkpoint frames');
-  index=5;frames=25000;cpCallback(3);assert.equal(row(host.state,2).checkpoint,2,'finish checkpoint is not a split');
+  guest.lastCheckpointSend=-Infinity;
+  index=5;frames=24800;cpCallback(3);assert.equal(row(host.state,2).checkpoint,4,'last numbered checkpoint is a split');
+  index=6;frames=25000;cpCallback(5);assert.equal(row(host.state,2).checkpoint,4,'out-of-range crossing is not a split');
   finishCallback();assert.equal(row(host.state,2).frames,25000);
+  assert.equal(host.state.runtime.checkpoints[2],24800,'finish carries the actual last checkpoint even when native progress jumps across indices');
   Cup.voidRound(host.state);Cup.beginRound(host.state);host.state.phase='countdown';Cup.startRace(host.state,0);
   host.transport.broadcast(host.syncMessage());const fresh=JSON.stringify(host.state);index=2;frames=15000;cpCallback(1);
   assert.equal(JSON.stringify(host.state),fresh,'old native car callback cannot leak into new round');

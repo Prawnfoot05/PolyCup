@@ -11,7 +11,7 @@ function race() {
   Cup.lockRegistration(s);Cup.beginRound(s);s.runtime.sessionId=9;s.phase='countdown';Cup.startRace(s,0);return s;
 }
 function record(log,s,input=events,finish=15000) {
-  log.begin(s,5);
+  log.begin(s,4);
   for(let i=0;i<4;i++) log.checkpoint(s.runtime.id,1,i,(i+1)*2500);
   if(input) log.inputs(s.runtime.id,1,{seq:0,through:finish,events:input,gap:false});
   s.runtime.finishes[1]=finish;log.close(s);
