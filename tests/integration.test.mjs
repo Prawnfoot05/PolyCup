@@ -136,7 +136,7 @@ test('leaving Cup POV restores the selected native camera and normal car volumes
     assert.equal(own.audioVolume,1);assert.equal(remote.car.audioVolume,.4);
   }
 });
-test('library selection retains an exportable custom track for transfer and autosave', async () => {
+test('library selection retains an exportable custom track for multiplayer transfer', async () => {
   const c = new Controller(() => {}); c.isHost = true; c.connection = {}; c.state = Cup.newCup(); c.selfId=1; Cup.addPlayer(c.state,1,'Host'); c.broadcast = () => {};
   c.state.preset.rules.pool.push('custom');c.state.preset.rules.bansPerRacer=0;
   const id = 'a'.repeat(64), metadata = { name: 'Locally saved track' };

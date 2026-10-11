@@ -58,6 +58,7 @@ export type Message =
   | ActionMessage
   | { type: 'action-ack'; requestId: string; error?: string }
   | FinishMessage
+  | { type: 'finish-ack'; roundId: string; sessionId: number | null; frames: number }
   | CheckpointMessage
   | ReadyMessage
   | TrackMessage

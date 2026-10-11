@@ -312,7 +312,14 @@ export class CupTransport {
   #channels: Map<number, RTCDataChannel> = new Map();
   #peers: Map<
     RTCPeerConnection,
-    { id: number; channel: RTCDataChannel; windowAt: number; count: number }
+    {
+      id: number;
+      channel: RTCDataChannel;
+      windowAt: number;
+      count: number;
+      raceCount: number;
+      received: number;
+    }
   > = new Map();
   #channelId: number;
   #realtime: boolean;
@@ -345,7 +352,14 @@ export class CupTransport {
             ? { negotiated: true, id: this.#channelId, ordered: false, maxRetransmits: 0 }
             : { negotiated: true, id: this.#channelId, ordered: true },
         );
-        const entry = { id, channel, windowAt: performance.now(), count: 0 };
+        const entry = {
+          id,
+          channel,
+          windowAt: performance.now(),
+          count: 0,
+          raceCount: 0,
+          received: 0,
+        };
         this.#peers.set(pc, entry);
         this.#channels.set(id, channel);
         channel.onopen = () => this.#onChange();
@@ -358,14 +372,24 @@ export class CupTransport {
           if (now - entry.windowAt > 1000) {
             entry.windowAt = now;
             entry.count = 0;
+            entry.raceCount = 0;
+            entry.received = 0;
           }
           // A spectator handoff temporarily carries two camera streams at 20 Hz each.
-          if (++entry.count > (this.#realtime ? 60 : 35)) return;
+          if (++entry.received > (this.#realtime ? 60 : 105)) return;
           try {
             const candidate: unknown = JSON.parse(event.data);
             if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return;
             const message = candidate as Message & { protocol?: number };
             if (!message || message.protocol !== 1 || typeof message.type !== 'string') return;
+            if (!this.#realtime) {
+              // Queued input/chat traffic must not consume the allowance for race results.
+              // Both groups remain bounded independently when a connection delivers a burst.
+              const race = ['finish', 'finish-ack', 'checkpoint', 'ready', 'state'].includes(
+                message.type,
+              );
+              if (race ? ++entry.raceCount > 35 : ++entry.count > 35) return;
+            }
             this.#onMessage(id, message); // Native peer ID, never an ID supplied by a client.
           } catch (error) {
             console.warn('[PolyCup] Rejected peer message:', String(error));

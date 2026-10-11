@@ -510,6 +510,7 @@ export class CupUI {
     this.#panel.classList.toggle('lobby-panel', s?.phase === 'registration');
     this.#panel.classList.toggle('scoreboard-panel', !!s && s.phase !== 'registration');
     this.#invite.update(c.connection, this.#open);
+    if (this.#panel.hidden === this.#open) this.#chatUI.preserveScroll();
     this.#panel.hidden = !this.#open;
     this.#notice.classList.toggle('panel-open', this.#open || this.#chatUI.isOpen);
     this.renderStartCue();
@@ -558,206 +559,207 @@ export class CupUI {
       !!c.startingCup,
       c.preparingRandom,
       c.canSpectate(),
-      c.isHost
+      c.isHost && this.#open
         ? [c.review.dropped, c.review.runs.map((r) => [r.id, r.outcome, r.flag, r.reviewed])]
         : null,
     ]);
     if (key !== this.#signature) {
       const previousPositions = rankingPositions(this.#shadow);
-      const lobbyScroll = [
-        ...this.#shadow.querySelectorAll<HTMLElement>('.lobby-roster,.lobby-action'),
-      ].map((element) => [element.className, element.scrollTop] as const);
-      // Preserve a partially entered track code/name when unrelated lobby updates arrive.
-      const buttonFocus = (this.#shadow.activeElement as HTMLElement | null)?.dataset.actionKey;
-      const focus = (this.#shadow.activeElement as HTMLElement | null)?.dataset?.field,
-        presetFocus = (this.#shadow.activeElement as HTMLElement | null)?.dataset?.presetField,
-        view = `${s?.id}:${s?.phase === 'registration' ? 'setup' : s?.phase === 'complete' ? 'results' : 'race'}`,
-        bodyScroll = this.#renderedView === view ? (this.#body?.scrollTop ?? 0) : 0;
-      const presetInput = presetFocus ? (this.#shadow.activeElement as HTMLInputElement) : null;
-      const presetSelection =
-        presetInput?.type === 'text'
-          ? ([presetInput.selectionStart, presetInput.selectionEnd] as const)
-          : null;
-      const gridScroll =
-        this.#renderedView === view
-          ? (this.#shadow.querySelector('.track-grid')?.scrollTop ?? 0)
-          : 0;
-      this.#renderedView = view;
-      const inviteSelection =
-        this.#shadow.activeElement === this.#invite.input
-          ? ([this.#invite.input.selectionStart, this.#invite.input.selectionEnd] as const)
-          : null;
-      const drafts = Object.fromEntries(
-        [
-          ...this.#shadow.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-field]'),
-        ].map((e) => [e.dataset.field!, e.value]),
-      );
       this.#signature = key;
-      this.#panel.replaceChildren();
-      this.#lobbyStart = null;
-      this.#resultControls = null;
-      this.#membershipControls = null;
-      const header = h('header');
-      const title = h('div', undefined, 'header-title');
-      title.append(h('h1', 'PolyCup'));
-      if (s)
-        title.append(
-          h(
-            'p',
-            `${s.name} / ${s.phase === 'registration' ? ({ roster: 'Lobby', bans: 'Banning', picks: 'Picking' }[s.draft?.stage ?? 'picks'] ?? 'Picking') : s.phase === 'between-rounds' && this.#c.needsRebind.size ? 'Cup paused' : names[s.phase]}`,
-          ),
+      if (this.#open) {
+        const lobbyScroll = [
+          ...this.#shadow.querySelectorAll<HTMLElement>('.lobby-roster,.lobby-action'),
+        ].map((element) => [element.className, element.scrollTop] as const);
+        // Preserve a partially entered track code/name when unrelated lobby updates arrive.
+        const buttonFocus = (this.#shadow.activeElement as HTMLElement | null)?.dataset.actionKey;
+        const focus = (this.#shadow.activeElement as HTMLElement | null)?.dataset?.field,
+          presetFocus = (this.#shadow.activeElement as HTMLElement | null)?.dataset?.presetField,
+          view = `${s?.id}:${s?.phase === 'registration' ? 'setup' : s?.phase === 'complete' ? 'results' : 'race'}`,
+          bodyScroll = this.#renderedView === view ? (this.#body?.scrollTop ?? 0) : 0;
+        const presetInput = presetFocus ? (this.#shadow.activeElement as HTMLInputElement) : null;
+        const presetSelection =
+          presetInput?.type === 'text'
+            ? ([presetInput.selectionStart, presetInput.selectionEnd] as const)
+            : null;
+        const gridScroll =
+          this.#renderedView === view
+            ? (this.#shadow.querySelector('.track-grid')?.scrollTop ?? 0)
+            : 0;
+        this.#renderedView = view;
+        const inviteSelection =
+          this.#shadow.activeElement === this.#invite.input
+            ? ([this.#invite.input.selectionStart, this.#invite.input.selectionEnd] as const)
+            : null;
+        const drafts = Object.fromEntries(
+          [
+            ...this.#shadow.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+              '[data-field]',
+            ),
+          ].map((e) => [e.dataset.field!, e.value]),
         );
-      const hide = this.button(
-        'Hide',
-        () => {
-          this.#open = false;
-        },
-        'quiet header-hide',
-      );
-      header.append(title, this.#invite.element);
-      if (s && s.phase !== 'registration') {
-        const chat = this.button(
-          'Chat',
-          () => (this.#chatUI.isOpen ? this.#chatUI.close() : this.#chatUI.open()),
-          'quiet header-chat',
-        );
-        chat.setAttribute('aria-controls', 'cup-chat-panel');
-        header.append(chat);
-      }
-      if (s && s.phase !== 'registration') {
-        const rules = this.button('Rules', () => this.showRules(), 'quiet header-rules');
-        rules.setAttribute('aria-haspopup', 'dialog');
-        header.append(rules);
-      }
-      header.append(hide);
-      this.#panel.append(header);
-      if (c.error) {
-        const error = h('p', c.error, 'error');
-        error.setAttribute('role', 'alert');
-        this.#panel.append(error);
-      }
-      if (c.physicsWarnings.length) {
-        const warnings = h('div', undefined, 'physics-warnings');
-        warnings.setAttribute('role', 'status');
-        for (const warning of c.physicsWarnings)
-          warnings.append(
+        this.#chatUI.preserveScroll();
+        this.#panel.replaceChildren();
+        this.#lobbyStart = null;
+        this.#resultControls = null;
+        this.#membershipControls = null;
+        const header = h('header');
+        const title = h('div', undefined, 'header-title');
+        title.append(h('h1', 'PolyCup'));
+        if (s)
+          title.append(
             h(
               'p',
-              `${this.name(warning.id)}: modified physics reported${warning.driveForce !== null && warning.driveForce !== 4000 ? ` (drive force ${warning.driveForce}; standard 4000)` : ''}.`,
-              'warning',
+              `${s.name} / ${s.phase === 'registration' ? ({ roster: 'Lobby', bans: 'Banning', picks: 'Picking' }[s.draft?.stage ?? 'picks'] ?? 'Picking') : s.phase === 'between-rounds' && this.#c.needsRebind.size ? 'Cup paused' : names[s.phase]}`,
             ),
           );
-        warnings.title =
-          'Client-reported physics check. This warns only; it does not block racing or prove a client is unmodified.';
-        this.#panel.append(warnings);
-      }
-      if (!c.connection) this.welcome();
-      else if (!s) this.setup();
-      else {
-        this.#body = h('div', undefined, 'body');
-        this.#panel.append(this.#body);
-        this.tournament();
-        if (c.isHost) {
-          this.hostControls();
-          if (s.phase !== 'registration') this.lobbyPeople();
-          if (c.review.runs.length || c.review.dropped) this.#body.append(reviewPanel(this));
+        const hide = this.button(
+          'Hide',
+          () => {
+            this.#open = false;
+          },
+          'quiet header-hide',
+        );
+        header.append(title, this.#invite.element);
+        if (s && s.phase !== 'registration') {
+          const chat = this.button(
+            'Chat',
+            () => (this.#chatUI.isOpen ? this.#chatUI.close() : this.#chatUI.open()),
+            'quiet header-chat',
+          );
+          chat.setAttribute('aria-controls', 'cup-chat-panel');
+          header.append(chat);
         }
-        this.#panel.append(h('div', undefined, 'panel-chat-slot'));
-        if (this.#resultControls) this.#panel.append(this.#resultControls);
-        if (c.isHost || this.#membershipControls) {
-          const footer = h('footer');
-          if (c.isHost) {
-            const tools = h('div', undefined, 'cup-actions');
-            const automatic = this.button(
-              c.auto ? 'Auto rounds: on' : 'Auto rounds: off',
-              () => c.toggleAutomaticRounds(),
-              'quiet',
-            );
-            automatic.setAttribute('aria-pressed', String(c.auto));
-            tools.append(automatic);
-            if (c.review.runs.length || c.review.dropped)
-              tools.append(
-                this.button(
-                  'Run review',
-                  () => {
-                    this.#shadow
-                      .querySelector('.review-panel')
-                      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                  },
-                  'quiet',
-                ),
-              );
-            tools.prepend(
-              this.button(
-                'End Cup',
-                () => {
-                  if (
-                    confirm(
-                      'End this Cup for everyone and return to normal multiplayer? You can restore the autosave later.',
-                    )
-                  )
-                    c.endCup();
-                },
-                'quiet danger',
+        if (s && s.phase !== 'registration') {
+          const rules = this.button('Rules', () => this.showRules(), 'quiet header-rules');
+          rules.setAttribute('aria-haspopup', 'dialog');
+          header.append(rules);
+        }
+        header.append(hide);
+        this.#panel.append(header);
+        if (c.error) {
+          const error = h('p', c.error, 'error');
+          error.setAttribute('role', 'alert');
+          this.#panel.append(error);
+        }
+        if (c.physicsWarnings.length) {
+          const warnings = h('div', undefined, 'physics-warnings');
+          warnings.setAttribute('role', 'status');
+          for (const warning of c.physicsWarnings)
+            warnings.append(
+              h(
+                'p',
+                `${this.name(warning.id)}: modified physics reported${warning.driveForce !== null && warning.driveForce !== 4000 ? ` (drive force ${warning.driveForce}; standard 4000)` : ''}.`,
+                'warning',
               ),
             );
-            footer.append(tools);
-          }
-          if (this.#membershipControls) footer.append(this.#membershipControls);
-          const startControl = this.#startControls();
-          if (startControl) footer.append(startControl);
-          else if (c.isHost && s.phase === 'between-rounds') {
-            const next = this.button(
-              'Start next round',
-              async () => {
-                await c.runRound();
-                this.#open = false;
-              },
-              'primary',
-            );
-            next.disabled = !c.canStartRound();
-            if (next.disabled)
-              next.title = 'Waiting for connected racers or saved identity confirmation.';
-            footer.append(next);
-          }
-          this.#panel.append(footer);
+          warnings.title =
+            'Client-reported physics check. This warns only; it does not block racing or prove a client is unmodified.';
+          this.#panel.append(warnings);
         }
-      }
-      for (const e of this.#shadow.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-        '[data-field]',
-      ))
-        if (e.dataset.field! in drafts) e.value = drafts[e.dataset.field!];
-      if (buttonFocus && this.#open)
-        [...this.#shadow.querySelectorAll<HTMLButtonElement>('button[data-action-key]')]
-          .find((button) => button.dataset.actionKey === buttonFocus && !button.disabled)
-          ?.focus({ preventScroll: true });
-      if (focus && this.#open)
-        this.#shadow.querySelector<HTMLElement>(`[data-field="${focus}"]`)?.focus();
-      if (presetFocus && this.#open) {
-        const input = this.#shadow.querySelector<HTMLInputElement>(
-          `[data-preset-field="${presetFocus}"]`,
-        );
-        input?.focus();
-        if (presetSelection && input?.type === 'text') input.setSelectionRange(...presetSelection);
-      }
-      if (inviteSelection && this.#open && !this.#invite.input.disabled) {
-        this.#invite.input.focus();
-        this.#invite.input.setSelectionRange(...inviteSelection);
+        if (!c.connection) this.welcome();
+        else if (!s) this.setup();
+        else {
+          this.#body = h('div', undefined, 'body');
+          this.#panel.append(this.#body);
+          this.tournament();
+          if (c.isHost) {
+            this.hostControls();
+            if (s.phase !== 'registration') this.lobbyPeople();
+            if (c.review.runs.length || c.review.dropped) this.#body.append(reviewPanel(this));
+          }
+          this.#panel.append(h('div', undefined, 'panel-chat-slot'));
+          if (this.#resultControls) this.#panel.append(this.#resultControls);
+          if (c.isHost || this.#membershipControls) {
+            const footer = h('footer');
+            if (c.isHost) {
+              const tools = h('div', undefined, 'cup-actions');
+              const automatic = this.button(
+                c.auto ? 'Auto rounds: on' : 'Auto rounds: off',
+                () => c.toggleAutomaticRounds(),
+                'quiet',
+              );
+              automatic.setAttribute('aria-pressed', String(c.auto));
+              tools.append(automatic);
+              if (c.review.runs.length || c.review.dropped)
+                tools.append(
+                  this.button(
+                    'Run review',
+                    () => {
+                      this.#shadow
+                        .querySelector('.review-panel')
+                        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                    },
+                    'quiet',
+                  ),
+                );
+              tools.prepend(
+                this.button(
+                  'End Cup',
+                  () => {
+                    if (confirm('End this Cup for everyone and return to normal multiplayer?'))
+                      c.endCup();
+                  },
+                  'quiet danger',
+                ),
+              );
+              footer.append(tools);
+            }
+            if (this.#membershipControls) footer.append(this.#membershipControls);
+            const startControl = this.#startControls();
+            if (startControl) footer.append(startControl);
+            else if (c.isHost && s.phase === 'between-rounds') {
+              const next = this.button(
+                'Start next round',
+                async () => {
+                  await c.runRound();
+                  this.#open = false;
+                },
+                'primary',
+              );
+              next.disabled = !c.canStartRound();
+              if (next.disabled) next.title = 'Waiting for connected racers.';
+              footer.append(next);
+            }
+            this.#panel.append(footer);
+          }
+        }
+        for (const e of this.#shadow.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+          '[data-field]',
+        ))
+          if (e.dataset.field! in drafts) e.value = drafts[e.dataset.field!];
+        if (buttonFocus && this.#open)
+          [...this.#shadow.querySelectorAll<HTMLButtonElement>('button[data-action-key]')]
+            .find((button) => button.dataset.actionKey === buttonFocus && !button.disabled)
+            ?.focus({ preventScroll: true });
+        if (focus && this.#open)
+          this.#shadow.querySelector<HTMLElement>(`[data-field="${focus}"]`)?.focus();
+        if (presetFocus && this.#open) {
+          const input = this.#shadow.querySelector<HTMLInputElement>(
+            `[data-preset-field="${presetFocus}"]`,
+          );
+          input?.focus();
+          if (presetSelection && input?.type === 'text')
+            input.setSelectionRange(...presetSelection);
+        }
+        if (inviteSelection && this.#open && !this.#invite.input.disabled) {
+          this.#invite.input.focus();
+          this.#invite.input.setSelectionRange(...inviteSelection);
+        }
+        if (this.#body) this.#body.scrollTop = bodyScroll;
+        for (const [className, scroll] of lobbyScroll) {
+          const region = this.#shadow.querySelector<HTMLElement>(`.${className}`);
+          if (region) region.scrollTop = scroll;
+        }
+        const grid = this.#shadow.querySelector('.track-grid');
+        if (grid) grid.scrollTop = gridScroll;
       }
       this.renderHud();
       animateRanking(this.#shadow, previousPositions);
-      if (this.#body) this.#body.scrollTop = bodyScroll;
-      for (const [className, scroll] of lobbyScroll) {
-        const region = this.#shadow.querySelector<HTMLElement>(`.${className}`);
-        if (region) region.scrollTop = scroll;
-      }
-      const grid = this.#shadow.querySelector('.track-grid');
-      if (grid) grid.scrollTop = gridScroll;
     }
     for (const badge of this.#shadow.querySelectorAll<HTMLElement>('[data-record-until]'))
       badge.hidden = Date.now() >= Number(badge.dataset.recordUntil);
     this.#playerMenu.sync();
-    this.updatePings();
+    if (this.#open) this.updatePings();
     const chatSlot =
       this.#open && s
         ? this.#shadow.querySelector<HTMLElement>(
@@ -858,9 +860,6 @@ export class CupUI {
       label.append(input);
       body.append(label);
       body.append(this.button('Create Cup', () => this.#c.create(input.value), 'primary'));
-      const saved = localStorage.getItem('pwc-save-v2');
-      if (saved)
-        body.append(this.button('Restore autosave', () => this.#c.restore(saved), 'quiet'));
     }
     this.#panel.append(body);
   }
@@ -1678,7 +1677,7 @@ export class CupUI {
         const row = h('div', undefined, `final-row${r.winner ? ' champion' : ''}`);
         const score = h('span', r.score, 'final-score');
         score.title = 'Cup points';
-        row.append(h('strong', r.place), this.racerName(r.id, r.name, false, true));
+        row.append(h('strong', r.place), this.racerName(r.id, r.name));
         if (r.winner) row.append(h('span', 'Winner', 'winner-label'));
         row.append(score);
         board.append(row);

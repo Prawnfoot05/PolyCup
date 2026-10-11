@@ -94,7 +94,7 @@ test('snapshots bound live data to the roster and validate cumulative readings a
 test('native checkpoint events travel guest to organizer to spectators with round and actor identity checks', () => {
   const host=new Controller(()=>{}),guest=new Controller(()=>{}),observer=new Controller(()=>{});
   host.state=race();host.isHost=true;host.selfId=1;host.info={sessionId:9,checkpointCount:5};host.now=()=>30000;host.hello=new Set([2,3,4]);
-  for(const c of [guest,observer]) {c.state=structuredClone(host.state);c.info={sessionId:9,checkpointCount:5};}
+  for(const c of [guest,observer]) {c.state=structuredClone(host.state);c.info={sessionId:9,checkpointCount:5};c.connection={};}
   guest.selfId=2;observer.selfId=4;let message;
   guest.transport.send=(id,m)=>{assert.equal(id,0);message=structuredClone(m);host.receive(2,m);return true;};
   host.transport.broadcast=m=>{for(const c of [guest,observer])c.receive(0,structuredClone(m));};

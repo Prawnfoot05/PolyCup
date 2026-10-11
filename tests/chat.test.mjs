@@ -53,9 +53,9 @@ test('chat isolates Cups, rejects oversized and stale messages, and validates sa
 });
 
 
-test('organizer Cup autosave and restore preserve full filtered chat independently of race snapshots',async()=>{
+test('full filtered chat stays in memory and remains separate from race snapshots',async()=>{
  const c=new Controller(()=>{});c.isHost=true;c.selfId=1;c.connection={};c.lobby=[{id:1,nickname:'Host',isSelf:true}];c.state=Cup.newCup();
  await c.chat.post('fuck that corner');await c.chat.post('n1gger');
- const exported=c.saveData();assert.equal(exported.chat.lines[1].text,'******');assert.equal(c.networkState().chat,undefined);
- c.restore(JSON.stringify(exported));assert.equal(c.chat.lines.length,2);assert.equal(c.chat.lines[0].text,'fuck that corner');assert.equal(c.saveData().chat.lines[1].text,'******');
+ assert.equal(c.chat.lines.length,2);assert.equal(c.chat.lines[0].text,'fuck that corner');assert.equal(c.chat.lines[1].text,'******');assert.equal(c.networkState().chat,undefined);
+ assert.equal(typeof c.save,'undefined');assert.equal(typeof c.restore,'undefined');
 });

@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Live Cups for 2–8 racers with customizable presets, track drafting, live rankings and buffered spectator POV.",
-  "changelog": "Track removal with score rollback, spectator freecam and viewer counts, and host-only physics warnings. Unified fixed-height lobby with inline preset editing, embedded chat, simpler player controls and lighter labels. Fixed setup disconnects and duplicate racers, rapid checkpoint-reset DNFs, rematch setup, preset icons and lingering notices. Removed tournament/review exports, separate organizer screens and the spectator dropdown; preset sharing and local autosaves remain."
+  "changelog": "Fixed split-update stutters in longer Cups, improved finish delivery under high latency and packet backlogs, and fixed chat scrolling when switching lobby tabs. Removed Cup autosaves, restoration, and player-management arrows from final results."
 }

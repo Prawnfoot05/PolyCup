@@ -39,6 +39,8 @@ export class ChatUI {
   #sending = false;
   #stickBottom = true;
   #prepend = false;
+  #scrollPosition: { top: number; height: number; follow: boolean } | null = null;
+  #lastVisibleScroll: { top: number; height: number; follow: boolean } | null = null;
   constructor(ui: CupUI, shadow: ShadowRoot) {
     this.#ui = ui;
     this.#shadow = shadow;
@@ -56,8 +58,14 @@ export class ChatUI {
     this.#history.tabIndex = 0;
     this.#history.setAttribute('aria-label', 'Messages');
     this.#history.addEventListener('scroll', () => {
+      if (this.#scrollPosition || !this.#history.isConnected || !this.#history.clientHeight) return;
       this.#stickBottom =
         this.#history.scrollHeight - this.#history.scrollTop - this.#history.clientHeight < 32;
+      this.#lastVisibleScroll = {
+        top: this.#history.scrollTop,
+        height: this.#history.scrollHeight,
+        follow: this.#stickBottom,
+      };
       this.#bottom.hidden = this.#stickBottom;
     });
     this.#older.type = 'button';
@@ -189,10 +197,20 @@ export class ChatUI {
   get isOpen() {
     return this.#expanded;
   }
+  preserveScroll() {
+    if (this.#scrollPosition) return;
+    if (this.#history.isConnected && this.#history.clientHeight) {
+      const { scrollTop: top, scrollHeight: height, clientHeight } = this.#history;
+      this.#lastVisibleScroll = { top, height, follow: height - top - clientHeight < 32 };
+    }
+    // Responsive CSS can hide the old dock before mount gets to move it.
+    this.#scrollPosition = this.#lastVisibleScroll;
+  }
   mount(target: HTMLElement | null, persistent = false) {
+    const parent = target ?? this.#shadow;
+    if (this.#root.parentNode !== parent) this.preserveScroll();
     this.#persistent = !!target && persistent;
     this.#root.classList.toggle('chat-docked', !!target);
-    const parent = target ?? this.#shadow;
     if (this.#root.parentNode !== parent) parent.append(this.#root);
     this.#panel.querySelector<HTMLElement>('.chat-close')!.hidden = this.#persistent;
   }
@@ -217,6 +235,7 @@ export class ChatUI {
     this.#expanded = true;
     this.#read = this.#ui.c.chat.lines.length;
     this.#stickBottom = true;
+    this.#scrollPosition = null;
     this.#shownRevision = -1;
     this.#ui.c.setChatTyping(true);
     this.render();
@@ -293,11 +312,15 @@ export class ChatUI {
       this.#read = 0;
       this.#limit = 60;
       this.#shownRevision = -1;
+      this.#stickBottom = true;
+      this.#scrollPosition = null;
+      this.#lastVisibleScroll = null;
       this.#expanded = false;
       c.setChatTyping(false);
       this.#input.value = '';
       this.#status.textContent = '';
     }
+    if (this.#scrollPosition) this.#stickBottom = this.#scrollPosition.follow;
     if (this.#expanded && !document.hidden && !this.#panel.contains(this.#shadow.activeElement))
       this.#input.focus();
     const lines = chat.cupId === state.id ? chat.lines : [];
@@ -319,8 +342,8 @@ export class ChatUI {
       this.#hidePreview.checked ||
       Date.now() > this.#expires;
     if (this.#shownRevision !== chat.revision) {
-      const oldHeight = this.#history.scrollHeight,
-        oldTop = this.#history.scrollTop;
+      const oldHeight = this.#scrollPosition?.height ?? this.#history.scrollHeight,
+        oldTop = this.#scrollPosition?.top ?? this.#history.scrollTop;
       this.#shownRevision = chat.revision;
       this.#history.replaceChildren();
       this.#older.hidden = lines.length <= this.#limit;
@@ -328,10 +351,20 @@ export class ChatUI {
       if (!lines.length) this.#history.append(h('p', 'No messages yet. Say hello!', 'chat-empty'));
       for (const line of lines.slice(-this.#limit)) this.#history.append(this.#line(line));
       this.#preview.replaceChildren(...lines.slice(-3).map((line) => this.#line(line)));
-      this.#history.scrollTop = this.#stickBottom
-        ? this.#history.scrollHeight
-        : oldTop + (this.#prepend ? Math.max(0, this.#history.scrollHeight - oldHeight) : 0);
+      this.#scrollPosition = {
+        top: oldTop + (this.#prepend ? Math.max(0, this.#history.scrollHeight - oldHeight) : 0),
+        height: this.#history.scrollHeight,
+        follow: this.#stickBottom,
+      };
       this.#prepend = false;
+    }
+    // A lobby redraw moves this same panel into a new slot. Restore only after
+    // it has visible layout; hidden panels temporarily report zero scroll sizes.
+    if (this.#scrollPosition && this.#history.isConnected && this.#history.clientHeight) {
+      this.#history.scrollTop = this.#scrollPosition.follow
+        ? this.#history.scrollHeight
+        : this.#scrollPosition.top;
+      this.#scrollPosition = null;
     }
     this.#bottom.hidden = this.#stickBottom;
     this.#sendButton.disabled = this.#sending || chat.muted || !this.#input.value.trim();

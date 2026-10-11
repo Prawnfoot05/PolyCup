@@ -71,7 +71,7 @@ test('each loading and start transition closes all panels; a manual reopen lasts
   }
 });
 
-test('a missed end message heals on the idle heartbeat, releases racers and spectators, and retains the autosave', t => {
+test('a missed end message heals on the idle heartbeat, releases racers and spectators, without writing an autosave', t => {
   const saved = new Map();
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { setItem: (key, value) => saved.set(key, value) } });
@@ -84,7 +84,7 @@ test('a missed end message heals on the idle heartbeat, releases racers and spec
   }
   drop(true); host.endCup();
   assert.equal(host.state, null); assert.ok(guests.every(c => c.state));
-  assert.equal(JSON.parse(saved.get('pwc-save-v2')).state.name, 'Saved Cup');
+  assert.equal(saved.size, 0);
   drop(false); host.lastBroadcast = 0; host.tick();
   for (const c of clients) {
     assert.equal(c.state, null); assert.equal(c.shouldBlock(c.game), false); assert.equal(c.shouldBlockRestart(c.game), false);

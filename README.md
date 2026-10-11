@@ -10,7 +10,7 @@ Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTra
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN's cached latest manifest, which may lag behind a release. Enter **0.3.1** explicitly if an older release is selected.
+All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN's cached latest manifest, which may lag behind a release. Enter **0.3.2** explicitly if an older release is selected.
 
 For the bundled Windows installer, place this project folder beside PolyTrack.exe, close the game and run **Install-PolyCup.cmd**. **Restore-Original.cmd** restores the original installation; run it before switching from the bundled installer to a normal PML installation.
 
@@ -35,7 +35,7 @@ Editing a rule changes the preset name to **Custom**. Use the pencil button to n
 
 The organizer must stay connected. Native room capacity includes spectators. **Hide** closes your panel; **End Cup** ends Cup mode for the whole lobby.
 
-Rejoining the lobby with the same PolyTrack profile automatically recovers your racer slot and points at the next round boundary, subject to available racer slots. When **Allow mid-Cup racer changes** is enabled, spectators can join the next round at zero points and racers can leave without rehosting; returning racers keep their score. Profile ownership is checked with a Cup-specific signature; account tokens stay local. Disconnected racers sit out after a short grace period without blocking the Cup. Restored autosaves still require the organizer to identify their saved racers.
+Rejoining the lobby with the same PolyTrack profile automatically recovers your racer slot and points at the next round boundary, subject to available racer slots. When **Allow mid-Cup racer changes** is enabled, spectators can join the next round at zero points and racers can leave without rehosting; returning racers keep their score. Profile ownership is checked with a Cup-specific signature; account tokens stay local. Disconnected racers sit out after a short grace period without blocking the Cup.
 
 ## Rules and controls
 
@@ -47,7 +47,7 @@ Rejoining the lobby with the same PolyTrack profile automatically recovers your 
 - **[ / ]** switch spectator targets. The native free-camera key is available to spectators when the preset allows it; an eye counter shows how many spectators are following you. Automatic spectating after finishing can be disabled in settings.
 - Your **full restart** key means DNF during a live round. **Checkpoint reset** returns you to the start before the first checkpoint, keeping your elapsed Cup time; after that it uses the normal checkpoint respawn.
 
-Host round controls and run review are in the main Cup panel. Use the arrow beside a player in the lobby or scoreboard to manage their racer slot or kick them. Restore the local autosave from the Cup start screen. Removing a track excludes it for the rest of the Cup and rolls back only the current visit; earlier visits keep their scores. If no drafted track remains, a replacement is drawn from the preset’s pool. Private review flags and physics-binary mismatch warnings use client-reported data and are not proof of cheating. Physics warnings are visible only to the host and do not block racing.
+Host round controls and run review are in the main Cup panel. Use the arrow beside a player in the lobby or scoreboard to manage their racer slot or kick them. Removing a track excludes it for the rest of the Cup and rolls back only the current visit; earlier visits keep their scores. If no drafted track remains, a replacement is drawn from the preset’s pool. Private review flags and physics-binary mismatch warnings use client-reported data and are not proof of cheating. Physics warnings are visible only to the host and do not block racing.
 
 ## Development
 
@@ -68,6 +68,6 @@ Independent community mod. PolyTrack artwork belongs to Kodub; toolbar trophy: i
 
 ### Chat
 
-During setup, chat sits below the player list. During a Cup, use **Chat** in the panel header, or press **Y** (rebindable in PolyCup controls). Enter sends; Escape leaves the message box. Racers and spectators share one chat. The full filtered history stays with the Cup and is included in the organizer's local autosave. Older messages remain scrollable; previews can be hidden.
+During setup, chat sits below the player list. During a Cup, use **Chat** in the panel header, or press **Y** (rebindable in PolyCup controls). Enter sends; Escape leaves the message box. Racers and spectators share one chat. The full filtered history stays in memory for the current Cup. Closing or reloading the host ends that session; Cups are not saved to disk. Older messages remain scrollable; previews can be hidden.
 
 Common slurs and explicit hate phrases are masked with asterisks; ordinary profanity is allowed. The organizer can click a name in chat to mute or unmute that participant. Mutes follow verified profiles when they reconnect.

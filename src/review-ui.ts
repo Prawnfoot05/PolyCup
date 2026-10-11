@@ -20,6 +20,7 @@ export function reviewPanel(ui: CupUI) {
   const pending = flags.filter((r) => !r.reviewed).length;
   controls.append(h('strong', pending ? `${pending} to review` : 'No flags to review'));
   box.append(controls);
+  const playerIds = log.playerIds();
   const records = [...log.runs]
     .reverse()
     .sort((a, b) => Number(!!b.flag && !b.reviewed) - Number(!!a.flag && !a.reviewed));
@@ -29,10 +30,7 @@ export function reviewPanel(ui: CupUI) {
     const summary = h('div', undefined, 'review-heading'),
       title = h('span', undefined, 'review-title');
     title.append(
-      ui.playerLabel(
-        Number(Object.entries(log.data().identities).find(([, key]) => key === r.racerKey)?.[0]),
-        r.name,
-      ),
+      ui.playerLabel(playerIds.get(r.racerKey) ?? NaN, r.name),
       h(
         'span',
         `Round ${r.round} · ${c.cup.tracks.find((t) => t.id === r.trackId)?.name ?? 'Track'}`,
@@ -71,7 +69,6 @@ export function reviewPanel(ui: CupUI) {
           r.reviewed ? 'Mark unreviewed' : 'Mark reviewed',
           () => {
             log.markReviewed(r.id, !r.reviewed);
-            c.save(true);
           },
           'quiet',
         ),

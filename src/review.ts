@@ -80,6 +80,9 @@ export class ReviewLog {
   get dropped() {
     return this.#dropped;
   }
+  playerIds() {
+    return new Map(Object.entries(this.#identities).map(([id, key]) => [key, Number(id)]));
+  }
 
   #cupId: string | null;
   #runs: ReviewRun[] = [];

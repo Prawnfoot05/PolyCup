@@ -226,7 +226,6 @@ export class Controller {
   #startingCup: object | null = null;
 
   #lastHello: number = 0;
-  #lastSaved: number = -1;
   #auto: boolean = true;
   #cameraTransport: CupTransport;
   #cameraBuffers: Map<number, CameraBuffer> = new Map();
@@ -240,6 +239,8 @@ export class Controller {
   #watchedPose: CameraPose | null = null;
   #hideOtherGhosts: boolean = false;
   #checkpointProgress: CheckpointProgress = new CheckpointProgress();
+  #pendingFinish: FinishMessage | null = null;
+  #lastFinishSend = -Infinity;
   #pendingCheckpoints: Map<number, CheckpointMessage> = new Map();
   #checkpointSender: number | null = null;
   #lastCheckpointSend: number = -Infinity;
@@ -272,8 +273,6 @@ export class Controller {
   #nextAuto: number | null = null;
   #loadingSession: number | undefined;
   #sentRevision: number | undefined;
-  #savedReview: number = 0;
-  #savedChat = -1;
   #chatTyping = false;
   setChatTyping(value: boolean) {
     this.#chatTyping = value;
@@ -283,7 +282,6 @@ export class Controller {
   get chat() {
     return this.#chat;
   }
-  #savedAt: number = 0;
 
   #onSpectatorInputs?: () => void;
   constructor(onChange: () => void) {
@@ -468,12 +466,12 @@ export class Controller {
   }
   connectionDisposed(connection: NativeConnection) {
     if (this.#connection !== connection) return;
+    this.#pendingFinish = null;
     this.#actions.cancel('Disconnected from the organizer.');
     this.#enrolling.clear();
     this.#resumeRacers.clear();
     if (this.#isHost && this.#state) {
       this.#review.close(this.cup, 'interrupted');
-      this.save(true);
     }
     this.#unwatchInputs?.();
     this.#inputGame = null;
@@ -524,6 +522,7 @@ export class Controller {
       this.#unwatchInputs = this.#native.watchInputs?.(game, () => this.captureInputs());
     }
     if (this.#connection !== info.connection) {
+      this.#pendingFinish = null;
       this.#actions.cancel('The multiplayer connection changed.');
       this.#transport.dispose();
       this.#cameraTransport.dispose();
@@ -550,7 +549,6 @@ export class Controller {
       this.#startingCup = null;
       this.#resetKey = '';
       this.#readyKey = '';
-      this.#lastSaved = -1;
       this.#lastHello = 0;
       this.#offset = 0;
       this.#bestRtt = Infinity;
@@ -803,7 +801,13 @@ export class Controller {
       };
       if (this.#raceTimeOffset > 0) this.#native.showRoundFinish?.(this.activeGame, message.frames);
       if (this.#isHost) this.receiveFinish(this.localPlayerId, message);
-      else this.#transport.send(0, message);
+      else {
+        if (this.#pendingFinish?.roundId !== run.id) {
+          this.#pendingFinish = message;
+          this.#lastFinishSend = -Infinity;
+        }
+        this.flushFinish();
+      }
     });
   }
   receiveFinish(id: number, m: FinishMessage) {
@@ -821,6 +825,35 @@ export class Controller {
       updateLiveMovement(this.cup, before);
       this.broadcast();
     }
+    if (id !== this.#selfId && id in run.finishes && run.finishes[id] === m.frames)
+      this.#transport.send(id, {
+        type: 'finish-ack',
+        roundId: m.roundId,
+        sessionId: m.sessionId,
+        frames: m.frames,
+      });
+  }
+  flushFinish() {
+    const message = this.#pendingFinish;
+    if (!message) return;
+    const run = this.#state?.runtime;
+    if (
+      this.#isHost ||
+      !this.#connection ||
+      !run ||
+      run.id !== message.roundId ||
+      run.sessionId !== message.sessionId ||
+      this.localPlayerId === null ||
+      run.finishes[this.localPlayerId] === message.frames ||
+      Cup.roundDone(this.#state!, this.localPlayerId)
+    ) {
+      this.#pendingFinish = null;
+      return;
+    }
+    const now = performance.now();
+    if (now - this.#lastFinishSend < 250) return;
+    this.#lastFinishSend = now;
+    this.#transport.send(0, message);
   }
   flushCheckpoints() {
     if (!this.#pendingCheckpoints.size) return;
@@ -1294,6 +1327,7 @@ export class Controller {
       this.#transport.sync(this.#native.peers(this.#connection));
       this.#cameraTransport.sync(this.#native.peers(this.#connection));
       this.syncReconnect();
+      this.flushFinish();
       this.syncDiagnostics();
       this.#chat.tick();
       if (Date.now() - this.#lastHello > 2000) {
@@ -1355,7 +1389,6 @@ export class Controller {
         }
         if (Date.now() - this.#lastBroadcast > 1000 || this.#sentRevision !== this.cup.revision)
           this.broadcast();
-        this.save();
       }
       this.#onChange();
     } catch (error) {
@@ -1382,7 +1415,6 @@ export class Controller {
     this.#trackUploads.clear();
     this.#recordRequests.clear();
     this.#auto = true;
-    this.#lastSaved = -1;
     this.broadcast();
     this.#onChange();
     this.ensureReview();
@@ -1419,7 +1451,6 @@ export class Controller {
     this.change((s) => Cup.applyPreset(s, preset));
     this.#tracks.clear();
     this.#trackUploads.clear();
-    this.save(true);
   }
   requestPanel(open: boolean, message: string = '') {
     this.#panelRequest = { revision: this.#panelRequest.revision + 1, open, message };
@@ -1442,7 +1473,6 @@ export class Controller {
       if (this.cup.tracks.some((t) => !this.#tracks.has(t.id)))
         throw new Error('A rematch track is missing. Choose new tracks instead.');
     }
-    this.save();
     this.#freecam = false;
     this.#freecamGame = null;
     this.#state = next;
@@ -1466,7 +1496,6 @@ export class Controller {
     this.#auto = true;
     this.#nextAuto = null;
     this.#loadingSession = undefined;
-    this.#lastSaved = -1;
     this.#error = '';
     this.broadcast();
     this.#onChange();
@@ -1488,6 +1517,7 @@ export class Controller {
     this.#viewCupId = s?.id ?? null;
   }
   releaseCup(message: string) {
+    this.#pendingFinish = null;
     this.#freecam = false;
     this.#freecamGame = null;
     this.#enrolling.clear();
@@ -1543,7 +1573,6 @@ export class Controller {
     this.requireHost();
     if (!this.#state) return;
     this.#review.close(this.#state, 'interrupted');
-    this.save(true);
     this.releaseCup('Cup ended · Normal multiplayer');
     this.broadcast();
     this.#onChange();
@@ -1761,8 +1790,7 @@ export class Controller {
     const track = await entry.load();
     if (this.#state !== state || this.#connection !== connection || state.phase !== 'registration')
       throw new Error('The tournament changed while the track was loading. Select it again.');
-    // Export the actual native track, so autosaves and native multiplayer transfers
-    // work even when other players have never installed this custom track.
+    // Keep the actual native track for multiplayer transfers, including custom tracks.
     await this.importTrack(track.trackData.toExportString(track.trackMetadata));
     this.#error = '';
     this.#onChange();
@@ -1965,7 +1993,6 @@ export class Controller {
     this.#needsRebind.delete(oldId);
     this.#unavailableSince.delete(oldId);
     this.#error = '';
-    this.save(true);
     this.broadcast();
     this.#onChange();
   }
@@ -2178,7 +2205,16 @@ export class Controller {
         else if (error) this.#transport.send(id, { type: 'error', message: error });
       }
     } else if (id === 0) {
-      if (m.type === 'action-ack') {
+      if (m.type === 'finish-ack') {
+        const pending = this.#pendingFinish;
+        if (
+          pending &&
+          m.roundId === pending.roundId &&
+          m.sessionId === pending.sessionId &&
+          m.frames === pending.frames
+        )
+          this.#pendingFinish = null;
+      } else if (m.type === 'action-ack') {
         const acknowledged = this.#actions.acknowledge(
           m.requestId,
           m.error ? String(m.error).slice(0, 200) : undefined,
@@ -2461,7 +2497,6 @@ export class Controller {
       this.#review.undoTrackVisit(visit.trackId, visit.fromRound);
       this.#loadingSession = undefined;
       this.broadcast();
-      this.save(true);
     } finally {
       this.#removingTrack = false;
       this.#onChange();
@@ -2738,97 +2773,6 @@ export class Controller {
     this.change(Cup.voidRound);
     this.#loadingSession = undefined;
     this.#nextAuto = null;
-  }
-  saveData() {
-    return {
-      format: 'polytrack-world-cup',
-      schema: 1,
-      state: this.#state,
-      ...(this.#isHost && this.#state ? { chat: this.#chat.archive() } : {}),
-      ...(this.#isHost && this.#review.cupId === this.#state?.id
-        ? { review: this.#review.data() }
-        : {}),
-      tracks: [...this.#tracks].map(([id, t]) => ({ id, code: t.code })),
-    };
-  }
-  restore(text: string) {
-    this.requireHost();
-    if (text.length > 64000000) throw new Error('The save is too large.');
-    const value: unknown = JSON.parse(text);
-    if (!value || typeof value !== 'object' || Array.isArray(value))
-      throw new Error('Invalid Cup save.');
-    const data = value as {
-      format: unknown;
-      state: unknown;
-      tracks: unknown;
-      review?: unknown;
-      chat?: unknown;
-    };
-    if (
-      data.format !== 'polytrack-world-cup' ||
-      !validSnapshot(data.state) ||
-      !Array.isArray(data.tracks) ||
-      data.tracks.length > 1000 ||
-      !Array.isArray(data.state.history)
-    )
-      throw new Error('This autosave cannot be restored by this version of PolyCup.');
-    const tracks = new Map<string, LoadedTrack>();
-    for (const value of data.tracks as unknown[]) {
-      if (!value || typeof value !== 'object') throw new Error('Invalid saved track.');
-      const entry = value as { id: string; code: string };
-      if (typeof entry.code !== 'string' || entry.code.length > 2000000)
-        throw new Error('Invalid saved track.');
-      const track = this.#native.parse(entry.code);
-      if (!track || track.trackData.getId() !== entry.id || !track.trackData.hasStartingPoint())
-        throw new Error('Saved track checksum failed.');
-      tracks.set(entry.id, { ...track, code: entry.code });
-    }
-    for (const track of data.state.tracks)
-      if (!tracks.has(track.id)) throw new Error('A saved track is missing.');
-    // Native peer IDs are session-local. Require the organizer to reconnect EVERY saved racer.
-    const s: CupState = { ...data.state, history: data.state.history };
-    const review = ReviewLog.restore(data.review, s);
-    this.#chat.restore(data.chat ?? { cupId: s.id, lines: [], speakers: [] }, s.id);
-    if (s.runtime) {
-      s.runtime = null;
-      s.phase = 'between-rounds';
-    }
-    s.roster.forEach((p, i) => review.rebind(p.id, -i - 1));
-    this.#review = review;
-    Cup.detachIdentities(s);
-    this.#state = s;
-    this.#startingCup = null;
-    this.#tracks = tracks;
-    this.#auto = true;
-    this.#nextAuto = null;
-    this.#needsRebind = new Set(
-      s.roster.filter((p) => !s.withdrawn?.includes(p.id)).map((p) => p.id),
-    );
-    this.#loadingSession = undefined;
-    this.#lastSaved = -1;
-    Cup.note(s, 'Restored save. Organizer must reconnect saved racer identities.');
-    Cup.touch(s);
-    this.broadcast();
-    this.#onChange();
-  }
-  save(force = false) {
-    if (
-      !force &&
-      this.#lastSaved === this.cup.revision &&
-      this.#savedChat === this.#chat.revision &&
-      (this.#savedReview === this.#review.revision || Date.now() - (this.#savedAt ?? 0) < 5000)
-    )
-      return;
-    try {
-      localStorage.setItem('pwc-save-v2', JSON.stringify(this.saveData()));
-      this.#lastSaved = this.cup.revision;
-      this.#savedReview = this.#review.revision;
-      this.#savedChat = this.#chat.revision;
-      this.#savedAt = Date.now();
-    } catch {
-      this.#error =
-        'Autosave is full or unavailable. Cup progress could not be saved on this device.';
-    }
   }
 }
 export { validPB, validSnapshot } from './validation.ts';
