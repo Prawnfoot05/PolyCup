@@ -7,7 +7,14 @@ import type {
   PublicCupState,
   RaceRecord,
 } from './types.ts';
-export type ActionType = 'join' | 'leave' | 'ban' | 'dnf' | 'practice-ready' | 'remove-pick';
+export type ActionType =
+  | 'join'
+  | 'leave'
+  | 'ban'
+  | 'dnf'
+  | 'practice-ready'
+  | 'remove-pick'
+  | 'draft-ready';
 export interface ActionMessage {
   type: ActionType;
   requestId?: string;

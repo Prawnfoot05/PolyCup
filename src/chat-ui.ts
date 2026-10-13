@@ -24,7 +24,7 @@ export class ChatUI {
   #sendButton = h('button', 'Send', 'primary');
   #status = h('p', undefined, 'chat-status');
   #older = h('button', 'Earlier messages', 'quiet chat-older');
-  #bottom = h('button', 'New messages ↓', 'quiet chat-bottom');
+  #bottom = h('button', 'Latest messages ↓', 'quiet chat-bottom');
   #personMenu = h('div', undefined, 'chat-person-menu');
   #selectedSpeaker: number | null = null;
   #hidePreview = h('input');
@@ -79,8 +79,9 @@ export class ChatUI {
     this.#bottom.hidden = true;
     this.#bottom.addEventListener('click', () => {
       this.#stickBottom = true;
-      this.#history.scrollTop = this.#history.scrollHeight;
-      this.#bottom.hidden = true;
+      this.#read = this.#ui.c.chat.lines.length;
+      this.#shownRevision = -1;
+      this.render();
     });
     const form = h('form', undefined, 'chat-compose');
     this.#input.type = 'text';
@@ -279,6 +280,11 @@ export class ChatUI {
         new Date(line.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       );
     stamp.dateTime = new Date(line.at).toISOString();
+    if (line.system) {
+      row.classList.add('chat-system');
+      row.append(stamp, h('span', line.text, 'chat-text'));
+      return row;
+    }
     const speaker = this.#ui.c.chat.speakers.find((s) => s.id === line.speaker);
     const name =
       this.#ui.c.isHost && speaker?.canMute
@@ -349,7 +355,16 @@ export class ChatUI {
       this.#older.hidden = lines.length <= this.#limit;
       this.#history.append(this.#older);
       if (!lines.length) this.#history.append(h('p', 'No messages yet. Say hello!', 'chat-empty'));
-      for (const line of lines.slice(-this.#limit)) this.#history.append(this.#line(line));
+      const first = Math.max(0, lines.length - this.#limit);
+      for (let index = first; index < lines.length; index++) {
+        if (unread && this.#read > 0 && index === this.#read) {
+          const divider = h('div', 'New messages', 'chat-unread-divider');
+          divider.setAttribute('role', 'separator');
+          divider.setAttribute('aria-label', 'New messages');
+          this.#history.append(divider);
+        }
+        this.#history.append(this.#line(lines[index]));
+      }
       this.#preview.replaceChildren(...lines.slice(-3).map((line) => this.#line(line)));
       this.#scrollPosition = {
         top: oldTop + (this.#prepend ? Math.max(0, this.#history.scrollHeight - oldHeight) : 0),
@@ -367,6 +382,10 @@ export class ChatUI {
       this.#scrollPosition = null;
     }
     this.#bottom.hidden = this.#stickBottom;
+    this.#bottom.textContent = unread
+      ? `${unread} new message${unread === 1 ? '' : 's'} ↓`
+      : 'Latest messages ↓';
+    if (!unread) this.#history.querySelector('.chat-unread-divider')?.remove();
     this.#sendButton.disabled = this.#sending || chat.muted || !this.#input.value.trim();
     if (chat.muted) this.#status.textContent = 'The organizer muted you for this Cup.';
     else if (this.#status.textContent === 'The organizer muted you for this Cup.')

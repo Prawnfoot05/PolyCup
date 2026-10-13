@@ -97,6 +97,30 @@ export function validSnapshot(value: unknown): value is PublicCupState {
   )
     return false;
   if (s.preset && rulesFor(s).selection === 'random' && Object.keys(s.picks).length) return false;
+  if (
+    s.draftReady !== undefined &&
+    (!ids(s.draftReady) ||
+      (s.draftReady.length > 0 &&
+        (s.phase !== 'registration' ||
+          rulesFor(s).selection !== 'draft' ||
+          (s.draft && s.draft.stage !== 'picks') ||
+          s.draftReady.some(
+            (id) =>
+              (s.selections?.[id] ?? (s.picks[id] ? [s.picks[id]] : [])).length !==
+              rulesFor(s).picksPerRacer,
+          ))))
+  )
+    return false;
+  if (
+    s.draftStartsAt !== undefined &&
+    (typeof s.draftStartsAt !== 'number' ||
+      !Number.isFinite(s.draftStartsAt) ||
+      s.draftStartsAt <= 0 ||
+      s.phase !== 'registration' ||
+      s.roster.length < 2 ||
+      !s.roster.every((p) => s.draftReady?.includes(p.id)))
+  )
+    return false;
   for (const [id, r] of Object.entries(s.records)) {
     if (!trackId(id) || !obj(r) || !obj(r.pbs) || Object.keys(r.pbs).length > 128) return false;
     for (const [id, p] of Object.entries(r.pbs))

@@ -156,6 +156,9 @@ export class Controller {
   get watchId() {
     return this.#followingId ?? this.#watchId;
   }
+  get pendingWatchId() {
+    return this.#watchId !== this.#followingId ? this.#watchId : null;
+  }
   get startingCup() {
     return this.#startingCup;
   }
@@ -1441,6 +1444,9 @@ export class Controller {
     this.#trackUploads.clear();
   }
   reopenRoster() {
+    this.requireHost();
+    if (this.cup.phase !== 'registration')
+      throw new Error('Return to setup before the Cup starts.');
     this.#startingCup = null;
     this.change((s) => resetDraft(s));
     this.#tracks.clear();
@@ -1467,7 +1473,8 @@ export class Controller {
       for (const p of [...next.roster]) if (!online.has(p.id)) Cup.removePlayer(next, p.id);
     }
     const needsDraft = rulesFor(next).selection === 'draft' && next.draft?.stage === 'roster';
-    const launch = !newTracks && !needsDraft && next.roster.length >= 2;
+    const launch =
+      !newTracks && rulesFor(next).selection === 'random' && !needsDraft && next.roster.length >= 2;
     if (launch) {
       this.requireStartRacers();
       if (this.cup.tracks.some((t) => !this.#tracks.has(t.id)))
@@ -1502,6 +1509,7 @@ export class Controller {
     if (launch) await this.startCup();
     else if (!newTracks && needsDraft)
       this.requestPanel(true, 'The racer roster changed. Set up bans and picks for the next Cup.');
+    else if (!newTracks) this.requestPanel(true, 'Ready up to race again with these picks.');
   }
   syncRoundPanel() {
     const s = this.#state,
@@ -1784,11 +1792,17 @@ export class Controller {
   }
   async addLibraryTrack(entry: LibraryTrack) {
     const state = this.#state,
-      connection = this.#connection;
+      connection = this.#connection,
+      draft = state?.draft;
     if (state?.phase !== 'registration')
       throw new Error('Tracks can only be selected during registration.');
     const track = await entry.load();
-    if (this.#state !== state || this.#connection !== connection || state.phase !== 'registration')
+    if (
+      this.#state !== state ||
+      this.#connection !== connection ||
+      state.phase !== 'registration' ||
+      state.draft !== draft
+    )
       throw new Error('The tournament changed while the track was loading. Select it again.');
     // Keep the actual native track for multiplayer transfers, including custom tracks.
     await this.importTrack(track.trackData.toExportString(track.trackMetadata));
@@ -2027,6 +2041,12 @@ export class Controller {
         this.#resumeRacers.delete(actor);
         Cup.leaveRunningCup(this.#state, actor);
       }
+    } else if (m.type === 'draft-ready') {
+      if (m.value !== 'ready' && m.value !== 'editing') throw new Error('Invalid ready status.');
+      const cancelling = m.value === 'editing' && !!this.#startingCup;
+      Cup.setDraftReady(this.#state, actor, m.value === 'ready');
+      if (m.value === 'editing') this.#startingCup = null;
+      if (cancelling) this.#chat.system('Match start cancelled. Waiting for everyone to ready up.');
     } else if (m.type === 'remove-pick') {
       Cup.removePick(this.#state, actor, m.value ?? '');
       this.pruneTrackData();
@@ -2166,7 +2186,11 @@ export class Controller {
       } else if (m.type === 'pb' && this.#hello.has(id)) this.receivePB(id, m);
       else if (['track-begin', 'track-chunk', 'track-end'].includes(m.type))
         this.receiveTrack(id, m as TrackMessage);
-      else if (['join', 'leave', 'dnf', 'practice-ready', 'ban', 'remove-pick'].includes(m.type)) {
+      else if (
+        ['join', 'leave', 'dnf', 'practice-ready', 'ban', 'remove-pick', 'draft-ready'].includes(
+          m.type,
+        )
+      ) {
         const action = m as ActionMessage;
         if (
           action.requestId !== undefined &&
@@ -2346,12 +2370,14 @@ export class Controller {
         state.roster.map((p) => p.id),
         state.picks,
         state.selections,
+        state.draftReady,
         state.draft,
         state.preset,
       ]);
     const before = setup();
     // Validate before any requests, then again after they settle in case a racer left.
     const random = rulesFor(state).selection === 'random';
+    Cup.requireDraftReady(state);
     if (!random) Cup.lockRegistration(structuredClone(state));
     else if (state.roster.length < 2) throw new Error('Two to eight racers can start a Cup.');
     this.requireStartRacers();
@@ -2360,6 +2386,36 @@ export class Controller {
     this.#error = '';
     this.#onChange();
     try {
+      if (!random) {
+        state.draftStartsAt = this.now() + 5000;
+        Cup.touch(state);
+        this.broadcast();
+        this.#onChange();
+        let announced = 0;
+        while (
+          this.#startingCup === request &&
+          this.#state === state &&
+          state.draftStartsAt !== undefined
+        ) {
+          const seconds = Math.max(0, Math.ceil((state.draftStartsAt - this.now()) / 1000));
+          if (!seconds) break;
+          if (seconds !== announced) {
+            this.#chat.system(`Match starting in ${seconds}…`);
+            announced = seconds;
+          }
+          await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+        }
+        if (
+          this.#startingCup !== request ||
+          this.#state !== state ||
+          this.#connection !== connection ||
+          state.phase !== 'registration' ||
+          setup() !== before ||
+          state.draftStartsAt === undefined
+        )
+          return;
+        Cup.requireDraftReady(state);
+      }
       if (random) {
         const { entry, track, wr } = await this.loadRandomTrack(state);
         if (
@@ -2392,6 +2448,7 @@ export class Controller {
       if (setup() !== before)
         throw new Error('Racers or track picks changed. Start the Cup again.');
       this.requireStartRacers();
+      Cup.requireDraftReady(state);
       for (const [id, wr] of records) (state.records[id] ??= { pbs: {} }).wr = wr;
       Cup.lockRegistration(state);
       this.#trackUploads.clear();
@@ -2400,6 +2457,11 @@ export class Controller {
     } finally {
       if (this.#startingCup === request) {
         this.#startingCup = null;
+        if (this.#state === state && state.draftStartsAt !== undefined) {
+          delete state.draftStartsAt;
+          Cup.touch(state);
+          this.broadcast();
+        }
         this.#onChange();
       }
     }

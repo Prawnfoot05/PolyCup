@@ -12,6 +12,18 @@ function room() {
  const hostChat=make(1,true),guest=make(2),spectator=make(3);clients.set(2,guest);clients.set(3,spectator);
  return {host:hostChat,guest,spectator,peers,messages,setCup:id=>{cupId=id;},make,clients};
 }
+
+test('only the host can send system announcements; history, late joins and spoof rejection preserve their type',async()=>{
+ const r=room();r.host.system('Match starting in 5…');r.host.system('Match starting in 4…');
+ assert.equal(r.guest.lines.length,2);assert.ok(r.guest.lines.every(l=>l.system&&l.speaker===0&&l.name===''));
+ assert.throws(()=>r.guest.system('fake'),/Only the organizer/);
+ r.host.receive(2,{type:'chat-line',cupId:'cup-one',line:{...r.host.lines[0],seq:3}});assert.equal(r.host.lines.length,2);
+ r.guest.receive(3,{type:'chat-line',cupId:'cup-one',line:{...r.host.lines[0],seq:3}});assert.equal(r.guest.lines.length,2);
+ await r.guest.post('ordinary');assert.equal(r.host.lines[2].system,undefined);
+ const saved=r.host.archive();r.host.restore(saved,'cup-one');assert.equal(r.host.lines[0].system,true);
+ const late=r.make(4);r.peers.push({id:4,name:'Late',key:'late'});r.clients.set(4,late);late.tick();assert.equal(late.lines[0].system,true);assert.equal(late.lines.length,3);
+ const invalid=structuredClone(saved);invalid.lines[0].speaker=1;assert.throws(()=>r.host.restore(invalid,'cup-one'),/Invalid/);
+});
 test('chat masks slurs, obfuscation and explicit hateful phrases without censoring ordinary profanity or innocent substrings',()=>{
  for(const input of ['nigger','N1GG3R','n.i.g.g.e.r','n\u200biggér','faggot','f4gg0t','kike','kill all jews','white power']) {
   const result=filterChat(input);assert.notEqual(result,input,input);assert.ok(result.includes('*'),input);

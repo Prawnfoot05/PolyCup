@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {lobbyView} from '../.research/test-src/lobby.ts';
-const state=()=>({roster:[{id:1,name:'Kiki'},{id:2,name:'Nova'}],tracks:[{id:'a',name:'Summer 1'}],picks:{},draft:{stage:'roster',order:[1,2],bans:{}}});
+const state=()=>({phase:'registration',roster:[{id:1,name:'Kiki'},{id:2,name:'Nova'}],tracks:[{id:'a',name:'Summer 1'}],picks:{},draft:{stage:'roster',order:[1,2],bans:{}}});
 test('lobby follows roster, current ban and pick completion without navigation',()=>{
  const s=state();
  assert.equal(lobbyView(s,1).mode,'join');
@@ -13,8 +13,8 @@ test('lobby follows roster, current ban and pick completion without navigation',
  s.draft.stage='picks';
  assert.equal(lobbyView(s,1).mode,'pick');
  s.picks[1]='a';
- assert.equal(lobbyView(s,1).mode,'selected');
- assert.equal(lobbyView(s,1,true).mode,'pick');
+ assert.equal(lobbyView(s,1).mode,'pick');
+ assert.equal(lobbyView(s,1).ready,0);s.draftReady=[1];
  assert.equal(lobbyView(s,1).ready,1);
  assert.equal(lobbyView(s,99).mode,'spectator');
 });

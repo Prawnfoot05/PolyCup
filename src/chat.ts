@@ -9,6 +9,7 @@ export interface ChatLine {
   color: number;
   name: string;
   text: string;
+  system?: true;
 }
 interface Speaker {
   key: string;
@@ -49,7 +50,9 @@ function validLine(value: unknown): value is ChatLine {
     Number.isSafeInteger(l.at) &&
     l.at >= 0 &&
     Number.isSafeInteger(l.speaker) &&
-    l.speaker > 0 &&
+    (l.system === true
+      ? l.speaker === 0 && l.name === ''
+      : l.system === undefined && l.speaker > 0) &&
     Number.isInteger(l.color) &&
     l.color >= 0 &&
     l.color < 8 &&
@@ -131,6 +134,27 @@ export class CupChat {
       }
       return this.#options.send(0, message);
     });
+  }
+  system(text: string) {
+    const context = this.#context();
+    if (!context?.host) throw new Error('Only the organizer can announce system messages.');
+    text = cleanChatText(text);
+    if (!text || text.length > CHAT_LIMIT || this.#lines.length >= 100000) return;
+    const line: ChatLine = {
+      seq: this.#lines.length + 1,
+      at: Date.now(),
+      speaker: 0,
+      color: 0,
+      name: '',
+      text,
+      system: true,
+    };
+    this.#lines.push(line);
+    this.#revision++;
+    for (const target of context.peers)
+      if (target.id !== context.selfId)
+        this.#options.send(target.id, { type: 'chat-line', cupId: context.cupId, line });
+    this.#options.changed();
   }
   receive(id: number, message: ChatMessage) {
     const context = this.#context();
@@ -294,7 +318,7 @@ export class CupChat {
           s.color >= 0 &&
           s.color < 8,
       ) ||
-      !data.lines.every((line) => data.speakers.some((s) => s.id === line.speaker))
+      !data.lines.every((line) => line.system || data.speakers.some((s) => s.id === line.speaker))
     )
       throw new Error('Invalid saved chat.');
     this.#requests.cancel('Chat restored.');

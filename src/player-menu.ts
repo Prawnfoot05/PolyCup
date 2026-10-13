@@ -11,7 +11,6 @@ export class PlayerMenu {
   #id: number | null = null;
   #cupId = '';
   #signature = '';
-  #anchor: DOMRect | null = null;
   constructor(ui: CupUI, root: ShadowRoot) {
     this.#ui = ui;
     this.#root = root;
@@ -24,6 +23,16 @@ export class PlayerMenu {
       this.updateTriggers();
     });
     root.append(this.#element);
+    root.addEventListener(
+      'scroll',
+      () => {
+        if (this.open) this.position();
+      },
+      true,
+    );
+    window.addEventListener('resize', () => {
+      if (this.open) this.position();
+    });
   }
   get open() {
     return this.#id !== null && this.#element.matches(':popover-open');
@@ -45,12 +54,11 @@ export class PlayerMenu {
         String(this.open && Number(button.dataset.playerMenuId) === this.#id),
       );
   }
-  show(id: number, anchor: HTMLElement) {
+  show(id: number) {
     if (!this.#ui.c.isHost || !this.#ui.c.state) return;
     this.#id = id;
     this.#cupId = this.#ui.c.state.id;
     this.#signature = '';
-    this.#anchor = anchor.getBoundingClientRect();
     this.#ui.c.clearDrivingInput();
     this.sync();
     if (this.#id === null) return;
@@ -62,10 +70,40 @@ export class PlayerMenu {
     this.position();
   }
   position() {
-    if (!this.#anchor) return;
+    const trigger = this.#root.querySelector<HTMLElement>(`[data-player-menu-id="${this.#id}"]`);
+    if (!trigger?.getClientRects().length) {
+      this.close();
+      return;
+    }
+    const anchor = trigger.getBoundingClientRect();
+    let top = 0,
+      bottom = innerHeight,
+      left = 0,
+      right = innerWidth;
+    for (let parent = trigger.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent),
+        bounds = parent.getBoundingClientRect();
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        top = Math.max(top, bounds.top);
+        bottom = Math.min(bottom, bounds.bottom);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        left = Math.max(left, bounds.left);
+        right = Math.min(right, bounds.right);
+      }
+    }
+    if (
+      anchor.bottom <= top ||
+      anchor.top >= bottom ||
+      anchor.right <= left ||
+      anchor.left >= right
+    ) {
+      this.close();
+      return;
+    }
     const rect = this.#element.getBoundingClientRect();
-    this.#element.style.left = `${Math.max(8, Math.min(this.#anchor.left, innerWidth - rect.width - 8))}px`;
-    this.#element.style.top = `${Math.max(8, Math.min(this.#anchor.bottom + 8, innerHeight - rect.height - 8))}px`;
+    this.#element.style.left = `${Math.max(8, Math.min(anchor.left, innerWidth - rect.width - 8))}px`;
+    this.#element.style.top = `${Math.max(8, Math.min(anchor.bottom + 8, innerHeight - rect.height - 8))}px`;
   }
   sync() {
     if (this.#id === null) return;
@@ -88,6 +126,8 @@ export class PlayerMenu {
       c.lobby.map((p) => p.id),
     ]);
     this.updateTriggers();
+    if (this.open) this.position();
+    if (this.#id === null) return;
     if (key === this.#signature) return;
     const activeKey = (this.#root.activeElement as HTMLElement | null)?.dataset.actionKey;
     this.#signature = key;
@@ -126,6 +166,12 @@ export class PlayerMenu {
           id === c.selfId ? c.action('join') : c.enrollRacer(id, { type: 'join', cupId: s.id }),
         );
         add.disabled = s.roster.length >= 8 || (id !== c.selfId && !c.hello.has(id));
+        ui.explainDisabled(
+          add,
+          s.roster.length >= 8
+            ? 'All 8 racer slots are occupied.'
+            : 'Waiting for this player to connect to PolyCup.',
+        );
       }
     } else if (rulesFor(s).allowRacerChanges && !['registration', 'complete'].includes(s.phase)) {
       if (racer && (!s.withdrawn?.includes(id) || s.pendingRacers?.includes(id)))
@@ -136,6 +182,12 @@ export class PlayerMenu {
         );
         add.title = 'Joins the next round; returning racers keep their score.';
         add.disabled = Cup.occupiedSlots(s) >= 8 || (id !== c.selfId && !c.hello.has(id));
+        ui.explainDisabled(
+          add,
+          Cup.occupiedSlots(s) >= 8
+            ? 'All 8 racer slots are occupied.'
+            : 'Waiting for this player to connect to PolyCup.',
+        );
       }
     }
     if (racer && c.needsRebind.has(id) && !s.runtime) {

@@ -1,36 +1,38 @@
 import type { CupUI } from './ui.ts';
 import { element as h } from './dom.ts';
 import { banTurn, banEntries } from './draft.ts';
-import { chosenTracks, picksComplete } from './cup.ts';
+import { chosenTracks, picksComplete, draftReady } from './cup.ts';
 import { rulesFor } from './presets.ts';
 import type { CupState } from './types.ts';
+function draftBadge(name: string, banned: boolean, button?: HTMLButtonElement) {
+  const badge = button ?? h('span');
+  badge.classList.add('draft-badge', banned ? 'draft-ban' : 'draft-pick');
+  badge.title = `${banned ? 'Banned' : 'Picked'}: ${name}`;
+  badge.setAttribute('aria-label', badge.title);
+  const icon = h('span', banned ? '×' : '✓', 'draft-badge-icon');
+  icon.setAttribute('aria-hidden', 'true');
+  badge.append(icon, h('span', name, 'draft-badge-name'));
+  return badge;
+}
 export function countryFlag(code: unknown) {
   return typeof code === 'string' && /^[a-z]{2}$/i.test(code)
     ? 'images/countries/' + code.toLowerCase() + '.svg'
     : null;
 }
-export function lobbyView(s: CupState, selfId: number, editing = false) {
+export function lobbyView(s: CupState, selfId: number) {
   const stage = s.draft?.stage ?? 'picks',
     joined = s.roster.some((p) => p.id === selfId);
   const turn = banTurn(s),
     pick = s.tracks.find((t) => t.id === s.picks[selfId]);
   const mode =
-    stage === 'roster'
-      ? 'join'
-      : stage === 'bans'
-        ? 'ban'
-        : !joined
-          ? 'spectator'
-          : pick && picksComplete(s, selfId) && !editing
-            ? 'selected'
-            : 'pick';
+    stage === 'roster' ? 'join' : stage === 'bans' ? 'ban' : !joined ? 'spectator' : 'pick';
   return {
     stage,
     joined,
     turn,
     pick,
     mode,
-    ready: s.roster.filter((p) => picksComplete(s, p.id)).length,
+    ready: s.roster.filter((p) => draftReady(s, p.id)).length,
     title:
       mode === 'join'
         ? joined
@@ -40,27 +42,26 @@ export function lobbyView(s: CupState, selfId: number, editing = false) {
           ? turn === selfId
             ? 'Your ban'
             : `${s.roster.find((p) => p.id === turn)?.name ?? 'Racer'}’s ban`
-          : mode === 'selected'
-            ? rulesFor(s).picksPerRacer > 1
-              ? 'Your picks are ready'
-              : 'Your pick is ready'
-            : mode === 'pick'
-              ? 'Choose your track'
-              : 'Racers are picking',
+          : mode === 'pick'
+            ? draftReady(s, selfId)
+              ? 'Ready to race'
+              : rulesFor(s).picksPerRacer > 1
+                ? 'Choose your tracks'
+                : 'Choose your track'
+            : 'Racers are picking',
   };
 }
 export function lobbyPanel(ui: CupUI) {
   const c = ui.c,
     s = c.state!,
-    view = lobbyView(s, c.selfId!, ui.editingPick);
+    view = lobbyView(s, c.selfId!);
   const shell = h('section', undefined, 'cup-lobby'),
     roster = h('aside', undefined, 'lobby-roster'),
     action = h('section', undefined, 'lobby-action');
   shell.classList.toggle('drafting', view.mode !== 'join');
   roster.setAttribute('aria-label', 'Racer roster');
   action.setAttribute('aria-label', 'Current lobby action');
-  const preset = ui.presetPanel(),
-    rules = rulesFor(s);
+  const rules = rulesFor(s);
   const heading = h('div', undefined, 'lobby-roster-heading');
   heading.append(h('h2', `Racers · ${s.roster.length}/8`));
   roster.append(heading);
@@ -73,25 +74,68 @@ export function lobbyPanel(ui: CupUI) {
       `lobby-racer${view.turn === id ? ' current-turn' : ''}${id === c.selfId ? ' you' : ''}`,
     );
     const identity = ui.racerName(id, ui.name(id), true, true);
+    const ready = draftReady(s, id);
+    row.classList.toggle('draft-ready', ready);
     const car = identity.querySelector('.car-skin');
-    const actions = identity.querySelector('.player-actions-toggle');
-    if (actions) row.append(actions);
     if (car) row.append(car);
-    row.append(identity, ui.playerTools(id));
-    if (!c.lobby.some((p) => p.id === id) || c.needsRebind?.has(id))
-      row.append(h('small', 'Disconnected', 'ban-label'));
+    identity.insertBefore(ui.playerPing(id), identity.querySelector('.player-actions-toggle'));
+    row.append(identity);
+    const meta = h('div', undefined, 'lobby-meta');
+    const disconnected = !c.lobby.some((p) => p.id === id) || c.needsRebind?.has(id);
+    const status = disconnected
+      ? 'Offline'
+      : view.turn === id
+        ? 'Banning…'
+        : view.stage === 'picks'
+          ? ready
+            ? '✓ Ready'
+            : picksComplete(s, id)
+              ? 'Not ready'
+              : 'Picking…'
+          : '';
+    if (status)
+      meta.append(h('span', status, `racer-ready-status${disconnected ? ' offline' : ''}`));
+    row.append(meta);
     const bans = banEntries(s).filter((b) => b.racerId === id),
-      picks = s.tracks.filter((t) => chosenTracks(s, id).includes(t.id));
+      picks = chosenTracks(s, id).map((key) => s.tracks.find((t) => t.id === key));
     const choices = h('div', undefined, 'lobby-choices');
-    if (s.draft && rules.bansPerRacer && view.stage !== 'roster') {
-      for (const ban of bans) choices.append(h('span', `× ${ban.track.name}`, 'draft-ban'));
-      if (view.turn === id) choices.append(h('span', 'Banning…', 'draft-ban'));
+    const banGroup = h('div', undefined, 'lobby-ban-choices');
+    const pickGroup = h('div', undefined, 'lobby-pick-choices');
+    if (view.stage !== 'roster') {
+      for (const [kind, count, group] of [
+        ['ban', rules.bansPerRacer, banGroup],
+        ['pick', rules.picksPerRacer, pickGroup],
+      ] as const)
+        for (let index = 0; index < count; index++) {
+          const slot = h('div', undefined, 'draft-slot');
+          const pick = kind === 'ban' ? bans[index]?.track : picks[index];
+          if (!pick) {
+            const label = `${kind === 'ban' ? 'Ban' : 'Pick'} ${index + 1}`;
+            const empty = draftBadge(label, kind === 'ban');
+            empty.classList.add('draft-empty');
+            empty.title = `${label} not selected`;
+            empty.setAttribute('aria-label', empty.title);
+            slot.append(empty);
+            group.append(slot);
+            continue;
+          }
+          const unpick =
+            kind === 'pick' && view.stage === 'picks' && id === c.localPlayerId && !ready
+              ? ui.button('', () => c.action('remove-pick', pick.id), '', `track:unpick:${pick.id}`)
+              : undefined;
+          const badge = draftBadge(pick.name, kind === 'ban', unpick);
+          ui.animateDraftSlot(badge, id, kind, index);
+          if (unpick) {
+            badge.title = `Unpick ${pick.name}`;
+            badge.setAttribute('aria-label', badge.title);
+            unpick.disabled = !!c.pendingUpload;
+          }
+          slot.append(badge);
+          group.append(slot);
+        }
     }
-    if (view.stage === 'picks') {
-      for (const pick of picks) choices.append(h('span', `✓ ${pick.name}`, 'draft-pick'));
-      if (!picksComplete(s, id))
-        choices.append(h('span', `${picks.length}/${rules.picksPerRacer} picks`, 'muted'));
-    }
+    if (banGroup.childElementCount) choices.append(banGroup);
+    if (pickGroup.childElementCount) choices.append(pickGroup);
     row.append(choices);
     roster.append(row);
   }
@@ -99,6 +143,10 @@ export function lobbyPanel(ui: CupUI) {
     const join = ui.button(view.joined ? 'Joined' : 'Join', () => c.action('join'), 'primary');
     join.disabled = view.joined || s.roster.length >= 8;
     roster.append(join);
+    ui.explainDisabled(
+      join,
+      !view.joined && s.roster.length >= 8 ? 'All 8 racer slots are occupied.' : '',
+    );
   }
   const spectators = c.lobby.filter((p) => !s.roster.some((r) => r.id === p.id));
   const more = h('section', undefined, 'lobby-spectators');
@@ -108,10 +156,9 @@ export function lobbyPanel(ui: CupUI) {
     const row = h('div', undefined, `lobby-racer${p.id === c.selfId ? ' you' : ''}`);
     const identity = ui.racerName(p.id, p.nickname, true, true),
       car = identity.querySelector('.car-skin');
-    const actions = identity.querySelector('.player-actions-toggle');
-    if (actions) row.append(actions);
     if (car) row.append(car);
-    row.append(identity, ui.playerTools(p.id));
+    identity.insertBefore(ui.playerPing(p.id), identity.querySelector('.player-actions-toggle'));
+    row.append(identity);
     more.append(row);
   }
   if (view.mode === 'join') {
@@ -124,24 +171,6 @@ export function lobbyPanel(ui: CupUI) {
     more.append(spectate);
   }
   roster.append(more);
-  const actionTitle = h('h2', view.title);
-  if (view.mode === 'ban' && view.turn !== c.selfId && view.turn !== null) {
-    actionTitle.replaceChildren(ui.playerLabel(view.turn, ui.name(view.turn), true), '’s ban');
-  }
-  if (view.mode !== 'join') {
-    const progress = h('ol', undefined, 'draft-progress');
-    progress.setAttribute('aria-label', 'Cup setup progress');
-    for (const [stage, label] of [
-      ['roster', 'Racers'],
-      ...(rules.bansPerRacer ? [['bans', 'Bans']] : []),
-      ['picks', 'Picks'],
-    ]) {
-      const item = h('li', label);
-      if (stage === view.stage) item.setAttribute('aria-current', 'step');
-      progress.append(item);
-    }
-    action.append(progress, actionTitle);
-  }
   if (!s.draft && !view.joined) action.append(ui.joinControls());
   if (view.mode === 'join') {
     if (c.isHost) {
@@ -173,79 +202,25 @@ export function lobbyPanel(ui: CupUI) {
           'muted',
         ),
       );
-  } else if (view.mode === 'selected') {
-    for (const picked of s.tracks.filter((t) => chosenTracks(s, c.selfId!).includes(t.id))) {
-      const card = h('div', undefined, 'selected-track');
-      card.append(h('strong', picked.name));
-      try {
-        const entry = c.availableTracks().find((t) => t.id === picked.id);
-        if (entry) {
-          const image = h('img');
-          image.alt = '';
-          Promise.resolve(entry.thumbnail)
-            .then((src) => {
-              if (src && image.isConnected) image.src = src;
-            })
-            .catch(() => {});
-          card.prepend(image);
-        }
-      } catch {}
-      action.append(card);
-    }
-    action.append(
-      ui.button(
-        rules.picksPerRacer > 1 ? 'Edit picks' : 'Change pick',
-        () => ui.editPick(true),
-        'quiet',
-      ),
-    );
-    if (!c.isHost)
-      action.append(
-        h('p', 'You’re ready. The organizer starts the Cup once everyone has picked.', 'muted'),
-      );
-    action.append(h('p', `${view.ready}/${s.roster.length} racers have picked`, 'muted'));
   } else if (view.mode === 'ban' || view.mode === 'pick') {
-    if (view.mode === 'ban')
-      action.append(
-        h(
-          'p',
-          `Ban ${banEntries(s).length + 1}/${s.roster.length * rules.bansPerRacer}`,
-          'lobby-turn-count',
-        ),
-      );
-    if (view.pick && picksComplete(s, c.selfId!))
-      action.append(
-        ui.button(
-          rules.picksPerRacer > 1 ? 'Done editing' : 'Keep current pick',
-          () => {
-            ui.editPick(false);
-          },
-          'quiet',
-        ),
-      );
-    if (view.mode === 'pick' && rules.picksPerRacer > 1) {
-      for (const track of s.tracks.filter((t) => chosenTracks(s, c.selfId!).includes(t.id))) {
-        const row = h('div', undefined, 'row');
-        row.append(
-          h('span', `✓ ${track.name}`, 'grow'),
-          ui.button(
-            'Remove',
-            () => c.action('remove-pick', track.id),
-            'quiet',
-            `remove-pick:${track.id}`,
-          ),
-        );
-        action.append(row);
-      }
-      action.append(
-        h('p', `${chosenTracks(s, c.selfId!).length}/${rules.picksPerRacer} picks`, 'muted'),
-      );
-    }
     ui.renderTrackChoices(action);
-  } else action.append(h('p', `${view.ready}/${s.roster.length} racers have picked`, 'muted'));
-  if (c.isHost && view.stage === 'picks') {
+  } else action.append(h('p', `${view.ready}/${s.roster.length} racers ready`, 'muted'));
+  const selfReady = draftReady(s, c.selfId!);
+  let readyButton: HTMLButtonElement | undefined;
+  if (view.joined && view.stage === 'picks') {
+    readyButton = ui.button(
+      selfReady ? 'Unready' : 'Ready up',
+      () => c.action('draft-ready', selfReady ? 'editing' : 'ready'),
+      selfReady && c.isHost ? 'quiet' : 'primary',
+      'track:draft-ready',
+    );
+    readyButton.disabled = !picksComplete(s, c.selfId!) || !!c.pendingUpload;
+    readyButton.title = readyButton.disabled ? 'Choose all your tracks first.' : '';
+    ui.setLobbyStart(readyButton);
+  }
+  if (c.isHost && view.stage === 'picks' && (!view.joined || selfReady)) {
     const start = ui.button(
-      c.startingCup ? 'Preparing tracks…' : 'Start Cup',
+      c.startingCup ? 'Starting…' : 'Start Cup',
       () => c.startCup(),
       'primary lobby-start',
     );
@@ -255,14 +230,17 @@ export function lobbyPanel(ui: CupUI) {
       s.roster.length < 2
         ? 'At least two racers are needed.'
         : view.ready !== s.roster.length
-          ? `Waiting for ${s.roster.length - view.ready} racer(s) to pick.`
+          ? `${view.ready}/${s.roster.length} racers ready`
           : ui.presetDirty
             ? 'Finish editing the rules to continue.'
             : '';
-    ui.setLobbyStart(start);
+    ui.setLobbyStart(start, readyButton);
   }
-  if (view.mode === 'join') preset.classList.add('preset-at-top');
-  action.append(preset);
+  if (view.mode === 'join') {
+    const preset = ui.presetPanel();
+    preset.classList.add('preset-at-top');
+    action.append(preset);
+  }
   const people = h('div', undefined, 'lobby-column');
   people.append(roster, h('div', undefined, 'lobby-chat-slot'));
   shell.append(people, action);

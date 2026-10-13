@@ -21,6 +21,8 @@ export function resetDraft(s: CupState) {
   s.draft = { stage: 'roster', order: [], bans: {} };
   s.picks = {};
   s.selections = {};
+  s.draftReady = [];
+  delete s.draftStartsAt;
   s.tracks = [];
   s.records = {};
   s.revision++;
@@ -35,6 +37,8 @@ export function beginBans(s: CupState, random = Math.random) {
     [order[i], order[j]] = [order[j], order[i]];
   }
   s.draft = { stage: rulesFor(s).bansPerRacer ? 'bans' : 'picks', order, bans: {} };
+  s.draftReady = [];
+  delete s.draftStartsAt;
   s.picks = {};
   s.selections = {};
   s.tracks = [];

@@ -111,6 +111,8 @@ export interface CupState {
   pendingRacers?: PlayerId[];
   preset?: import('./presets.ts').CupPreset;
   selections?: Record<PlayerId, TrackId[]>;
+  draftReady?: PlayerId[];
+  draftStartsAt?: number;
   schema: 2;
   version: string;
   id: string;

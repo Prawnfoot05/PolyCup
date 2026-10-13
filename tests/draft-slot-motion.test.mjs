@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { DraftSlotMotion } from '../.research/test-src/draft-slot-motion.ts';
+import * as Cup from '../.research/test-src/cup.ts';
+import { beginBans, banTrack, resetDraft } from '../.research/test-src/draft.ts';
+
+test('draft slots animate new choices once, resume across redraws, and reset between drafts', () => {
+  const s = Cup.newCup();
+  for (const id of [1, 2]) Cup.addPlayer(s, id, `Racer ${id}`);
+  resetDraft(s); beginBans(s, () => 0.99);
+  const motion = new DraftSlotMotion(); motion.sync(s, 0);
+  const a = {id:'a'.repeat(64), name:'A', category:'official'};
+  banTrack(s, 1, a); motion.sync(s, 100);
+  assert.equal(motion.age(1, 'ban', 0, 100), 0);
+  motion.sync(s, 160);
+  assert.equal(motion.age(1, 'ban', 0, 160), 60);
+  motion.sync(s, 400);
+  assert.equal(motion.age(1, 'ban', 0, 400), null);
+  const lateJoin = new DraftSlotMotion(); lateJoin.sync(s, 1000);
+  assert.equal(lateJoin.age(1, 'ban', 0, 1000), null);
+  banTrack(s, 2, {...a, id:'b'.repeat(64)});
+  const pick = {id:'c'.repeat(64), name:'C'};
+  Cup.chooseTrack(s, 1, pick); motion.sync(s, 1100);
+  assert.equal(motion.age(1, 'pick', 0, 1110), 10);
+  Cup.removePick(s, 1, pick.id); motion.sync(s, 1200);
+  assert.equal(motion.age(1, 'pick', 0, 1200), null);
+  Cup.chooseTrack(s, 1, pick); motion.sync(s, 1300);
+  assert.equal(motion.age(1, 'pick', 0, 1300), 0);
+  resetDraft(s); motion.sync(s, 1400);
+  assert.equal(motion.age(1, 'pick', 0, 1400), null);
+  beginBans(s, () => 0.99); motion.sync(s, 1500);
+  banTrack(s, 1, a); motion.sync(s, 1600);
+  assert.equal(motion.age(1, 'ban', 0, 1600), 0);
+});

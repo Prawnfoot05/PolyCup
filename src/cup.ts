@@ -3,7 +3,7 @@ import type { CupState, Match, RaceRecord, Track } from './types.ts';
 // Competition state is owned by the native multiplayer host. No game internals here.
 import { isBanned, picksOpen, resetDraft, rosterOpen } from './draft.ts';
 import { rulesFor, standardPreset, validPreset, type CupPreset, type CupRules } from './presets.ts';
-export const VERSION = '0.3.2';
+export const VERSION = '0.3.3';
 export const RULES = Object.freeze({
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   target: 140,
@@ -33,6 +33,7 @@ export function newCup(name = 'Simple Cup', preset = standardPreset()): CupState
     roster: [],
     tracks: [],
     picks: {},
+    draftReady: [],
     records: {},
     matches: [],
     matchIndex: -1,
@@ -176,8 +177,29 @@ export function chosenTracks(state: CupState, id: number): string[] {
 export function picksComplete(state: CupState, id: number) {
   return chosenTracks(state, id).length === rulesFor(state).picksPerRacer;
 }
+export function draftReady(state: CupState, id: number) {
+  return picksOpen(state) && picksComplete(state, id) && !!state.draftReady?.includes(id);
+}
+export function setDraftReady(state: CupState, actor: number, ready: boolean) {
+  requireThat(picksOpen(state) && player(state, actor), 'Only racers can ready up during picks.');
+  requireThat(!ready || picksComplete(state, actor), 'Choose all your tracks before readying up.');
+  const wasReady = state.draftReady?.includes(actor) ?? false;
+  if (wasReady === ready) return;
+  state.draftReady = (state.draftReady ?? []).filter((id) => id !== actor);
+  if (ready) state.draftReady.push(actor);
+  else delete state.draftStartsAt;
+  touch(state);
+}
+export function requireDraftReady(state: CupState) {
+  if (rulesFor(state).selection === 'random') return;
+  requireThat(
+    state.roster.length >= 2 && state.roster.every((p) => draftReady(state, p.id)),
+    'Every racer must ready up before starting the Cup.',
+  );
+}
 export function removePick(state: CupState, actor: number, trackId: string) {
   requireThat(picksOpen(state) && player(state, actor), 'Picks can only be changed during setup.');
+  requireThat(!draftReady(state, actor), 'Unready before changing your picks.');
   const picks = chosenTracks(state, actor).filter((id) => id !== trackId);
   (state.selections ??= {})[actor] = picks;
   if (picks.length) state.picks[actor] = picks[0];
@@ -198,6 +220,8 @@ export function addPlayer(state: CupState, id: number, name: string) {
   requireThat(state.roster.length < 8, 'All eight racer places are filled.');
   requireThat(!player(state, id), 'This player is already registered.');
   state.roster.push({ id, name: safeName(name) });
+  state.draftReady = [];
+  delete state.draftStartsAt;
   touch(state);
 }
 export function removePlayer(state: CupState, id: number) {
@@ -205,6 +229,8 @@ export function removePlayer(state: CupState, id: number) {
   state.roster = state.roster.filter((p) => p.id !== id);
   delete state.picks[id];
   if (state.selections) delete state.selections[id];
+  state.draftReady = [];
+  delete state.draftStartsAt;
   for (const r of Object.values(state.records)) delete r.pbs[id];
   pruneTracks(state);
   touch(state);
@@ -219,6 +245,7 @@ function pruneTracks(state: CupState) {
 export function chooseTrack(state: CupState, actor: number, track: Track) {
   requireThat(picksOpen(state), 'Finish all bans before picking tracks.');
   requireThat(player(state, actor), 'Join as a racer before choosing a track.');
+  requireThat(!draftReady(state, actor), 'Unready before changing your picks.');
   requireThat(
     typeof track.id === 'string' && /^[a-f0-9]{64}$/i.test(track.id),
     'Invalid track ID.',
@@ -262,6 +289,8 @@ export function lockRegistration(state: CupState, random = Math.random) {
     `Each racer needs ${rules.picksPerRacer} track pick${rules.picksPerRacer === 1 ? '' : 's'}.`,
   );
   const order = state.tracks.map((t) => t.id);
+  delete state.draftStartsAt;
+  state.draftReady = [];
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
@@ -718,6 +747,9 @@ function remapIdentities(state: CupState, mapping: Map<number, number>) {
   if (state.pendingRacers) state.pendingRacers = replace(state.pendingRacers);
   state.picks = keys(state.picks);
   if (state.selections) state.selections = keys(state.selections);
+  // A returning identity must explicitly confirm its picks again.
+  state.draftReady = (state.draftReady ?? []).filter((id) => !mapping.has(id));
+  delete state.draftStartsAt;
   if (state.draft) {
     state.draft.order = replace(state.draft.order);
     state.draft.bans = keys(state.draft.bans);

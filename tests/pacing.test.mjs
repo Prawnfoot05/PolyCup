@@ -74,7 +74,7 @@ test('snapshots require a complete bounded schedule; existing 100-point saves re
 
 function hostRoom() {
   const host = new Controller(() => {}), client = new Controller(() => {}), sessions = [];
-  host.isHost = true; host.selfId = 1; host.state = registration(); host.game = {};
+  host.isHost = true; host.selfId = 1; host.state = registration(); for(const p of host.state.roster) Cup.setDraftReady(host.state,p.id,true); host.game = {};
   host.info = { sessionId: 1 }; host.lobby = host.state.roster.map(p => ({ ...p }));
   host.hello = new Set([2, 3]); host.transport.has = () => true;
   host.connection = { startNewSession: (...args) => sessions.push(args) };
@@ -83,12 +83,14 @@ function hostRoom() {
   return { host, client, sessions };
 }
 
+async function endCountdown(host) { host.state.draftStartsAt = host.now(); await new Promise(resolve=>setTimeout(resolve,1100)); }
+
 test('host fetches every unique track before starting and shares frozen counts with joining clients', async () => {
   const { host, client, sessions } = hostRoom(), requested = [], done = new Map();
   host.native = { worldRecord: (game, track) => {
     assert.equal(game, host.game); requested.push(track); return new Promise(resolve => done.set(track, resolve));
   } };
-  const pending = host.startCup(); await Promise.resolve();
+  const pending = host.startCup(); await endCountdown(host);
   assert.ok(host.startingCup); assert.equal(host.state.phase, 'registration'); assert.equal(sessions.length, 0);
   await host.startCup(); assert.equal(requested.length, 3);
   done.get(id(1))(wr(25000)); done.get(id(2))(wr(60000)); done.get(id(3))({ status: 'missing' });
@@ -111,7 +113,7 @@ test('failed, malformed and stalled WR requests use fallback without waiting ind
     if (track === id(2)) return wr(NaN);
     return new Promise(resolve => { late = resolve; });
   } };
-  await host.startCup(); assert.deepEqual(Object.values(host.state.matches[0].trackRounds), [4, 4, 4]);
+  const starting=host.startCup(); await endCountdown(host); await starting; assert.deepEqual(Object.values(host.state.matches[0].trackRounds), [4, 4, 4]);
   late(wr(10000)); await Promise.resolve();
   assert.deepEqual(Object.values(host.state.matches[0].trackRounds), [4, 4, 4]);
 });
@@ -126,12 +128,12 @@ test('a cancelled Cup cannot be restarted by a late WR response', async () => {
 });
 
 test('changed picks or disconnected racers abort preparation without launching a race', async () => {
-  for (const change of [host => Cup.chooseTrack(host.state, 1, { id: id(4), name: 'Replacement' }),
+  for (const change of [host => { Cup.setDraftReady(host.state,1,false); Cup.chooseTrack(host.state, 1, { id: id(4), name: 'Replacement' }); },
     host => { host.lobby = host.lobby.filter(p => p.id !== 2); }]) {
     const { host, sessions } = hostRoom();
     let resolve; const waiting = new Promise(r => { resolve = r; });
     host.native = { worldRecord: () => waiting };
-    const pending = host.startCup(); change(host); resolve(wr(30000));
+    const pending = host.startCup(); await endCountdown(host); change(host); resolve(wr(30000));
     await assert.rejects(pending, /changed|connected/);
     assert.equal(host.state.phase, 'registration'); assert.equal(host.startingCup, null); assert.equal(sessions.length, 0);
   }

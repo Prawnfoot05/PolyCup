@@ -10,7 +10,7 @@ Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTra
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN's cached latest manifest, which may lag behind a release. Enter **0.3.2** explicitly if an older release is selected.
+All players and spectators need the same PolyCup version. Leaving the version empty uses the CDN's cached latest manifest, which may lag behind a release. Enter **0.3.3** explicitly if an older release is selected.
 
 For the bundled Windows installer, place this project folder beside PolyTrack.exe, close the game and run **Install-PolyCup.cmd**. **Restore-Original.cmd** restores the original installation; run it before switching from the bundled installer to a normal PML installation.
 
@@ -19,19 +19,19 @@ For the bundled Windows installer, place this project folder beside PolyTrack.ex
 1. Host a multiplayer lobby and open **PolyCup** from the toolbar or **F8**.
 2. Create a Cup, share the lobby code, and join as racers.
 3. Choose **Standard**, **Quickplay**, or a saved preset in the lobby. Edit the rules directly below the preset selector; valid changes apply automatically.
-4. Standard runs bans, then picks in the same panel. Quickplay starts directly on a random map.
-5. **Start Cup**. Rounds advance automatically until someone wins.
+4. Standard runs bans, then picks in the same panel. Click a selected track to unpick it. Each racer chooses **Ready up** to lock their picks; **Unready** allows changes again. Quickplay starts directly on a random map.
+5. Once every racer is ready, the host chooses **Start Cup**. A five-second countdown appears in chat; unreadying cancels it. Rounds advance automatically until someone wins.
 
 | Preset | Rounds per map | Target | Finalist | Tracks | Warmup | Mid-Cup racer changes |
 | --- | --- | --- | --- | --- | --- | --- |
 | Standard | 4 | 140 | On | 1 ban + 1 pick each | First visit | Off |
 | Quickplay | 3 | 100 | Off | Random map every three rounds | Off | On |
 
-Both use main and community tracks. **Allow custom tracks** adds saved custom tracks and, during drafting, share-code entry. Presets also control points per place, bans/picks, warmup timing, the finish window and round breaks. Custom tracks are available only when bans per racer is zero; enabling bans turns custom tracks off. Rules lock when drafting starts; **Reopen setup** clears bans and picks.
+Both use main and community tracks. **Allow custom tracks** adds saved custom tracks and, during drafting, share-code entry. Presets also control points per place, bans/picks, warmup timing, the finish window and round breaks. Custom tracks are available only when bans per racer is zero; enabling bans turns custom tracks off. Rules lock when drafting starts and remain available through **Rules** in the topbar. The host can choose **Return to lobby** beside **End Cup** to clear bans, picks and readiness while retaining the Cup, roster, rules and chat.
 
 **Upload leaderboard times** enables the game’s Casual mode for Cup rounds and warmups. Leave it unchecked for Competitive mode with session-only times (the default). Native account and track eligibility rules still apply.
 
-Editing a rule changes the preset name to **Custom**. Use the pencil button to name it, then the save icon to keep it. The adjacent import/export icons share rules only.
+Editing a rule changes the preset name to **Custom**. Use the pencil button to name it, then the save icon to keep it. Replacing an existing preset requires confirmation; deleting one offers **Undo**. Invalid fields explain what needs correcting. The adjacent import/export icons share rules only.
 
 The organizer must stay connected. Native room capacity includes spectators. **Hide** closes your panel; **End Cup** ends Cup mode for the whole lobby.
 

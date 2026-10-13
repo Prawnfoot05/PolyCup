@@ -23,6 +23,7 @@ export class PresetEditor {
   #base = '';
   #renaming = false;
   #renameValue = '';
+  #replaceKey = '';
   #applyTimer: ReturnType<typeof setTimeout> | undefined;
   #panel?: HTMLElement;
   constructor(ui: CupUI) {
@@ -164,17 +165,33 @@ export class PresetEditor {
         input?.select();
         return;
       }
-      this.#draft.name = this.#draft.name.trim();
-      this.#library.save(this.#draft);
-      this.applyDraft();
-      ui.showNotice(`Saved ${this.#draft.name}`, 2500);
+      this.savePreset();
     });
     const remove = icon('delete', 'Delete saved preset', () => {
-      if (!this.#library.list().some((p) => p.name === this.#draft.name)) return;
+      const deleted = this.#library.list().find((p) => p.name === this.#draft.name);
+      if (!deleted) return;
       this.#library.remove(this.#draft.name);
       this.#draft = standardPreset();
       this.applyDraft();
-      ui.showNotice('Preset deleted. Standard rules applied.', 3000);
+      const restoredFrom = presetKey(this.#draft),
+        cupId = state.id;
+      ui.showNotice(`Deleted ${deleted.name}. Standard rules applied.`, 6000, false, {
+        label: 'Undo',
+        run: () => {
+          if (this.#library.list().some((p) => p.name.toLowerCase() === deleted.name.toLowerCase()))
+            throw new Error('A preset with this name already exists.');
+          this.#library.save(deleted);
+          if (
+            c.state?.id === cupId &&
+            rosterOpen(c.state) &&
+            presetKey(this.#draft) === restoredFrom
+          ) {
+            this.#draft = deleted;
+            this.applyDraft();
+          } else ui.redraw();
+          ui.showNotice(`Restored ${deleted.name}`, 2500);
+        },
+      });
     });
     remove.dataset.deletePreset = '';
     remove.disabled = !this.#library.list().some((p) => p.name === this.#draft.name);
@@ -190,18 +207,35 @@ export class PresetEditor {
       remove,
       file,
     );
+    if (this.#replaceKey === presetKey(this.#draft)) {
+      const confirm = h('div', undefined, 'preset-replace-confirm');
+      confirm.append(
+        h('span', `Replace saved preset “${this.#draft.name}”?`),
+        ui.button('Replace preset', () => this.savePreset(true), 'primary'),
+        ui.button(
+          'Cancel',
+          () => {
+            this.#replaceKey = '';
+            ui.redraw();
+          },
+          'quiet',
+        ),
+      );
+      heading.after(confirm);
+    }
     const status = h(
       'p',
       this.dirty
         ? validPreset(this.#draft)
           ? 'Updating rules…'
-          : 'Check the fields: select a valid pool, use the allowed ranges, and keep points in descending order.'
+          : 'Fix the highlighted fields to continue.'
         : '',
       'preset-status',
     );
     status.hidden = !this.dirty;
     status.setAttribute('role', 'status');
     box.append(status);
+    this.sync();
     return box;
   }
   editableRules(r: CupRules) {
@@ -434,6 +468,25 @@ export class PresetEditor {
       this.#ui.redraw();
     }
   }
+  savePreset(replace = false) {
+    this.#draft.name = this.#draft.name.trim();
+    const existing = this.#library
+      .list()
+      .find((p) => p.name.toLowerCase() === this.#draft.name.toLowerCase());
+    if (
+      existing &&
+      presetKey(existing) !== presetKey(this.#draft) &&
+      (!replace || this.#replaceKey !== presetKey(this.#draft))
+    ) {
+      this.#replaceKey = presetKey(this.#draft);
+      this.#ui.redraw();
+      return;
+    }
+    this.#library.save(this.#draft);
+    this.#replaceKey = '';
+    this.applyDraft();
+    this.#ui.showNotice(`${existing ? 'Updated' : 'Saved'} ${this.#draft.name}`, 2500);
+  }
   beginRename() {
     this.#renameValue = this.#draft.name;
     this.#renaming = true;
@@ -460,8 +513,7 @@ export class PresetEditor {
     }
     const banHint = panel.querySelector<HTMLElement>('.custom-ban-hint');
     if (banHint) banHint.hidden = this.#draft.rules.bansPerRacer === 0;
-    for (const input of panel.querySelectorAll<HTMLInputElement>('input[type=number]'))
-      input.setAttribute('aria-invalid', String(!input.validity.valid || input.value === ''));
+    this.fieldErrors();
     for (const button of panel.querySelectorAll<HTMLButtonElement>('[data-valid-preset]'))
       button.disabled = !valid;
     const remove = panel.querySelector<HTMLButtonElement>('[data-delete-preset]');
@@ -471,7 +523,7 @@ export class PresetEditor {
       status.textContent = this.dirty
         ? valid
           ? 'Updating rules…'
-          : 'Check the fields: select a valid pool, use the allowed ranges, and keep points in descending order.'
+          : 'Fix the highlighted fields to continue.'
         : `${this.#draft.name} rules applied.`;
       status.hidden = !this.dirty;
     }
@@ -511,6 +563,69 @@ export class PresetEditor {
       this.#ui.c.fail(error);
     }
   }
+  fieldErrors() {
+    const panel = this.#panel!;
+    const pointErrors: string[] = [];
+    const error = (input: HTMLInputElement, message: string, id: string) => {
+      input.setAttribute('aria-invalid', String(!!message));
+      if (message) input.setAttribute('aria-describedby', id);
+      else input.removeAttribute('aria-describedby');
+      return message;
+    };
+    for (const input of panel.querySelectorAll<HTMLInputElement>('input[type=number]')) {
+      const key = input.dataset.presetField!;
+      let message = !Number.isFinite(input.valueAsNumber)
+        ? 'Enter a number.'
+        : input.validity.rangeUnderflow || input.validity.rangeOverflow
+          ? `Use a value from ${input.min} to ${input.max}.`
+          : input.step === '1' && input.validity.stepMismatch
+            ? 'Use a whole number.'
+            : '';
+      if (key.startsWith('points-')) {
+        const index = Number(key.slice(7));
+        if (!message && index === 0 && input.valueAsNumber <= 0)
+          message = '1st place must award at least 1 point.';
+        if (!message && index > 0 && input.valueAsNumber > this.#draft.rules.points[index - 1])
+          message = `${input.getAttribute('aria-label')!.replace('Points for ', '')} place cannot award more than the place above it.`;
+        error(input, message, 'preset-points-error');
+        if (message) pointErrors.push(message);
+      } else {
+        const id = `preset-error-${key}`;
+        let note = panel.querySelector<HTMLElement>(`#${id}`);
+        if (!note) {
+          note = h('small', undefined, 'preset-field-error');
+          note.id = id;
+          input.parentElement!.append(note);
+        }
+        note.textContent = error(input, message, id);
+        note.hidden = !message;
+      }
+    }
+    const scoring = panel.querySelector('.preset-scoring');
+    if (scoring) {
+      let note = panel.querySelector<HTMLElement>('#preset-points-error');
+      if (!note) {
+        note = h('p', undefined, 'preset-field-error');
+        note.id = 'preset-points-error';
+        scoring.append(note);
+      }
+      note.textContent = [...new Set(pointErrors)].join(' ');
+      note.hidden = !pointErrors.length;
+    }
+    const pool = [...panel.querySelectorAll<HTMLInputElement>('[data-track-category]')];
+    if (pool.length) {
+      const message = this.#draft.rules.pool.length ? '' : 'Choose at least one track category.';
+      let note = panel.querySelector<HTMLElement>('#preset-pool-error');
+      if (!note) {
+        note = h('small', undefined, 'preset-field-error');
+        note.id = 'preset-pool-error';
+        pool[0].parentElement!.append(note);
+      }
+      note.textContent = message;
+      note.hidden = !message;
+      for (const input of pool) error(input, message, note.id);
+    }
+  }
   scheduleApply() {
     clearTimeout(this.#applyTimer);
     if (!validPreset(this.#draft)) return;
@@ -520,6 +635,7 @@ export class PresetEditor {
     }, 300);
   }
   changed(redraw = true) {
+    this.#replaceKey = '';
     clearTimeout(this.#applyTimer);
     this.#draft.name = 'Custom';
     if (this.#draft.rules.bansPerRacer > 0) {

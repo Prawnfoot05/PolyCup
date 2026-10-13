@@ -22,6 +22,8 @@ import { PlayerMenu } from './player-menu.ts';
 import { recordTrack, sessionRecord, standings } from './standings.ts';
 import { formatGap, formatTime as time } from './time.ts';
 import { CupToolbar } from './toolbar.ts';
+import { ConnectionQuality } from './connection-quality.ts';
+import { DraftSlotMotion } from './draft-slot-motion.ts';
 import css from './world-cup.css';
 const names = {
   registration: 'Registration',
@@ -33,6 +35,7 @@ const names = {
   complete: 'Cup results',
 };
 export class CupUI {
+  #connectionQuality = new ConnectionQuality();
   #chatUI: ChatUI;
   get panelOpen() {
     return this.#open;
@@ -41,11 +44,21 @@ export class CupUI {
     this.#chatUI.hotkey(event);
   }
   #recordCueScope = '';
+  #draftSlots = new DraftSlotMotion();
+  animateDraftSlot(element: HTMLElement, id: number, kind: 'ban' | 'pick', index: number) {
+    const age = this.#draftSlots.age(id, kind, index);
+    if (age !== null) {
+      element.classList.add('draft-slot-enter');
+      element.style.animationDelay = `${-age}ms`;
+    }
+  }
   #recordCues = new Map<number, { since: number; award: RecordAward; exitAt: number }>();
   #presetEditor = new PresetEditor(this);
   #lobbyStart: HTMLButtonElement | null = null;
-  setLobbyStart(button: HTMLButtonElement) {
+  #lobbySecondary: HTMLButtonElement | null = null;
+  setLobbyStart(button: HTMLButtonElement, secondary?: HTMLButtonElement) {
     this.#lobbyStart = button;
+    this.#lobbySecondary = secondary ?? null;
   }
   #startControls() {
     const button = this.#lobbyStart;
@@ -55,6 +68,7 @@ export class CupUI {
     note.id = 'setup-start-note';
     note.hidden = !button.disabled || !button.title;
     button.setAttribute('aria-describedby', note.id);
+    if (this.#lobbySecondary) start.append(this.#lobbySecondary);
     start.append(note, button);
     return start;
   }
@@ -71,9 +85,6 @@ export class CupUI {
   #pendingButtons = new Map<string, string>();
   get c() {
     return this.#c;
-  }
-  get editingPick() {
-    return this.#editingPick;
   }
 
   #c: Controller;
@@ -108,8 +119,6 @@ export class CupUI {
   #noticeUntil = 0;
   #noticeCupId: string | null = null;
   #seenPanelRequest: number = 0;
-  #lobbyKey: string = '';
-  #editingPick: boolean = false;
   #renderedView = '';
   #playerMenu: PlayerMenu;
   #membershipControls: HTMLElement | null = null;
@@ -311,9 +320,6 @@ export class CupUI {
       }
     });
   }
-  editPick(editing: boolean) {
-    this.#editingPick = editing;
-  }
   renderTrackChoices(parent: HTMLElement) {
     const previous = this.#body;
     this.#body = parent;
@@ -338,19 +344,24 @@ export class CupUI {
       try {
         const result = fn();
         if (result instanceof Promise) {
-          const label = key.startsWith('track:')
-            ? cls.includes('ban-choice')
-              ? 'Banning…'
-              : 'Loading…'
-            : ((
-                {
-                  'Join as racer': 'Joining…',
-                  'Switch to spectator': 'Leaving…',
-                  Ready: 'Sending…',
-                  'Start Cup': 'Preparing…',
-                  'Retire this round (DNF)': 'Retiring…',
-                } as Record<string, string>
-              )[text] ?? 'Please wait…');
+          const label =
+            key === 'track:draft-ready'
+              ? text === 'Unready'
+                ? 'Unlocking…'
+                : 'Readying…'
+              : key.startsWith('track:')
+                ? cls.includes('ban-choice')
+                  ? 'Banning…'
+                  : 'Loading…'
+                : ((
+                    {
+                      'Join as racer': 'Joining…',
+                      'Switch to spectator': 'Leaving…',
+                      Ready: 'Sending…',
+                      'Start Cup': 'Preparing…',
+                      'Retire this round (DNF)': 'Retiring…',
+                    } as Record<string, string>
+                  )[text] ?? 'Please wait…');
           this.#pendingButtons.set(key, label);
           this.refreshPendingButtons();
           await result;
@@ -364,6 +375,16 @@ export class CupUI {
       }
     });
     return b;
+  }
+  explainDisabled(button: HTMLButtonElement, reason: string) {
+    if (!button.disabled || !reason || !button.parentNode) return;
+    const group = h('div', undefined, 'action-with-reason');
+    const note = h('small', reason, 'action-reason');
+    note.id = `action-reason-${crypto.randomUUID()}`;
+    button.title = reason;
+    button.setAttribute('aria-describedby', note.id);
+    button.replaceWith(group);
+    group.append(button, note);
   }
   refreshPendingButtons() {
     const choosingTrack = [...this.#pendingButtons.keys()].some((key) => key.startsWith('track:'));
@@ -451,7 +472,12 @@ export class CupUI {
     if (this.#noticeUntil && (document.hidden || Date.now() >= this.#noticeUntil))
       this.dismissNotice();
   }
-  showNotice(text: string, duration: number, gameplayOnly = false) {
+  showNotice(
+    text: string,
+    duration: number,
+    gameplayOnly = false,
+    action?: { label: string; run: () => void },
+  ) {
     if (document.hidden) {
       this.dismissNotice();
       return;
@@ -459,10 +485,22 @@ export class CupUI {
     if (!this.#notice.hidden && this.#notice.textContent === text && this.#noticeUntil > Date.now())
       return;
     this.dismissNotice();
-    const lifetime = Math.min(3500, Math.max(800, duration));
+    const lifetime = Math.min(action ? 6000 : 3500, Math.max(800, duration));
     this.#noticeUntil = Date.now() + lifetime;
     this.#notice.classList.toggle('gameplay-notice', gameplayOnly);
     this.#notice.textContent = text;
+    if (action) {
+      const button = this.button(
+        action.label,
+        () => {
+          if (!this.#noticeUntil || Date.now() >= this.#noticeUntil) return;
+          this.dismissNotice();
+          action.run();
+        },
+        'notice-action',
+      );
+      this.#notice.append(button);
+    }
     this.#notice.hidden = false;
     this.#noticeTimer = setTimeout(() => this.expireNotice(), lifetime);
   }
@@ -472,6 +510,7 @@ export class CupUI {
   render() {
     const c = this.#c,
       s = c.state;
+    this.#draftSlots.sync(s);
     if (this.#noticeCupId !== (s?.id ?? null)) {
       this.dismissNotice();
       this.#noticeCupId = s?.id ?? null;
@@ -501,11 +540,6 @@ export class CupUI {
     }
     if (!this.#open && this.#rulesDialog.open) this.#rulesDialog.close();
     this.renderCompletion();
-    const lobbyKey = JSON.stringify([s?.id, s?.draft?.stage, s?.picks?.[c.selfId ?? 0]]);
-    if (lobbyKey !== this.#lobbyKey) {
-      this.#lobbyKey = lobbyKey;
-      this.#editingPick = false;
-    }
 
     this.#panel.classList.toggle('lobby-panel', s?.phase === 'registration');
     this.#panel.classList.toggle('scoreboard-panel', !!s && s.phase !== 'registration');
@@ -552,6 +586,7 @@ export class CupUI {
       !!c.connection,
       c.auto,
       c.watchId,
+      c.pendingWatchId,
       c.watchStatus,
       c.transferProgress,
       c.hideOtherGhosts,
@@ -563,6 +598,7 @@ export class CupUI {
         ? [c.review.dropped, c.review.runs.map((r) => [r.id, r.outcome, r.flag, r.reviewed])]
         : null,
     ]);
+    let restoreScroll: (() => void) | undefined;
     if (key !== this.#signature) {
       const previousPositions = rankingPositions(this.#shadow);
       this.#signature = key;
@@ -600,6 +636,7 @@ export class CupUI {
         this.#chatUI.preserveScroll();
         this.#panel.replaceChildren();
         this.#lobbyStart = null;
+        this.#lobbySecondary = null;
         this.#resultControls = null;
         this.#membershipControls = null;
         const header = h('header');
@@ -629,7 +666,7 @@ export class CupUI {
           chat.setAttribute('aria-controls', 'cup-chat-panel');
           header.append(chat);
         }
-        if (s && s.phase !== 'registration') {
+        if (s && (s.phase !== 'registration' || s.draft?.stage !== 'roster')) {
           const rules = this.button('Rules', () => this.showRules(), 'quiet header-rules');
           rules.setAttribute('aria-haspopup', 'dialog');
           header.append(rules);
@@ -669,7 +706,7 @@ export class CupUI {
           }
           this.#panel.append(h('div', undefined, 'panel-chat-slot'));
           if (this.#resultControls) this.#panel.append(this.#resultControls);
-          if (c.isHost || this.#membershipControls) {
+          if (c.isHost || this.#membershipControls || this.#lobbyStart) {
             const footer = h('footer');
             if (c.isHost) {
               const tools = h('div', undefined, 'cup-actions');
@@ -692,6 +729,11 @@ export class CupUI {
                     'quiet',
                   ),
                 );
+              if (s.phase === 'registration' && !rosterOpen(s)) {
+                const back = this.button('Return to lobby', () => c.reopenRoster(), 'quiet');
+                back.title = 'Return to Cup setup. Bans, picks and readiness will be cleared.';
+                tools.prepend(back);
+              }
               tools.prepend(
                 this.button(
                   'End Cup',
@@ -719,6 +761,7 @@ export class CupUI {
               next.disabled = !c.canStartRound();
               if (next.disabled) next.title = 'Waiting for connected racers.';
               footer.append(next);
+              this.explainDisabled(next, next.title);
             }
             this.#panel.append(footer);
           }
@@ -745,20 +788,23 @@ export class CupUI {
           this.#invite.input.focus();
           this.#invite.input.setSelectionRange(...inviteSelection);
         }
-        if (this.#body) this.#body.scrollTop = bodyScroll;
-        for (const [className, scroll] of lobbyScroll) {
-          const region = this.#shadow.querySelector<HTMLElement>(`.${className}`);
-          if (region) region.scrollTop = scroll;
-        }
-        const grid = this.#shadow.querySelector('.track-grid');
-        if (grid) grid.scrollTop = gridScroll;
+        // Chat changes the roster's available height. Restore after it is mounted so
+        // the temporary empty layout cannot clamp a saved scroll position.
+        restoreScroll = () => {
+          if (this.#body) this.#body.scrollTop = bodyScroll;
+          for (const [className, scroll] of lobbyScroll) {
+            const region = this.#shadow.querySelector<HTMLElement>(`.${className}`);
+            if (region) region.scrollTop = scroll;
+          }
+          const grid = this.#shadow.querySelector('.track-grid');
+          if (grid) grid.scrollTop = gridScroll;
+        };
       }
       this.renderHud();
       animateRanking(this.#shadow, previousPositions);
     }
     for (const badge of this.#shadow.querySelectorAll<HTMLElement>('[data-record-until]'))
       badge.hidden = Date.now() >= Number(badge.dataset.recordUntil);
-    this.#playerMenu.sync();
     if (this.#open) this.updatePings();
     const chatSlot =
       this.#open && s
@@ -770,6 +816,8 @@ export class CupUI {
         : null;
     this.#chatUI.mount(chatSlot, s?.phase === 'registration');
     this.#chatUI.render();
+    restoreScroll?.();
+    this.#playerMenu.sync();
     const chatButton = this.#shadow.querySelector<HTMLButtonElement>('.header-chat');
     if (chatButton) {
       chatButton.setAttribute('aria-expanded', String(this.#chatUI.isOpen));
@@ -917,27 +965,25 @@ export class CupUI {
     label.append(h('span', name));
     return label;
   }
-  playerTools(id: number) {
-    const tools = h('div', undefined, 'player-tools');
+  playerPing(id: number) {
     const ping = h('span', undefined, 'player-ping');
     ping.dataset.pingPlayer = String(id);
+    ping.setAttribute('role', 'img');
     const bars = h('span', undefined, 'connection-bars');
     bars.setAttribute('aria-hidden', 'true');
     bars.append(h('i'), h('i'), h('i'));
-    ping.append(bars, h('small', '—', 'ping-value'));
-    tools.append(ping);
-    return tools;
+    ping.append(bars);
+    return ping;
   }
   updatePings() {
+    this.#connectionQuality.retain(new Set(this.#c.lobby.map((p) => p.id)));
     for (const element of this.#shadow.querySelectorAll<HTMLElement>('[data-ping-player]')) {
       const ping = this.#c.ping(Number(element.dataset.pingPlayer));
-      const quality =
-        ping === null ? 'unknown' : ping <= 100 ? 'good' : ping <= 200 ? 'fair' : 'poor';
+      const quality = this.#connectionQuality.read(Number(element.dataset.pingPlayer), ping);
       element.dataset.quality = quality;
       const label = ping === null ? 'Ping unavailable' : `${ping} milliseconds to the host`;
       element.setAttribute('aria-label', label);
       element.title = label;
-      element.querySelector('.ping-value')!.textContent = ping === null ? '—' : `${ping} ms`;
     }
   }
   racerName(id: number, name: string, showFlag = false, actions = false) {
@@ -955,10 +1001,10 @@ export class CupUI {
     const flag = showFlag ? this.flag(this.country(id)) : null;
     if (flag) group.append(flag);
     group.append(h('span', name));
-    if (actions && this.#c.isHost) {
+    if (actions && this.#c.isHost && id !== this.#c.localPlayerId) {
       const button = this.button(
         '',
-        () => this.#playerMenu.show(id, button),
+        () => this.#playerMenu.show(id),
         'player-actions-toggle',
         `player-menu:${id}`,
       );
@@ -970,7 +1016,7 @@ export class CupUI {
       button.setAttribute('aria-expanded', 'false');
       button.dataset.playerMenuId = String(id);
       button.title = 'Player actions';
-      group.prepend(button);
+      group.append(button);
     }
     return group;
   }
@@ -1003,6 +1049,7 @@ export class CupUI {
     );
     join.disabled = full;
     box.append(join);
+    this.explainDisabled(join, full ? 'All 8 racer slots are occupied.' : '');
     return box;
   }
   trackPack({ embedded = false } = {}) {
@@ -1010,7 +1057,13 @@ export class CupUI {
       c = this.#c,
       joined = !!Cup.player(s, c.localPlayerId);
     const banning = s.draft?.stage === 'bans' && s.phase === 'registration';
-    const mayChoose = banning ? banTurn(s) === c.localPlayerId : joined && picksOpen(s);
+    const mayChoose = banning
+      ? banTurn(s) === c.localPlayerId
+      : joined && picksOpen(s) && !Cup.draftReady(s, c.localPlayerId!);
+    const full =
+      !banning &&
+      c.localPlayerId !== null &&
+      Cup.chosenTracks(s, c.localPlayerId).length >= rulesFor(s).picksPerRacer;
     if (!embedded)
       this.#body.append(
         h(
@@ -1122,6 +1175,7 @@ export class CupUI {
               button.disabled = true;
               try {
                 if (banning) await c.action('ban', track.id);
+                else if (selected) await c.action('remove-pick', track.id);
                 else await c.addLibraryTrack(track);
               } finally {
                 if (button.isConnected) button.disabled = false;
@@ -1130,10 +1184,12 @@ export class CupUI {
             `track-card${selected ? ' added' : ''}${banned ? ' banned' : ''}${banning ? ' ban-choice' : ''}`,
             `track:${track.id}`,
           );
-          button.disabled = !mayChoose || banned || selected || !!c.pendingUpload;
+          button.disabled = !mayChoose || banned || (full && !selected) || !!c.pendingUpload;
+          if (!banning) button.setAttribute('aria-pressed', String(selected));
+          if (selected) button.title = 'Click to unpick';
           button.setAttribute(
             'aria-label',
-            `${banned ? 'Banned' : selected ? 'Selected' : banning ? 'Ban' : 'Choose'} ${track.name}`,
+            `${banned ? 'Banned' : selected ? 'Unpick' : banning ? 'Ban' : 'Choose'} ${track.name}`,
           );
           const image = h('img');
           image.alt = '';
@@ -1157,7 +1213,9 @@ export class CupUI {
                 banned ? 'ban-label' : 'muted',
               ),
             );
-          button.append(image, text);
+          const shade = h('span', undefined, 'track-hover-shade');
+          shade.setAttribute('aria-hidden', 'true');
+          button.append(image, text, shade);
           grid.append(button);
         }
       };
@@ -1173,20 +1231,21 @@ export class CupUI {
       const label = h('label', 'PolyTrack share code'),
         code = h('textarea');
       code.rows = 4;
+      code.disabled = full || !!c.pendingUpload;
       code.dataset.field = 'track-code';
       code.spellcheck = false;
       label.append(code);
-      advanced.append(
-        label,
-        this.button(
-          'Choose this track',
-          async () => {
-            await c.importTrack(code.value);
-            code.value = '';
-          },
-          'primary',
-        ),
+      const importButton = this.button(
+        'Choose this track',
+        async () => {
+          await c.importTrack(code.value);
+          code.value = '';
+        },
+        'primary',
+        'track:custom-import',
       );
+      importButton.disabled = full || !!c.pendingUpload;
+      advanced.append(label, importButton);
       this.#body.append(advanced);
     }
   }
@@ -1222,6 +1281,7 @@ export class CupUI {
             : 'Join the next round; new racers start at zero points';
         if (queued) membership.append(h('small', 'Joining next round', 'muted'));
         membership.append(button);
+        this.explainDisabled(button, 'All 8 racer slots are occupied.');
         this.#membershipControls = membership;
       }
       this.#body.append(this.scoreboard(true));
@@ -1319,6 +1379,7 @@ export class CupUI {
       );
       undo.disabled = s.history.at(-1)?.matchIndex !== s.matchIndex;
       controls.append(undo);
+      this.explainDisabled(undo, 'No scored round is available to undo.');
     }
     if (Cup.currentTrackVisit(s))
       controls.append(
@@ -1350,7 +1411,12 @@ export class CupUI {
       this.#body.append(section);
     }
 
-    if (c.isHost && !s.runtime && s.phase !== 'complete') {
+    if (
+      c.isHost &&
+      !s.runtime &&
+      s.phase !== 'complete' &&
+      (s.phase !== 'registration' || rosterOpen(s))
+    ) {
       const advanced = h('section', undefined, 'organizer-settings');
 
       const label = h('label', undefined, 'disconnect-rule');
@@ -1395,6 +1461,21 @@ export class CupUI {
     }
     const winners = rows.filter((r) => r.winner),
       racers = rows.filter((r) => !r.winner);
+    board.classList.toggle(
+      'has-movement',
+      racers.some((r) => r.movement !== 0),
+    );
+    // Reserve one shared score width for every row, only as large as the values need.
+    const pointsWidth = Math.max(
+      28,
+      ...racers.map((r) => {
+        const scoreDigits = r.finalist ? 1 : String(r.score).length;
+        const gainCharacters = r.gain ? String(r.gain).length + 1 : 0;
+        // Allow for the 24px total, 18px gain, and their padding/gap.
+        return Math.max(28, scoreDigits * 12 + 5) + (gainCharacters ? gainCharacters * 9 + 15 : 0);
+      }),
+    );
+    board.style.setProperty('--hud-points-width', `${pointsWidth}px`);
     if (winners.length) {
       const podium = h('div', undefined, 'winner-strip');
       podium.append(h('small', 'CUP WINNER'));
@@ -1459,8 +1540,6 @@ export class CupUI {
         row.classList.add('with-pb');
         const car = name.querySelector('.car-skin');
         if (car) identity.prepend(car);
-        const actions = name.querySelector('.player-actions-toggle');
-        if (actions) identity.append(actions);
         const track = recordTrack(s);
         const pb = track ? s.records[track]?.pbs[r.id] : null;
         const best = !track
@@ -1652,6 +1731,16 @@ export class CupUI {
       c.watchId !== null && racers.includes(c.watchId) ? this.name(c.watchId) : 'Waiting for racer';
     name.append(selected);
     main.append(name);
+    if (c.pendingWatchId !== null) {
+      const message = `Switching to ${this.name(c.pendingWatchId)}…`;
+      const status = h('small', undefined, 'pov-switch');
+      status.title = message;
+      status.setAttribute('role', 'status');
+      const indicator = h('span', undefined, 'pending-spinner');
+      indicator.setAttribute('aria-hidden', 'true');
+      status.append(indicator, h('span', message, 'pov-switch-label'));
+      box.append(status);
+    }
     box.append(previous, main, next);
     return box;
   }
