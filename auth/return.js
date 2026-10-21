@@ -28,6 +28,20 @@
     try { await navigator.clipboard.writeText(field.value); copy.textContent = 'Copied'; }
     catch { field.focus(); field.select(); copy.textContent = 'Select and copy the code above'; }
   });
+  // Top-level navigation avoids cross-origin requests to the local desktop app.
+  // Only its random, single-use loopback endpoint is accepted.
+  try {
+    const desktop = new URL(params.get('desktop_return'));
+    if (desktop.protocol === 'http:' && desktop.hostname === '127.0.0.1' &&
+        Number(desktop.port) >= 1024 && !desktop.username && !desktop.password &&
+        !desktop.search && !desktop.hash && /^\/polycup-auth\/[a-f0-9]{64}$/.test(desktop.pathname)) {
+      desktop.searchParams.set('attempt', attempt);
+      desktop.searchParams.set('code', code);
+      status.textContent = 'Returning to PolyCup…';
+      location.replace(desktop.href);
+      return;
+    }
+  } catch { /* Keep the existing browser/manual return paths available. */ }
   const origin = params.get('origin');
   let allowed = false;
   try {
