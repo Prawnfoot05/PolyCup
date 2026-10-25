@@ -4,6 +4,12 @@ The backend provides accounts, friendships, Cup discovery and membership, ranked
 
 The client release is 0.4.0. Prepare it with `npm run build:release`; coordinate the exact `polycup_queue_config.version` gate with publication. Staging a bundle does not update that gate or deploy functions. Never publish test profiles, credentials or generated replay-reference corpora.
 
+## Automatic browser/launcher return
+
+Migration `20261025040000_signin_return.sql` adds an anonymous RPC with separate 256-bit read/write capabilities, stored only as hashes. It carries a one-use authorization return code, never a session token or the game-held PKCE verifier. Attempts expire after ten minutes; reads can repeat until the game acknowledges/cancels them. Expired rows are pruned by new attempts, with at most 200 active attempts and 500 new attempts per hour. These limits bound normal admission/storage, not anonymous abuse; exhaustion leaves manual sign-in available. No background worker or extra cron is required.
+
+Only a pending sign-in polls (every two seconds initially, then five). Relay transport failures retry; a failed OAuth token exchange explicitly asks the player to start sign-in again because its code may already have been consumed. Deploy the migration and updated gh-pages return page before the client. The callback CSP permits only the fixed project API and its script URL is versioned to refresh old browser caches.
+
 ## Connection and sign-in
 
 `client-config.json` contains a public project URL and publishable key, intended for
@@ -21,8 +27,7 @@ allowed Redirect URL. Keep the Discord Developer Portal callback set to the
 Supabase callback above, not the GitHub Pages URL.
 
 The return page is published from the separate `gh-pages` branch (root directory).
-Only `account-site/` contents belong there. The page has no Supabase credentials,
-analytics, external scripts, or token exchange. It strips the callback query from
+Only `account-site/` contents belong there. The page has no administrative credentials, analytics, external scripts, or token exchange. Its public publishable key is used only to deliver the short-lived PKCE return code. It strips the callback query from
 browser history and returns a one-use code to the initiating game window. A strict
 origin/source check and per-attempt ID bind automatic return to the pending login.
 The game exchanges the code using the SDK's S256 PKCE verifier, retained in that tab.

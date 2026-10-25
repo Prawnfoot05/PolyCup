@@ -1,4 +1,3 @@
-import { CLIENT_BUILD } from './build-info.ts';
 import { rankBadge } from './rank-badge.ts';
 import type { RaceRecord, RecordAward, SessionRecord } from './types.ts';
 import { coverNativeMenu } from './native-cup-menu.ts';
@@ -155,7 +154,7 @@ export class CupUI {
     this.#viewerBadge.innerHTML =
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span></span>';
     this.#viewerBadge.hidden = true;
-    const menuVersion = h('div', `PolyCup ${CLIENT_BUILD}`, 'menu-version');
+    const menuVersion = h('div', `PolyCup ${Cup.VERSION}`, 'menu-version');
     this.#panel = h('section', undefined, 'panel');
     this.#panel.setAttribute('aria-label', 'Simple Cup');
     this.#hud = h('aside', undefined, 'hud');
@@ -716,6 +715,7 @@ export class CupUI {
           rules.setAttribute('aria-haspopup', 'dialog');
           header.append(rules);
         }
+        let closeCup: HTMLButtonElement | null = null;
         const finder = this.button(
           'Find lobby',
           () => {
@@ -765,6 +765,11 @@ export class CupUI {
               'quiet',
             ),
           );
+          if (c.isHost && !c.ranked) {
+            closeCup = header.lastElementChild as HTMLButtonElement;
+            closeCup.classList.add('danger');
+            closeCup.remove();
+          }
           if (!c.waitingRoom) header.append(hide);
         } else header.append(finder, hide);
         const headerActions = h('div', undefined, 'header-actions');
@@ -862,6 +867,7 @@ export class CupUI {
                     'quiet danger',
                   ),
                 );
+              if (closeCup) tools.prepend(closeCup);
               footer.append(tools);
             }
             if (this.#membershipControls) footer.append(this.#membershipControls);
@@ -883,6 +889,11 @@ export class CupUI {
             }
             this.#panel.append(footer);
           }
+        }
+        if (closeCup && !this.#panel.contains(closeCup)) {
+          const footer = h('footer');
+          footer.append(closeCup);
+          this.#panel.append(footer);
         }
         for (const e of this.#shadow.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
           '[data-field]',

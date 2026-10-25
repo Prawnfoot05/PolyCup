@@ -119,6 +119,3 @@
 .account-sign-in-manual > input { flex:1 1 100%; min-width:0; width:100%; font:14px/1.4 ForcedSquare,Arial,sans-serif; }
 .account-sign-in-manual > button { font-size:15px; }
 .account-sign-in-manual > .discord-sign-in { flex:1 1 100%; min-height:44px; }
-
-.account-build { display:block; color:var(--muted); font:12px/1.4 ForcedSquare,Arial,sans-serif; overflow-wrap:anywhere; }
-.account-social-header:has(.account-build) { flex-wrap:wrap; gap:6px; }

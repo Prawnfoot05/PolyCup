@@ -1,4 +1,3 @@
-import { CLIENT_BUILD } from './build-info.ts';
 import { element as h } from './dom.ts';
 import { PolyCupAccount } from './account.ts';
 import { discordIdentity } from './account-flow.ts';
@@ -39,7 +38,6 @@ export class AccountUI {
   #error = '';
   #code = '';
   #copied = false;
-  #returnCodeOpen: boolean | null = null;
   #editingName = false;
   #nameDraft = '';
   #nameOwner: string | null = null;
@@ -361,12 +359,9 @@ export class AccountUI {
       this.#header.append(portrait, labels);
     } else {
       this.#header.append(h('h2', this.#embedded ? 'Guest' : 'PolyCup account'));
-      const build = h('small', CLIENT_BUILD, 'account-build');
-      build.title = 'Installed PolyCup build';
-      this.#header.append(build);
     }
-    if (this.#error) {
-      const error = h('p', this.#error, 'account-error');
+    if (this.#error || a?.signInError) {
+      const error = h('p', this.#error || a!.signInError, 'account-error');
       error.setAttribute('role', 'alert');
       this.#body.append(error);
     }
@@ -412,9 +407,13 @@ export class AccountUI {
       if (a.profileError) this.#body.append(h('p', a.profileError, 'account-error'));
       this.#body.append(this.#friendsUI.render(a.friends, this.#view, undefined, this.#joinInvite));
     } else if (a.pending) {
-      const manual = Boolean(desktopAuth()?.requiresReturnCode || a.browserBlocked);
+      const manual = Boolean(
+        (desktopAuth()?.requiresReturnCode && !a.pending.relayRead) || a.browserBlocked,
+      );
       const message = a.browserBlocked
-        ? 'The browser could not open. Copy the sign-in link into your browser, then paste the return code below.'
+        ? a.pending.relayRead
+          ? 'The browser could not open. Copy the sign-in link into your browser. This window will finish signing you in.'
+          : 'The browser could not open. Copy the sign-in link into your browser, then paste the return code below.'
         : manual
           ? 'Sign in in your browser, then paste the return code below.'
           : 'Waiting for Discord…';
@@ -450,14 +449,7 @@ export class AccountUI {
         link.addEventListener('click', () => link.select());
         actions.append(link);
       }
-      const details = h('details', undefined, 'account-return-code');
-      details.open = this.#returnCodeOpen ?? manual;
-      const summary = h('summary', 'Enter return code');
-      summary.addEventListener('click', (event) => {
-        event.preventDefault();
-        details.open = this.#returnCodeOpen = !details.open;
-      });
-      details.append(summary);
+      const details = h('div', undefined, 'account-return-code');
       const form = h('form', undefined, 'account-return-form');
       const label = h('label', 'Return code');
       const input = h('input');
@@ -492,7 +484,6 @@ export class AccountUI {
         a.cancel();
         this.#copied = false;
         this.#code = '';
-        this.#returnCodeOpen = null;
       });
       cancel.className = 'account-sign-in-cancel';
       this.#body.append(status, actions, details, cancel);

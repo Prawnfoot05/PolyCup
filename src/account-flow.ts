@@ -10,7 +10,13 @@ export function validateAccountName(value: string) {
   if (Array.from(name).length > 32) throw new Error('Use 32 characters or fewer.');
   return name;
 }
-export type PendingLogin = { attempt: string; flowId?: string; expires: number; url: string };
+export type PendingLogin = {
+  attempt: string;
+  flowId?: string;
+  expires: number;
+  url: string;
+  relayRead?: string;
+};
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const codePattern = /^[a-zA-Z0-9_-]{8,512}$/;
 
@@ -40,6 +46,7 @@ export function readPending(storage: Storage, now = Date.now()): PendingLogin | 
       p.expires > now &&
       p.expires <= now + LOGIN_LIFETIME &&
       typeof p.url === 'string' &&
+      (p.relayRead === undefined || /^[a-f0-9]{64}$/.test(p.relayRead)) &&
       (p.flowId === undefined || /^[a-zA-Z0-9_-]{8,64}$/.test(p.flowId))
     )
       return p;

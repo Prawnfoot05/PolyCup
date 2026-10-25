@@ -28,6 +28,35 @@
     try { await navigator.clipboard.writeText(field.value); copy.textContent = 'Copied'; }
     catch { field.focus(); field.select(); copy.textContent = 'Select and copy the code above'; }
   });
+  // The launcher or browser may not preserve an opener. This short-lived relay
+  // carries the one-use PKCE code; the verifier stays only in the initiating game.
+  const relay = params.get('relay');
+  if (/^[a-f0-9]{64}$/.test(relay || '')) {
+    const returnValue = field.value;
+    const send = async () => {
+      for (let attemptNumber = 0; attemptNumber < 3; attemptNumber++) {
+        try {
+          const response = await fetch('https://wqaipijoqqqrwyivajjg.supabase.co/rest/v1/rpc/polycup_signin_return', {
+            method: 'POST', headers: {
+              apikey: 'sb_publishable_cFxm38ysj67TJozQQFg8_Q_1JgDov4g',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({action:'put',attempt_key:attempt,secret:relay,return_code:returnValue}),
+            signal: AbortSignal.timeout(8000),
+          });
+          const result = await response.json();
+          if (response.ok && result.received) {
+            if (!handoff.hidden) status.textContent = 'Return sent to PolyCup. Switch back to the game to continue.';
+            return;
+          }
+          if (response.status !== 429 && response.status < 500) break;
+          if (attemptNumber < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (attemptNumber + 1)));
+        } catch { if (attemptNumber < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (attemptNumber + 1))); }
+      }
+      if (!handoff.hidden) status.textContent = 'Automatic return was unavailable. Paste the code below into PolyCup.';
+    };
+    void send();
+  }
   // Top-level navigation avoids cross-origin requests to the local desktop app.
   // Only its random, single-use loopback endpoint is accepted.
   try {
@@ -47,7 +76,7 @@
   try {
     const url = new URL(origin);
     allowed = url.origin === origin && (
-      (url.protocol === 'https:' && ['w.polymodloader.com', 'app-polytrack-desktop.polymodloader.com'].includes(url.hostname)) ||
+      (url.protocol === 'https:' && ['w.polymodloader.com', 'web.polymodloader.com', 'app-polytrack-desktop.polymodloader.com'].includes(url.hostname)) ||
       (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))
     );
   } catch { /* A launcher with no opener uses the manual code path. */ }

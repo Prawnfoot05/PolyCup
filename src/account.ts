@@ -27,6 +27,11 @@ export class PolyCupAccount {
   #client: SupabaseClient;
   #popup: Window | null = null;
   #browserBlocked = false;
+  #signInError = '';
+  #returnTimer?: number;
+  get signInError() {
+    return this.#signInError;
+  }
   get browserBlocked() {
     return this.#browserBlocked;
   }
@@ -86,10 +91,12 @@ export class PolyCupAccount {
     this.#queue = new RankedQueue(this.#ranked, tab);
     this.#friends = new Friends(this.#client, changed);
     window.addEventListener('pagehide', () => {
+      window.clearTimeout(this.#returnTimer);
       void this.#friends.stop();
       void this.#directory.stop();
     });
     window.addEventListener('pageshow', () => {
+      this.#watchReturn();
       this.#friends.start(this.#user?.id ?? null);
       this.#directory.resume();
     });
@@ -120,6 +127,7 @@ export class PolyCupAccount {
         if (this.#user) void this.#loadProfile(revision);
       }, 0);
     });
+    this.#watchReturn();
   }
   async #loadProfile(revision: number) {
     const id = this.#user?.id;
@@ -174,9 +182,69 @@ export class PolyCupAccount {
       this.#changed();
     }
   }
+  #releaseReturn(pending = this.#pending) {
+    window.clearTimeout(this.#returnTimer);
+    if (pending?.relayRead)
+      void this.#client
+        .rpc('polycup_signin_return', {
+          action: 'cancel',
+          attempt_key: pending.attempt,
+          secret: pending.relayRead,
+        })
+        .then(
+          () => {},
+          () => {},
+        );
+  }
+  #watchReturn() {
+    window.clearTimeout(this.#returnTimer);
+    const pending = this.#pending;
+    if (!pending?.relayRead) return;
+    const poll = async () => {
+      if (this.#pending !== pending) return;
+      if (Date.now() >= pending.expires) {
+        this.#releaseReturn(pending);
+        clearPending(this.#tab);
+        this.#pending = null;
+        this.#signInError = 'Sign-in expired. Start again with Discord.';
+        this.#changed();
+        return;
+      }
+      if (!this.#busy) {
+        try {
+          const { data, error } = await this.#client
+            .rpc('polycup_signin_return', {
+              action: 'get',
+              attempt_key: pending.attempt,
+              secret: pending.relayRead,
+            })
+            .abortSignal(AbortSignal.timeout(8000));
+          if (!error && this.#pending === pending && typeof data?.code === 'string') {
+            try {
+              await this.complete(data.code);
+            } catch (error) {
+              this.#signInError =
+                error instanceof Error ? error.message : 'Sign-in failed. Please try again.';
+              this.#changed();
+            }
+          }
+        } catch {
+          /* Retry transient failures while this attempt remains valid. */
+        }
+      }
+      if (this.#pending === pending)
+        this.#returnTimer = window.setTimeout(
+          poll,
+          Date.now() > pending.expires - LOGIN_LIFETIME + 30000 ? 5000 : 2000,
+        );
+    };
+    this.#returnTimer = window.setTimeout(poll, 2000);
+  }
   async begin() {
     if (this.#busy) return;
     this.#busy = true;
+    this.#signInError = '';
+    this.#releaseReturn();
     try {
       clearPending(this.#tab);
       this.#pending = null;
@@ -203,7 +271,32 @@ export class PolyCupAccount {
       } catch {
         /* A blocked local listener still permits the existing return-code flow. */
       }
+      let relayRead: string | undefined;
       if (returnUrl) redirect.searchParams.set('desktop_return', returnUrl);
+      else {
+        const random = () =>
+          Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>
+            b.toString(16).padStart(2, '0'),
+          ).join('');
+        const reader = random(),
+          writer = random();
+        try {
+          const { data, error } = await this.#client
+            .rpc('polycup_signin_return', {
+              action: 'begin',
+              attempt_key: attempt,
+              secret: reader,
+              peer_secret: writer,
+            })
+            .abortSignal(AbortSignal.timeout(3000));
+          if (!error && data?.available === true) {
+            relayRead = reader;
+            redirect.searchParams.set('relay', writer);
+          }
+        } catch {
+          /* Manual return and normal opener remain available. */
+        }
+      }
       if (location.origin !== 'null') redirect.searchParams.set('origin', location.origin);
       const { data, error } = await this.#client.auth.signInWithOAuth({
         provider: 'discord',
@@ -215,6 +308,7 @@ export class PolyCupAccount {
         flowId: data.flowId ?? undefined,
         expires: Date.now() + LOGIN_LIFETIME,
         url: data.url,
+        ...(relayRead ? { relayRead } : {}),
       };
       this.#tab.setItem(PENDING_STORAGE, JSON.stringify(this.#pending));
       try {
@@ -237,6 +331,7 @@ export class PolyCupAccount {
       throw error;
     } finally {
       this.#busy = false;
+      this.#watchReturn();
       this.#changed();
     }
   }
@@ -256,6 +351,7 @@ export class PolyCupAccount {
   }
   accepts(event: MessageEvent) {
     return (
+      this.#pending !== null &&
       event.origin === new URL(accountConfig.callback).origin &&
       event.source !== null &&
       event.source === this.#popup &&
@@ -265,7 +361,8 @@ export class PolyCupAccount {
   }
   async complete(value: string) {
     if (this.#busy) return false;
-    const code = parseReturnCode(value, this.#pending);
+    const pending = this.#pending;
+    const code = parseReturnCode(value, pending);
     this.#busy = true;
     this.#changed();
     try {
@@ -277,6 +374,7 @@ export class PolyCupAccount {
         throw new Error('This sign-in could not be completed. Start again with Discord.');
       this.#user = data.session.user;
       this.#friends.start(this.#user.id);
+      this.#releaseReturn(pending);
       clearPending(this.#tab);
       this.#pending = null;
       this.#popup?.postMessage(
@@ -286,6 +384,7 @@ export class PolyCupAccount {
       await this.#loadProfile(++this.#revision);
       return true;
     } catch (error) {
+      this.#releaseReturn(pending);
       clearPending(this.#tab);
       this.#pending = null;
       throw error;
@@ -296,6 +395,8 @@ export class PolyCupAccount {
   }
   cancel() {
     if (this.#busy) return;
+    this.#releaseReturn();
+    this.#signInError = '';
     clearPending(this.#tab);
     this.#pending = null;
     this.#popup?.close();

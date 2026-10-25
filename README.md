@@ -45,7 +45,7 @@ Leaving a ranked Cup opens a reconnect-or-abandon prompt. Racers have a **two-mi
 
 ## Friends and sign-in
 
-Discord sign-in opens a browser and returns to the game automatically when the launcher supports it. PolyLauncher opens your external browser and uses the return code shown after sign-in; paste it into the visible form in the game. A copyable sign-in link remains available if opening the browser is blocked. Sessions persist until you sign out; signing out affects this instance. Multiple sign-ins are allowed, but one account cannot participate in two Cups at once.
+Discord sign-in opens a browser and returns to the game automatically when the launcher supports it. PolyLauncher and browser PML can finish sign-in automatically through a short-lived return handoff, even when the browser has no connection back to the game window. Keep the game open while signing in. The return-code form remains visible as a fallback, and a copyable sign-in link is available if opening the browser is blocked. Sessions persist until you sign out; signing out affects this instance. Multiple sign-ins are allowed, but one account cannot participate in two Cups at once.
 
 Add friends using their player code. The chevron beside a friend opens their actions, including match history and joining an available public Cup. Private Cups use invitations. The friends panel is also available from custom Cup lobbies.
 
