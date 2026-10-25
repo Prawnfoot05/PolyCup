@@ -32180,8 +32180,31 @@ var RankedQueue = class {
 };
 
 // src/desktop-auth.ts
+function isDiscordSignInUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.origin === new URL(accountConfig.url).origin && url.pathname === "/auth/v1/authorize" && !url.username && !url.password && url.searchParams.get("provider") === "discord";
+  } catch {
+    return false;
+  }
+}
 function desktopAuth() {
-  return window.polycupDesktop;
+  const host = window;
+  if (host.polycupDesktop) return host.polycupDesktop;
+  if (window.parent === window || location.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(location.hostname) || typeof host.electron?.getHelperPort !== "function" || typeof host.electron?.getArgv !== "function")
+    return;
+  try {
+    if (host.electron.getHelperPort() !== null) return;
+  } catch {
+    return;
+  }
+  return {
+    requiresReturnCode: true,
+    async openDiscord(url) {
+      if (!isDiscordSignInUrl(url)) throw new Error("Invalid Discord sign-in link.");
+      window.parent.postMessage({ type: "open-url", url }, "*");
+    }
+  };
 }
 
 // src/account.ts
@@ -32194,6 +32217,10 @@ var PolyCupAccount = class {
   #busy = false;
   #client;
   #popup = null;
+  #browserBlocked = false;
+  get browserBlocked() {
+    return this.#browserBlocked;
+  }
   #revision = 0;
   #changed;
   #tab;
@@ -32336,7 +32363,15 @@ var PolyCupAccount = class {
     try {
       clearPending(this.#tab);
       this.#pending = null;
-      this.#popup = this.#desktop() ? null : window.open("about:blank", "_blank", "popup,width=520,height=740");
+      this.#browserBlocked = false;
+      this.#popup = null;
+      if (!this.#desktop()) {
+        try {
+          this.#popup = window.open("about:blank", "_blank", "popup,width=520,height=740");
+        } catch {
+        }
+        this.#browserBlocked = !this.#popup || this.#popup.closed;
+      }
       this.#changed();
       if (!crypto.subtle)
         throw new Error("Secure sign-in is unavailable here. Open PML over HTTPS.");
@@ -32362,8 +32397,14 @@ var PolyCupAccount = class {
         url: data.url
       };
       this.#tab.setItem(PENDING_STORAGE, JSON.stringify(this.#pending));
-      if (this.#desktop()) await this.#desktop().openDiscord(data.url);
-      else if (this.#popup) this.#popup.location.href = data.url;
+      try {
+        if (this.#desktop()) await this.#desktop().openDiscord(data.url);
+        else if (this.#popup) this.#popup.location.href = data.url;
+      } catch {
+        this.#browserBlocked = true;
+        this.#popup?.close();
+        this.#popup = null;
+      }
     } catch (error) {
       this.#popup?.close();
       void this.#desktop()?.cancelReturn?.().catch(() => {
@@ -32381,8 +32422,14 @@ var PolyCupAccount = class {
   }
   async reopen() {
     if (!this.#pending) return;
-    if (this.#desktop()) await this.#desktop().openDiscord(this.#pending.url);
-    else this.#popup = window.open(this.#pending.url, "_blank", "popup,width=520,height=740");
+    try {
+      if (this.#desktop()) await this.#desktop().openDiscord(this.#pending.url);
+      else this.#popup = window.open(this.#pending.url, "_blank", "popup,width=520,height=740");
+      this.#browserBlocked = !this.#desktop() && (!this.#popup || this.#popup.closed);
+    } catch {
+      this.#browserBlocked = true;
+    }
+    this.#changed();
   }
   accepts(event) {
     return event.origin === new URL(accountConfig.callback).origin && event.source !== null && event.source === this.#popup && event.data?.type === "polycup-auth-return" && typeof event.data.code === "string";
@@ -32452,7 +32499,7 @@ var PolyCupAccount = class {
 };
 
 // src/account.css
-var account_default = ".account-body { font:17px/1.5 ForcedSquare,Arial,sans-serif; flex:1; min-height:0; }\n.account-body * { font-style:normal; }\n.account-body p { margin:0 0 16px; }\n.account-body button { font:italic 20px/1.2 ForcedSquare,Arial,sans-serif; margin:8px 8px 0 0; }\n.account-body label,.account-body input,.account-body textarea { display:block; width:100%; }\n.account-body input,.account-body textarea { font:15px/1.5 ForcedSquare,Arial,sans-serif; padding:10px; margin-top:8px; }\n.account-body textarea { resize:vertical; }\n.account-body form { margin:20px 0 12px; }\n.account-body summary { color:var(--gold); cursor:pointer; }\n.account-body details p { margin-top:12px; }\n.account-note { color:var(--muted); }\n.account-error { color:var(--red); }\n.account-saved { color:#78e1b6; }\n.header-account { font-size:18px; }\n.friends-content h3 { font:italic 22px/1.2 ForcedSquare,Arial,sans-serif; margin:22px 0 12px; }\n.friend-row-heading { display:flex; align-items:center; gap:12px; }\n.friend-avatar { width:42px; height:42px; flex:none; position:relative; display:grid; place-items:center; overflow:hidden; border-radius:50%; background:#28346a; }\n.friend-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }\n.friend-status.is-online { color:#78e1b6; }\n.friend-status::before { content:''; display:inline-block; width:6px; height:6px; background:currentColor; border-radius:50%; margin-right:6px; vertical-align:middle; }\n.friend-actions { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:8px; }\n.account-body .friend-actions button { margin:0; font-size:17px; }\n.friend-profile { margin:14px 0 0 54px; padding-left:14px; border-left:2px solid var(--gold); }\n.account-body .friend-profile p { margin-bottom:6px; }\n.friend-profile input { font-size:12px; }\n.account-body .friend-search { margin-top:0; }\n.account-dialog { position:fixed; inset:0; margin:auto; width:min(480px,calc(100vw - 24px)); height:min(740px,calc(100dvh - 32px)); padding:0; overflow:hidden; }\n.account-social-header { display:flex; align-items:center; gap:16px; padding:24px 48px 24px 22px; min-height:124px; box-sizing:border-box; flex:none; background:linear-gradient(110deg,#314577,#222c55 85%); }\n.account-header-labels { flex:1; min-width:0; }\n.account-social-header h2 { margin:3px 0; font:italic 25px/1.15 ForcedSquare,Arial,sans-serif; overflow-wrap:anywhere; }\n.account-header-labels p { margin:5px 0 0; color:var(--muted); font:14px/1.3 ForcedSquare,Arial,sans-serif; overflow-wrap:anywhere; }\n.account-avatar { display:grid; place-items:center; flex:none; background:#28346a; font:30px ForcedSquare,Arial,sans-serif; position:relative; overflow:hidden; width:64px; height:64px; border-radius:5px; border:1px solid #7186ae; box-shadow:0 0 0 4px #19204266; }\n.account-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }\n.account-dialog .account-close { position:absolute; top:9px; right:9px; width:32px; height:32px; padding:0; margin:0; background:#111a32aa; clip-path:none; font:26px/1 ForcedSquare,Arial,sans-serif; color:var(--muted); }\n.account-dialog .account-close:hover { color:white; background:#3d527c; }\n.account-tabs { flex:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:0; padding:0 12px; background:#141c37; border-bottom:1px solid #344c75; }\n.account-tabs[hidden] { display:none; }\n.account-tabs button { display:flex; flex-direction:column; align-items:center; gap:6px; margin:0; padding:13px 3px 10px; min-height:65px; font:13px/1.2 ForcedSquare,Arial,sans-serif; background:transparent; color:var(--muted); clip-path:none; border-bottom:2px solid transparent; transition:background .15s,color .15s; }\n.account-tabs button.selected { color:var(--gold); border-color:var(--gold); background:linear-gradient(0deg,#ffd26b15,transparent); }\n.account-tabs button:hover { background-color:#344c7544; color:white; }\n.account-tabs svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }\n.account-dialog .account-body { padding:18px 20px; font-size:15px; overflow-y:auto; }\n.friend-group-title { margin:14px -20px 0; padding:7px 20px; color:var(--muted); background:linear-gradient(90deg,#344c7566,transparent); border-block:1px solid #344c7555; font:13px/1.3 ForcedSquare,Arial,sans-serif; }\n.friend-row { margin:0 -8px; padding:12px 8px; border-bottom:1px solid #344c7555; }\n.friend-row:hover { background:#344c7526; }\n.friend-avatar { border-radius:3px; border:1px solid #52678d; }\n.friend-labels { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }\n.account-body .friend-name { min-width:0; text-align:left; overflow-wrap:anywhere; clip-path:none; background:transparent; margin:0; padding:0; font-size:20px; line-height:1.2; }\n.friend-username { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:12px; }\n.friend-status { color:var(--muted); flex:none; font-size:12px; }\n.account-body .friend-profile { font-size:14px; }\n.account-dialog button:focus-visible { outline:2px solid var(--gold); outline-offset:-3px; }\n@media(max-width:480px) { .account-social-header { padding-left:18px; gap:12px; } .account-social-header h2 { font-size:23px; } .account-avatar { width:52px; height:52px; } .account-tabs { padding-inline:6px; } .account-tabs button { font-size:12px; } .account-dialog .account-body { padding-inline:16px; } .friend-group-title { margin-inline:-16px; padding-inline:16px; } }\n\n.account-body .friend-name:hover { background:transparent; box-shadow:none; color:var(--gold); }\n@media(max-width:480px) { .friend-profile { margin-left:0; } .friend-row-heading { gap:8px; } .friend-avatar { width:32px; height:32px; } .account-body .friend-name { font-size:18px; } }\n\n.account-name-line,.account-username-line { display:flex; align-items:center; gap:6px; min-width:0; }\n.account-name-line h2 { min-width:0; }\n.account-username-line p { min-width:0; margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }\n.account-dialog .account-icon-button { display:grid; place-items:center; flex:none; width:28px; height:28px; margin:0; padding:5px; clip-path:none; background:transparent; color:var(--muted); border-radius:3px; }\n.account-dialog .account-icon-button:hover { background:#8194b322; color:var(--ice); box-shadow:none; }\n.account-icon-button svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }\n.account-dialog .account-icon-button.is-copied { color:#78e1b6; }\n.account-header-edit { display:grid; grid-template-columns:minmax(0,1fr) 28px 28px; align-items:center; gap:4px; margin:0 0 4px; }\n.account-header-edit input { min-width:0; width:100%; box-sizing:border-box; padding:6px; font:16px/1.4 ForcedSquare,Arial,sans-serif; clip-path:none; }\n.account-footer { display:flex; justify-content:flex-end; flex:none; padding:12px 16px; border-top:1px solid #344c7555; }\n.account-footer[hidden] { display:none; }\n.account-footer button { margin:0; padding:8px 12px; font:italic 17px/1.2 ForcedSquare,Arial,sans-serif; }\n.account-body .friend-search { display:flex; align-items:stretch; gap:8px; margin:0 0 16px; }\n.account-body .friend-search input { flex:1; min-width:0; width:0; margin:0; }\n.account-body .friend-search button { flex:none; margin:0; font-size:17px; padding:10px 14px; }\n.friends-content > .friend-group-title:first-child { margin-top:0; }\n.friend-request-group { margin:0; border:0; }\n.friend-request-group:first-child .friend-group-title { margin-top:0; }\n.friends-content .friend-request-heading { display:flex; align-items:center; justify-content:space-between; margin:0; padding:10px 12px; background:#344c7544; border-left:2px solid #7186ae; font:italic 18px/1.3 ForcedSquare,Arial,sans-serif; }\n.friend-request-count { color:var(--muted); font:14px/1.3 ForcedSquare,Arial,sans-serif; font-variant-numeric:tabular-nums; }\n.friend-request-group .friend-row { margin:0; padding:12px; }\n.friend-request-group .friend-row:last-child { border-bottom:0; }\n.friend-request-group .friend-actions > .account-note { display:none; }\n.account-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }\n@media(max-width:380px) { .account-social-header { padding-right:32px; gap:10px; } .account-header-edit { grid-template-columns:minmax(0,1fr) 24px 24px; gap:2px; } .account-header-edit .account-icon-button { width:24px; } .account-body .friend-search { gap:4px; } .account-body .friend-search button { padding-inline:10px; } }\n.account-body .discord-sign-in { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin:0; padding:12px; border-radius:4px; clip-path:none; background:#5865f2; color:white; font:400 16px/1.3 ForcedSquare,Arial,sans-serif; transition:background .16s; }\n.account-body .discord-sign-in:hover { background:#4752c4; }\n.discord-mark { display:flex; flex:none; width:24px; }\n.discord-mark svg { width:24px; height:20px; }\n.account-sign-in-status { margin:0 0 16px; color:var(--muted); font:16px/1.4 ForcedSquare,Arial,sans-serif; }\n.account-sign-in-actions { display:flex; align-items:center; gap:8px; }\n.account-sign-in-actions .discord-sign-in { flex:1; min-width:0; }\n.account-return-code { margin:20px 0 0; padding-top:16px; border-top:1px solid #344c75; }\n.account-return-code summary { color:var(--muted); font:15px/1.4 ForcedSquare,Arial,sans-serif; cursor:pointer; }\n.account-return-form { margin-top:14px; }\n.account-return-form label { font:14px ForcedSquare,Arial,sans-serif; color:var(--muted); }\n.account-return-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }\n.account-return-row input { flex:1 1 130px; width:0; min-width:0; margin:0; font:15px ForcedSquare,Arial,sans-serif; }\n.account-return-row button { margin:0; font-size:16px; }\n.account-body .account-sign-in-cancel { display:block; margin:16px 0 0 auto; padding:6px 0; clip-path:none; background:transparent; color:var(--muted); font:14px ForcedSquare,Arial,sans-serif; }\n\n/* Use the game face without synthetic bold at compact social-panel sizes. */\n.account-dialog,.account-dialog * { font-weight:400; font-synthesis:none; }\n.friends-only .account-social-header { min-height:72px; padding:18px 48px 18px 20px; }\n.friend-invite-title { overflow-wrap:anywhere; font-size:19px; }\n\n.friend-name-line{display:flex;align-items:center;gap:4px;min-width:0}\n.friend-name-line .friend-name{min-width:0;overflow-wrap:anywhere}\n.account-body .friend-menu-toggle{display:inline-grid;place-items:center;align-self:flex-start;flex:none;clip-path:none;background:transparent;border:0;padding:0;margin:0;color:var(--muted);width:24px;min-width:24px;height:26px}\n.friend-menu-toggle svg{display:block;width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transform:translateY(-2px)}\n.account-body .friend-menu-toggle:hover,.account-body .friend-menu-toggle[aria-expanded=true]{color:var(--gold);background:#30416a}\n.account-embedded .friend-labels .friend-status,.friend-labels .friend-status{display:flex;align-items:center;gap:7px;font:400 12px/1.3 ForcedSquare,Arial,sans-serif;margin-top:3px}\n.account-embedded .friend-labels .friend-status::before,.friend-labels .friend-status::before{margin:0;flex:none}\n.friend-menu{position:fixed;inset:auto;margin:0;padding:5px;width:220px;box-sizing:border-box;border:1px solid #536388;border-top:2px solid var(--gold);background:#202c4b;color:#edf3ff;box-shadow:0 10px 30px #0008;font:400 16px ForcedSquare,Arial,sans-serif;z-index:100110}\n.friend-menu:popover-open{display:flex;flex-direction:column;gap:2px}\n.friend-menu button{display:block;width:100%;box-sizing:border-box;margin:0;padding:9px 10px;text-align:left;clip-path:none;transform:none;background:transparent;color:inherit;border:0;font:400 16px/1.2 ForcedSquare,Arial,sans-serif;cursor:pointer}\n.friend-menu button:hover,.friend-menu button:focus-visible{background:#34466e;color:var(--gold);outline:none}\n.friend-menu p{margin:5px 9px;font-size:15px}\n.friend-menu button:disabled{opacity:.45;cursor:default}\n";
+var account_default = ".account-body { font:17px/1.5 ForcedSquare,Arial,sans-serif; flex:1; min-height:0; }\n.account-body * { font-style:normal; }\n.account-body p { margin:0 0 16px; }\n.account-body button { font:italic 20px/1.2 ForcedSquare,Arial,sans-serif; margin:8px 8px 0 0; }\n.account-body label,.account-body input,.account-body textarea { display:block; width:100%; }\n.account-body input,.account-body textarea { font:15px/1.5 ForcedSquare,Arial,sans-serif; padding:10px; margin-top:8px; }\n.account-body textarea { resize:vertical; }\n.account-body form { margin:20px 0 12px; }\n.account-body summary { color:var(--gold); cursor:pointer; }\n.account-body details p { margin-top:12px; }\n.account-note { color:var(--muted); }\n.account-error { color:var(--red); }\n.account-saved { color:#78e1b6; }\n.header-account { font-size:18px; }\n.friends-content h3 { font:italic 22px/1.2 ForcedSquare,Arial,sans-serif; margin:22px 0 12px; }\n.friend-row-heading { display:flex; align-items:center; gap:12px; }\n.friend-avatar { width:42px; height:42px; flex:none; position:relative; display:grid; place-items:center; overflow:hidden; border-radius:50%; background:#28346a; }\n.friend-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }\n.friend-status.is-online { color:#78e1b6; }\n.friend-status::before { content:''; display:inline-block; width:6px; height:6px; background:currentColor; border-radius:50%; margin-right:6px; vertical-align:middle; }\n.friend-actions { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:8px; }\n.account-body .friend-actions button { margin:0; font-size:17px; }\n.friend-profile { margin:14px 0 0 54px; padding-left:14px; border-left:2px solid var(--gold); }\n.account-body .friend-profile p { margin-bottom:6px; }\n.friend-profile input { font-size:12px; }\n.account-body .friend-search { margin-top:0; }\n.account-dialog { position:fixed; inset:0; margin:auto; width:min(480px,calc(100vw - 24px)); height:min(740px,calc(100dvh - 32px)); padding:0; overflow:hidden; }\n.account-social-header { display:flex; align-items:center; gap:16px; padding:24px 48px 24px 22px; min-height:124px; box-sizing:border-box; flex:none; background:linear-gradient(110deg,#314577,#222c55 85%); }\n.account-header-labels { flex:1; min-width:0; }\n.account-social-header h2 { margin:3px 0; font:italic 25px/1.15 ForcedSquare,Arial,sans-serif; overflow-wrap:anywhere; }\n.account-header-labels p { margin:5px 0 0; color:var(--muted); font:14px/1.3 ForcedSquare,Arial,sans-serif; overflow-wrap:anywhere; }\n.account-avatar { display:grid; place-items:center; flex:none; background:#28346a; font:30px ForcedSquare,Arial,sans-serif; position:relative; overflow:hidden; width:64px; height:64px; border-radius:5px; border:1px solid #7186ae; box-shadow:0 0 0 4px #19204266; }\n.account-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }\n.account-dialog .account-close { position:absolute; top:9px; right:9px; width:32px; height:32px; padding:0; margin:0; background:#111a32aa; clip-path:none; font:26px/1 ForcedSquare,Arial,sans-serif; color:var(--muted); }\n.account-dialog .account-close:hover { color:white; background:#3d527c; }\n.account-tabs { flex:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:0; padding:0 12px; background:#141c37; border-bottom:1px solid #344c75; }\n.account-tabs[hidden] { display:none; }\n.account-tabs button { display:flex; flex-direction:column; align-items:center; gap:6px; margin:0; padding:13px 3px 10px; min-height:65px; font:13px/1.2 ForcedSquare,Arial,sans-serif; background:transparent; color:var(--muted); clip-path:none; border-bottom:2px solid transparent; transition:background .15s,color .15s; }\n.account-tabs button.selected { color:var(--gold); border-color:var(--gold); background:linear-gradient(0deg,#ffd26b15,transparent); }\n.account-tabs button:hover { background-color:#344c7544; color:white; }\n.account-tabs svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }\n.account-dialog .account-body { padding:18px 20px; font-size:15px; overflow-y:auto; }\n.friend-group-title { margin:14px -20px 0; padding:7px 20px; color:var(--muted); background:linear-gradient(90deg,#344c7566,transparent); border-block:1px solid #344c7555; font:13px/1.3 ForcedSquare,Arial,sans-serif; }\n.friend-row { margin:0 -8px; padding:12px 8px; border-bottom:1px solid #344c7555; }\n.friend-row:hover { background:#344c7526; }\n.friend-avatar { border-radius:3px; border:1px solid #52678d; }\n.friend-labels { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }\n.account-body .friend-name { min-width:0; text-align:left; overflow-wrap:anywhere; clip-path:none; background:transparent; margin:0; padding:0; font-size:20px; line-height:1.2; }\n.friend-username { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:12px; }\n.friend-status { color:var(--muted); flex:none; font-size:12px; }\n.account-body .friend-profile { font-size:14px; }\n.account-dialog button:focus-visible { outline:2px solid var(--gold); outline-offset:-3px; }\n@media(max-width:480px) { .account-social-header { padding-left:18px; gap:12px; } .account-social-header h2 { font-size:23px; } .account-avatar { width:52px; height:52px; } .account-tabs { padding-inline:6px; } .account-tabs button { font-size:12px; } .account-dialog .account-body { padding-inline:16px; } .friend-group-title { margin-inline:-16px; padding-inline:16px; } }\n\n.account-body .friend-name:hover { background:transparent; box-shadow:none; color:var(--gold); }\n@media(max-width:480px) { .friend-profile { margin-left:0; } .friend-row-heading { gap:8px; } .friend-avatar { width:32px; height:32px; } .account-body .friend-name { font-size:18px; } }\n\n.account-name-line,.account-username-line { display:flex; align-items:center; gap:6px; min-width:0; }\n.account-name-line h2 { min-width:0; }\n.account-username-line p { min-width:0; margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }\n.account-dialog .account-icon-button { display:grid; place-items:center; flex:none; width:28px; height:28px; margin:0; padding:5px; clip-path:none; background:transparent; color:var(--muted); border-radius:3px; }\n.account-dialog .account-icon-button:hover { background:#8194b322; color:var(--ice); box-shadow:none; }\n.account-icon-button svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }\n.account-dialog .account-icon-button.is-copied { color:#78e1b6; }\n.account-header-edit { display:grid; grid-template-columns:minmax(0,1fr) 28px 28px; align-items:center; gap:4px; margin:0 0 4px; }\n.account-header-edit input { min-width:0; width:100%; box-sizing:border-box; padding:6px; font:16px/1.4 ForcedSquare,Arial,sans-serif; clip-path:none; }\n.account-footer { display:flex; justify-content:flex-end; flex:none; padding:12px 16px; border-top:1px solid #344c7555; }\n.account-footer[hidden] { display:none; }\n.account-footer button { margin:0; padding:8px 12px; font:italic 17px/1.2 ForcedSquare,Arial,sans-serif; }\n.account-body .friend-search { display:flex; align-items:stretch; gap:8px; margin:0 0 16px; }\n.account-body .friend-search input { flex:1; min-width:0; width:0; margin:0; }\n.account-body .friend-search button { flex:none; margin:0; font-size:17px; padding:10px 14px; }\n.friends-content > .friend-group-title:first-child { margin-top:0; }\n.friend-request-group { margin:0; border:0; }\n.friend-request-group:first-child .friend-group-title { margin-top:0; }\n.friends-content .friend-request-heading { display:flex; align-items:center; justify-content:space-between; margin:0; padding:10px 12px; background:#344c7544; border-left:2px solid #7186ae; font:italic 18px/1.3 ForcedSquare,Arial,sans-serif; }\n.friend-request-count { color:var(--muted); font:14px/1.3 ForcedSquare,Arial,sans-serif; font-variant-numeric:tabular-nums; }\n.friend-request-group .friend-row { margin:0; padding:12px; }\n.friend-request-group .friend-row:last-child { border-bottom:0; }\n.friend-request-group .friend-actions > .account-note { display:none; }\n.account-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }\n@media(max-width:380px) { .account-social-header { padding-right:32px; gap:10px; } .account-header-edit { grid-template-columns:minmax(0,1fr) 24px 24px; gap:2px; } .account-header-edit .account-icon-button { width:24px; } .account-body .friend-search { gap:4px; } .account-body .friend-search button { padding-inline:10px; } }\n.account-body .discord-sign-in { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin:0; padding:12px; border-radius:4px; clip-path:none; background:#5865f2; color:white; font:400 16px/1.3 ForcedSquare,Arial,sans-serif; transition:background .16s; }\n.account-body .discord-sign-in:hover { background:#4752c4; }\n.discord-mark { display:flex; flex:none; width:24px; }\n.discord-mark svg { width:24px; height:20px; }\n.account-sign-in-status { margin:0 0 16px; color:var(--muted); font:16px/1.4 ForcedSquare,Arial,sans-serif; }\n.account-sign-in-actions { display:flex; align-items:center; gap:8px; }\n.account-sign-in-actions .discord-sign-in { flex:1; min-width:0; }\n.account-return-code { margin:20px 0 0; padding-top:16px; border-top:1px solid #344c75; }\n.account-return-code summary { color:var(--muted); font:15px/1.4 ForcedSquare,Arial,sans-serif; cursor:pointer; }\n.account-return-form { margin-top:14px; }\n.account-return-form label { font:14px ForcedSquare,Arial,sans-serif; color:var(--muted); }\n.account-return-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }\n.account-return-row input { flex:1 1 130px; width:0; min-width:0; margin:0; font:15px ForcedSquare,Arial,sans-serif; }\n.account-return-row button { margin:0; font-size:16px; }\n.account-body .account-sign-in-cancel { display:block; margin:16px 0 0 auto; padding:6px 0; clip-path:none; background:transparent; color:var(--muted); font:14px ForcedSquare,Arial,sans-serif; }\n\n/* Use the game face without synthetic bold at compact social-panel sizes. */\n.account-dialog,.account-dialog * { font-weight:400; font-synthesis:none; }\n.friends-only .account-social-header { min-height:72px; padding:18px 48px 18px 20px; }\n.friend-invite-title { overflow-wrap:anywhere; font-size:19px; }\n\n.friend-name-line{display:flex;align-items:center;gap:4px;min-width:0}\n.friend-name-line .friend-name{min-width:0;overflow-wrap:anywhere}\n.account-body .friend-menu-toggle{display:inline-grid;place-items:center;align-self:flex-start;flex:none;clip-path:none;background:transparent;border:0;padding:0;margin:0;color:var(--muted);width:24px;min-width:24px;height:26px}\n.friend-menu-toggle svg{display:block;width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transform:translateY(-2px)}\n.account-body .friend-menu-toggle:hover,.account-body .friend-menu-toggle[aria-expanded=true]{color:var(--gold);background:#30416a}\n.account-embedded .friend-labels .friend-status,.friend-labels .friend-status{display:flex;align-items:center;gap:7px;font:400 12px/1.3 ForcedSquare,Arial,sans-serif;margin-top:3px}\n.account-embedded .friend-labels .friend-status::before,.friend-labels .friend-status::before{margin:0;flex:none}\n.friend-menu{position:fixed;inset:auto;margin:0;padding:5px;width:220px;box-sizing:border-box;border:1px solid #536388;border-top:2px solid var(--gold);background:#202c4b;color:#edf3ff;box-shadow:0 10px 30px #0008;font:400 16px ForcedSquare,Arial,sans-serif;z-index:100110}\n.friend-menu:popover-open{display:flex;flex-direction:column;gap:2px}\n.friend-menu button{display:block;width:100%;box-sizing:border-box;margin:0;padding:9px 10px;text-align:left;clip-path:none;transform:none;background:transparent;color:inherit;border:0;font:400 16px/1.2 ForcedSquare,Arial,sans-serif;cursor:pointer}\n.friend-menu button:hover,.friend-menu button:focus-visible{background:#34466e;color:var(--gold);outline:none}\n.friend-menu p{margin:5px 9px;font-size:15px}\n.friend-menu button:disabled{opacity:.45;cursor:default}\n\n.account-sign-in-manual { flex-wrap:wrap; }\n.account-sign-in-manual > input { flex:1 1 100%; min-width:0; width:100%; font:14px/1.4 ForcedSquare,Arial,sans-serif; }\n.account-sign-in-manual > button { font-size:15px; }\n.account-sign-in-manual > .discord-sign-in { flex:1 1 100%; min-height:44px; }\n";
 
 // assets/discord-mark.svg
 var discord_mark_default = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.2 96.4"><path fill="currentColor" d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>\n';
@@ -33167,7 +33214,7 @@ var AccountUI = class {
   #error = "";
   #code = "";
   #copied = false;
-  #returnCodeOpen = false;
+  #returnCodeOpen = null;
   #editingName = false;
   #nameDraft = "";
   #nameOwner = null;
@@ -33523,22 +33570,42 @@ var AccountUI = class {
       if (a.profileError) this.#body.append(element("p", a.profileError, "account-error"));
       this.#body.append(this.#friendsUI.render(a.friends, this.#view, void 0, this.#joinInvite));
     } else if (a.pending) {
-      const status = element("p", "Waiting for Discord\u2026", "account-sign-in-status");
+      const manual = Boolean(desktopAuth()?.requiresReturnCode || a.browserBlocked);
+      const message = a.browserBlocked ? "The browser could not open. Copy the sign-in link into your browser, then paste the return code below." : manual ? "Sign in in your browser, then paste the return code below." : "Waiting for Discord\u2026";
+      const status = element("p", message, "account-sign-in-status");
       status.setAttribute("role", "status");
       const actions = element("div", void 0, "account-sign-in-actions");
-      actions.append(
-        this.#discordButton("Open Discord", () => a.reopen()),
-        this.#iconButton(
+      actions.append(this.#discordButton("Open Discord", () => a.reopen()));
+      if (!manual)
+        actions.append(
+          this.#iconButton(
+            this.#copied ? "Link copied" : "Copy sign-in link",
+            "M9 9h11v12H9zM5 16H3V3h12v2",
+            async () => {
+              await navigator.clipboard.writeText(a.pending.url);
+              this.#copied = true;
+            }
+          )
+        );
+      if (manual) {
+        actions.classList.add("account-sign-in-manual");
+        const copyLink = this.#button(
           this.#copied ? "Link copied" : "Copy sign-in link",
-          "M9 9h11v12H9zM5 16H3V3h12v2",
           async () => {
             await navigator.clipboard.writeText(a.pending.url);
             this.#copied = true;
           }
-        )
-      );
+        );
+        actions.append(copyLink);
+        const link = element("input");
+        link.readOnly = true;
+        link.value = a.pending.url;
+        link.setAttribute("aria-label", "Sign-in link");
+        link.addEventListener("click", () => link.select());
+        actions.append(link);
+      }
       const details = element("details", void 0, "account-return-code");
-      details.open = this.#returnCodeOpen;
+      details.open = this.#returnCodeOpen ?? manual;
       const summary = element("summary", "Enter return code");
       summary.addEventListener("click", (event) => {
         event.preventDefault();
@@ -33578,7 +33645,7 @@ var AccountUI = class {
         a.cancel();
         this.#copied = false;
         this.#code = "";
-        this.#returnCodeOpen = false;
+        this.#returnCodeOpen = null;
       });
       cancel.className = "account-sign-in-cancel";
       this.#body.append(status, actions, details, cancel);

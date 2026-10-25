@@ -26,6 +26,10 @@ export class PolyCupAccount {
   #busy = false;
   #client: SupabaseClient;
   #popup: Window | null = null;
+  #browserBlocked = false;
+  get browserBlocked() {
+    return this.#browserBlocked;
+  }
   #revision = 0;
   #changed: () => void;
   #tab: Storage;
@@ -177,9 +181,16 @@ export class PolyCupAccount {
       clearPending(this.#tab);
       this.#pending = null;
       // Open synchronously during the click; denied popups use the copy-link path.
-      this.#popup = this.#desktop()
-        ? null
-        : window.open('about:blank', '_blank', 'popup,width=520,height=740');
+      this.#browserBlocked = false;
+      this.#popup = null;
+      if (!this.#desktop()) {
+        try {
+          this.#popup = window.open('about:blank', '_blank', 'popup,width=520,height=740');
+        } catch {
+          /* Build the copyable sign-in link even if the sandbox throws. */
+        }
+        this.#browserBlocked = !this.#popup || this.#popup.closed;
+      }
       this.#changed();
       if (!crypto.subtle)
         throw new Error('Secure sign-in is unavailable here. Open PML over HTTPS.');
@@ -206,8 +217,16 @@ export class PolyCupAccount {
         url: data.url,
       };
       this.#tab.setItem(PENDING_STORAGE, JSON.stringify(this.#pending));
-      if (this.#desktop()) await this.#desktop()!.openDiscord(data.url);
-      else if (this.#popup) this.#popup.location.href = data.url;
+      try {
+        if (this.#desktop()) await this.#desktop()!.openDiscord(data.url);
+        else if (this.#popup) this.#popup.location.href = data.url;
+      } catch {
+        // Opening a browser is separate from creating a valid PKCE attempt.
+        // Preserve the verifier and link so manual return still works.
+        this.#browserBlocked = true;
+        this.#popup?.close();
+        this.#popup = null;
+      }
     } catch (error) {
       this.#popup?.close();
       void this.#desktop()
@@ -226,8 +245,14 @@ export class PolyCupAccount {
   }
   async reopen() {
     if (!this.#pending) return;
-    if (this.#desktop()) await this.#desktop()!.openDiscord(this.#pending.url);
-    else this.#popup = window.open(this.#pending.url, '_blank', 'popup,width=520,height=740');
+    try {
+      if (this.#desktop()) await this.#desktop()!.openDiscord(this.#pending.url);
+      else this.#popup = window.open(this.#pending.url, '_blank', 'popup,width=520,height=740');
+      this.#browserBlocked = !this.#desktop() && (!this.#popup || this.#popup.closed);
+    } catch {
+      this.#browserBlocked = true;
+    }
+    this.#changed();
   }
   accepts(event: MessageEvent) {
     return (

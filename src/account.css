@@ -114,3 +114,8 @@
 .friend-menu button:hover,.friend-menu button:focus-visible{background:#34466e;color:var(--gold);outline:none}
 .friend-menu p{margin:5px 9px;font-size:15px}
 .friend-menu button:disabled{opacity:.45;cursor:default}
+
+.account-sign-in-manual { flex-wrap:wrap; }
+.account-sign-in-manual > input { flex:1 1 100%; min-width:0; width:100%; font:14px/1.4 ForcedSquare,Arial,sans-serif; }
+.account-sign-in-manual > button { font-size:15px; }
+.account-sign-in-manual > .discord-sign-in { flex:1 1 100%; min-height:44px; }

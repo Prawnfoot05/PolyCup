@@ -38,7 +38,7 @@ export class AccountUI {
   #error = '';
   #code = '';
   #copied = false;
-  #returnCodeOpen = false;
+  #returnCodeOpen: boolean | null = null;
   #editingName = false;
   #nameDraft = '';
   #nameOwner: string | null = null;
@@ -406,22 +406,46 @@ export class AccountUI {
       if (a.profileError) this.#body.append(h('p', a.profileError, 'account-error'));
       this.#body.append(this.#friendsUI.render(a.friends, this.#view, undefined, this.#joinInvite));
     } else if (a.pending) {
-      const status = h('p', 'Waiting for Discord…', 'account-sign-in-status');
+      const manual = Boolean(desktopAuth()?.requiresReturnCode || a.browserBlocked);
+      const message = a.browserBlocked
+        ? 'The browser could not open. Copy the sign-in link into your browser, then paste the return code below.'
+        : manual
+          ? 'Sign in in your browser, then paste the return code below.'
+          : 'Waiting for Discord…';
+      const status = h('p', message, 'account-sign-in-status');
       status.setAttribute('role', 'status');
       const actions = h('div', undefined, 'account-sign-in-actions');
-      actions.append(
-        this.#discordButton('Open Discord', () => a.reopen()),
-        this.#iconButton(
+      actions.append(this.#discordButton('Open Discord', () => a.reopen()));
+      if (!manual)
+        actions.append(
+          this.#iconButton(
+            this.#copied ? 'Link copied' : 'Copy sign-in link',
+            'M9 9h11v12H9zM5 16H3V3h12v2',
+            async () => {
+              await navigator.clipboard.writeText(a.pending!.url);
+              this.#copied = true;
+            },
+          ),
+        );
+      if (manual) {
+        actions.classList.add('account-sign-in-manual');
+        const copyLink = this.#button(
           this.#copied ? 'Link copied' : 'Copy sign-in link',
-          'M9 9h11v12H9zM5 16H3V3h12v2',
           async () => {
             await navigator.clipboard.writeText(a.pending!.url);
             this.#copied = true;
           },
-        ),
-      );
+        );
+        actions.append(copyLink);
+        const link = h('input');
+        link.readOnly = true;
+        link.value = a.pending.url;
+        link.setAttribute('aria-label', 'Sign-in link');
+        link.addEventListener('click', () => link.select());
+        actions.append(link);
+      }
       const details = h('details', undefined, 'account-return-code');
-      details.open = this.#returnCodeOpen;
+      details.open = this.#returnCodeOpen ?? manual;
       const summary = h('summary', 'Enter return code');
       summary.addEventListener('click', (event) => {
         event.preventDefault();
@@ -462,7 +486,7 @@ export class AccountUI {
         a.cancel();
         this.#copied = false;
         this.#code = '';
-        this.#returnCodeOpen = false;
+        this.#returnCodeOpen = null;
       });
       cancel.className = 'account-sign-in-cancel';
       this.#body.append(status, actions, details, cancel);
