@@ -1,0 +1,285 @@
+.cup-guide {
+  padding: 0;
+  border: 0;
+  border-top: 4px solid #ffda6c;
+  box-sizing: border-box;
+  background: #1b2343;
+  color: #f3f5ff;
+  width: min(820px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  font:
+    400 18px/1.4 ForcedSquare,
+    Arial,
+    sans-serif;
+  overflow: auto;
+}
+.cup-guide::backdrop {
+  background: #080e22c9;
+}
+.cup-guide header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: #293662;
+}
+.cup-guide h2 {
+  font:
+    italic 400 28px/1.2 ForcedSquare,
+    Arial,
+    sans-serif;
+  margin: 0;
+}
+.cup-guide h3 {
+  font:
+    400 18px/1.2 ForcedSquare,
+    Arial,
+    sans-serif;
+  margin: 0;
+}
+.cup-guide button {
+  margin: 0;
+  font:
+    400 18px ForcedSquare,
+    Arial,
+    sans-serif;
+  cursor: pointer;
+}
+.cup-guide header button {
+  width: 36px;
+  padding: 6px;
+}
+.cup-guide button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.cup-welcome {
+  width: min(540px, calc(100vw - 32px));
+  text-align: center;
+}
+.welcome-body {
+  padding: 28px 28px 22px;
+}
+.welcome-trophy {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 0 auto 18px;
+  color: #ffda6c;
+}
+.welcome-trophy img {
+  width: 70px;
+  height: 70px;
+  filter: brightness(0) saturate(100%) invert(86%) sepia(55%) saturate(595%) hue-rotate(333deg);
+}
+.welcome-spark {
+  font:
+    28px Arial,
+    sans-serif;
+  transform: translateY(-15px);
+}
+.welcome-spark:last-child {
+  font-size: 18px;
+  transform: translateY(15px);
+}
+.welcome-greeting {
+  margin: 10px 0 24px;
+  color: #b6c7df;
+}
+.welcome-paths {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  text-align: left;
+  border-top: 1px solid #40517a;
+  padding-top: 22px;
+}
+.welcome-paths h3 {
+  color: #ffda6c;
+}
+.welcome-paths p {
+  color: #b6c7df;
+  font-size: 17px;
+  margin: 8px 0 0;
+}
+.cup-welcome footer {
+  display: flex;
+  justify-content: center;
+  padding: 18px 28px 24px;
+}
+.cup-welcome footer button {
+  min-width: 150px;
+}
+.rank-guide-body {
+  padding: 24px;
+}
+.rank-tier-chart {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+  padding: 24px 0 22px;
+  margin: 0;
+  border-bottom: 1px solid #40517a;
+}
+.rank-tier-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+  text-align: center;
+}
+.rank-tier-chart .ranked-rating-badge {
+  width: 100px;
+  height: 30px;
+}
+.rank-tier-chart .ranked-rating-value {
+  font-size: 25px;
+}
+.rank-tier-bar {
+  height: var(--tier-rise);
+  width: 100%;
+  border-top: 2px solid var(--tier-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tier-color) 28%, transparent),
+    color-mix(in srgb, var(--tier-color) 6%, transparent)
+  );
+  transform: skewX(-7deg);
+}
+.rank-tier-step h3 {
+  font-size: 17px;
+}
+.rank-tier-range {
+  font-size: 14px;
+  color: #b6c7df;
+  white-space: nowrap;
+}
+.rank-guide-milestones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 22px;
+}
+.rank-placement,
+.rank-grandmaster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rank-placement {
+  flex-wrap: wrap;
+  max-width: 245px;
+}
+.rank-placement > span {
+  color: #b6c7df;
+  font-size: 16px;
+  flex-basis: 100%;
+}
+.rank-placement .ranked-rating-badge,
+.rank-grandmaster .ranked-rating-badge {
+  width: 110px;
+  height: 33px;
+}
+.rank-grandmaster .ranked-rating-value {
+  font-size: 17px !important;
+}
+.rank-grandmaster .ranked-rating-value small {
+  font-size: 12px;
+}
+.rank-grandmaster > div:last-child > span {
+  font-size: 16px;
+  color: #b6c7df;
+}
+.rank-placement-dots {
+  display: flex;
+  gap: 5px;
+}
+.rank-placement-dots i {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #91a7c7;
+  transform: skewX(-7deg);
+  background: #293662;
+}
+.hub-activities .ranked-guide-button {
+  width: 28px !important;
+  height: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  margin-left: 8px;
+  border: 1px solid #7183ac;
+  background: #27345a;
+  border-radius: 0;
+  clip-path: none;
+  font:
+    400 18px/1 ForcedSquare,
+    Arial,
+    sans-serif;
+  color: #b6c7df;
+}
+.hub-activities .ranked-guide-button:hover {
+  color: #ffda6c;
+  border-color: #ffda6c;
+}
+.ranked-queue-identity h2:has(.ranked-guide-button) {
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .rank-guide-body {
+    padding: 16px;
+  }
+  .rank-tier-chart {
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 24px;
+    padding-top: 8px;
+  }
+  .rank-tier-bar {
+    height: calc(var(--tier-rise) * 0.6);
+  }
+  .rank-guide-milestones {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .rank-grandmaster {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .rank-placement {
+    max-width: 180px;
+  }
+  .rank-tier-range {
+    font-size: 15px;
+  }
+}
+@media (max-width: 400px) {
+  .welcome-body {
+    padding: 24px 20px;
+  }
+  .welcome-paths {
+    gap: 14px;
+  }
+  .rank-tier-chart .ranked-rating-badge {
+    width: 84px;
+    height: 26px;
+  }
+  .rank-tier-chart .ranked-rating-value {
+    font-size: 22px;
+  }
+  .rank-tier-step h3 {
+    font-size: 15px;
+  }
+  .rank-tier-range {
+    font-size: 13px;
+  }
+}
+
+.hub-activities .ranked-queue-identity h2:has(.ranked-guide-button) { width:100px; }

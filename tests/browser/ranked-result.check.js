@@ -1,0 +1,13 @@
+async page => {
+ const check=(ok,label)=>{if(!ok)throw new Error(label);};
+ await page.goto('http://127.0.0.1:8853/?result=loss');
+ const dialog=page.getByRole('dialog',{name:'Ranked result',exact:true});await dialog.getByText('−175',{exact:true}).waitFor();await page.waitForTimeout(1000);
+ check(!(await dialog.evaluate(el=>el.classList.contains('is-promotion'))),'Loss should not celebrate');check(await dialog.locator('.ranked-outcome-rating').innerText()==='19,725','Final loss rating');await page.screenshot({path:'output/playwright/ranked-loss.png'});
+ await page.emulateMedia({reducedMotion:'reduce'});await page.goto('http://127.0.0.1:8853/?result=promotion');await page.getByRole('heading',{name:'Promoted to Master'}).waitFor();check(await page.locator('.ranked-outcome-rating').innerText()==='20,150','Reduced motion final value');check(await page.locator('.ranked-outcome-badge').evaluate(el=>getComputedStyle(el).animationName)==='none','Reduced motion animation disabled');
+ await page.goto('http://127.0.0.1:8853/?result=pending');await page.getByText('Confirming rating…',{exact:true}).waitFor();check(await page.locator('.ranked-outcome-delta').count()===0,'Pending result must not invent delta');await page.getByRole('button',{name:'Continue',exact:true}).click();check(!await page.getByRole('dialog',{name:'Ranked result',exact:true}).isVisible(),'Continue dismisses');
+ await page.goto('http://127.0.0.1:8853/?master');await page.locator('.friend-status').first().waitFor();
+ const status=await page.locator('.friend-status').first().evaluate(el=>({gap:getComputedStyle(el).columnGap,display:getComputedStyle(el).display,dot:getComputedStyle(el,'::before').marginRight}));check(status.gap==='7px'&&status.display==='flex','Status spacing');
+ await page.getByRole('button',{name:'Leaderboards',exact:true}).click();await page.locator('.leaderboard-body tbody tr').first().waitFor();
+ const align=await page.locator('.leaderboard-body').evaluate(el=>{const heads=[...el.querySelectorAll('th')],cells=[...el.querySelector('tbody tr').children];return heads.map((head,i)=>({header:getComputedStyle(head).textAlign,cell:getComputedStyle(cells[i]).textAlign}));});check(align.every(a=>a.header==='center'&&a.cell==='center'),'Column alignment');await page.screenshot({path:'output/playwright/leaderboard-compact.png'});
+ return {passed:true,checks:['loss','promotion','reduced motion','pending has no rating delta','dismissal','status dot gap','centered columns'],status,align};
+}

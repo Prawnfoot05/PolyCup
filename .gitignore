@@ -5,3 +5,11 @@ output/
 *.log
 *.zip
 *.zip.sha256
+
+# Operator state and generated replay reference payloads
+supabase/.temp/
+supabase/input-review/generated/
+supabase/functions/_shared/input-review.mjs
+__pycache__/
+.env
+.env.*

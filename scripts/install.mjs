@@ -7,10 +7,11 @@ import { pack, unpack } from './asar.mjs';
 if (process.versions.electron) process.noAsar = true;
 const project = fileURLToPath(new URL('../', import.meta.url));
 const { version: modVersion } = JSON.parse(await readFile(path.join(project, 'mod.json'), 'utf8'));
+const defaultModRoot = modVersion.includes('-') ? path.join('output', 'dev-mod') : 'dist';
 const url = 'https://git.polymodloader.com/polytrackmods/PolyModLoader/releases/download/v0.6.3-1/app.asar';
 const expected = '5c09a6ab0146797c147b603e0367f14d15e235be77392ca96df66ea81d3b12f8';
 const digest = b => createHash('sha256').update(b).digest('hex');
-export async function makeArchive({ testing = false, visible = false } = {}) {
+export async function makeArchive({ testing = false, visible = false, modRoot = process.env.PWC_MOD_ROOT || defaultModRoot } = {}) {
   const cache = path.join(project, '.research', 'pml-0.6.3-1.asar'); let official;
   try { official = await readFile(cache); } catch {
     console.log('Downloading pinned PolyModLoader v0.6.3-1…');
@@ -26,7 +27,7 @@ export async function makeArchive({ testing = false, visible = false } = {}) {
   metadata.productName = 'PolyTrack'; metadata.name = 'polytrack';
   files.set('package.json', Buffer.from(JSON.stringify(metadata,null,2)));
   for (const file of ['manifest.json', 'polylib.json', ...['version.json', 'main.mod.js', 'description.html', 'icon.png'].map(file => `${modVersion}/${file}`)]) {
-    files.set(`world-cup/${file}`, await readFile(path.join(project, 'dist', file)));
+    files.set(`world-cup/${file}`, await readFile(path.resolve(project, modRoot, file)));
   }
   // PML's release fetches /package.json, which resolves to the drive root under file://.
   // Resolve the metadata next to its module for a portable desktop installation.
@@ -44,8 +45,61 @@ export async function makeArchive({ testing = false, visible = false } = {}) {
   if (!publicPath.test(bundle)) throw new Error('Unexpected PML bundle public path detection.');
   bundle = bundle.replace(publicPath, 'if (!e) e = new URL("main.bundle.js", document.baseURI).href;');
   files.set('main.bundle.js', Buffer.from(bundle));
-  const bootstrap = `<script>(()=>{const base=new URL('world-cup',document.baseURI).href;let mods=[];try{mods=JSON.parse(localStorage.getItem('polyMods')||'[]');if(!Array.isArray(mods))mods=[];}catch{}mods=mods.filter(m=>!String(m.base).endsWith('/world-cup'));mods.push({base,version:'${modVersion}',loaded:true});localStorage.setItem('polyMods',JSON.stringify(mods));})();</script>`;
+  const bootstrap = `<script>(()=>{const base=new URL('world-cup',document.baseURI).href;let mods=[];try{mods=JSON.parse(localStorage.getItem('polyMods')||'[]');if(!Array.isArray(mods))mods=[];}catch{}mods=mods.filter(m=>!String(m.base).endsWith('/world-cup'));if(!mods.some(m=>String(m.base).endsWith('/pmlcore')||String(m.base).endsWith('/pmlcore/')))mods.unshift({base:'https://cdn.polymodloader.com/pml/PolyModLoader/pmlcore',version:'latest',loaded:true});mods.push({base,version:'${modVersion}',loaded:true});localStorage.setItem('polyMods',JSON.stringify(mods));})();</script>`;
   files.set('index.html', Buffer.from(files.get('index.html').toString().replace('<head>', '<head>' + bootstrap)));
+  files.set('electron/polycup-auth.cjs', await readFile(path.join(project, 'scripts', 'desktop-auth.cjs')));
+  files.set('electron/main.js', Buffer.from(files.get('electron/main.js').toString() + `
+    let polycupAuthReturn=null,polycupAuthGeneration=0;
+    const checkPolycupSender=event=>{
+      if(event.sender!==browserWindow?.webContents||!event.senderFrame?.url.startsWith('file:'))
+        throw new Error('Invalid sign-in window.');
+    };
+    ipcMain.handle('polycup-start-auth-return', async (event,attempt) => {
+      checkPolycupSender(event);
+      const generation=++polycupAuthGeneration;
+      polycupAuthReturn?.cancel();polycupAuthReturn=null;
+      const receiver=await require('./polycup-auth.cjs').createAuthReturn(attempt,code=>{
+        if(!browserWindow?.isDestroyed())browserWindow.webContents.send('polycup-auth-return',code);
+      });
+      if(generation!==polycupAuthGeneration){receiver.cancel();throw new Error('Sign-in was replaced.');}
+      polycupAuthReturn=receiver;
+      return receiver.url;
+    });
+    ipcMain.handle('polycup-cancel-auth-return',event=>{
+      checkPolycupSender(event);++polycupAuthGeneration;
+      polycupAuthReturn?.cancel();polycupAuthReturn=null;
+    });
+    ipcMain.handle('polycup-finish-auth-return',(event,attempt,success)=>{
+      checkPolycupSender(event);
+      if(polycupAuthReturn?.attempt!==attempt)return;
+      if(polycupAuthReturn.finish(success===true)&&success===true){
+        if(browserWindow.isMinimized())browserWindow.restore();
+        browserWindow.show();browserWindow.focus();
+      }
+      polycupAuthReturn=null;
+    });
+    app.on('before-quit',()=>polycupAuthReturn?.cancel());
+    ipcMain.handle('polycup-open-auth', async (event, url) => {
+      if (event.sender !== browserWindow?.webContents ||
+          !event.senderFrame?.url.startsWith('file:') ||
+          !require('./polycup-auth.cjs').isDiscordSignInUrl(url))
+        throw new Error('Invalid Discord sign-in link.');
+      await shell.openExternal(url);
+    });
+  `));
+  files.set('electron/preload.js', Buffer.from(files.get('electron/preload.js').toString() + `
+    contextBridge.exposeInMainWorld('polycupDesktop', {
+      openDiscord: url => ipcRenderer.invoke('polycup-open-auth', url),
+      startReturn: attempt => ipcRenderer.invoke('polycup-start-auth-return', attempt),
+      cancelReturn: () => ipcRenderer.invoke('polycup-cancel-auth-return'),
+      finishReturn: (attempt, success) => ipcRenderer.invoke('polycup-finish-auth-return',attempt,success),
+      onReturn: callback => {
+        const listener=(_event,code)=>callback(code);
+        ipcRenderer.on('polycup-auth-return',listener);
+        return ()=>ipcRenderer.removeListener('polycup-auth-return',listener);
+      },
+    });
+  `));
   if (testing) {
     let main = files.get('electron/main.js').toString();
     if (!main.includes('let browserWindow = null;') || !main.includes('fullscreen: !0,') ||
@@ -56,6 +110,8 @@ export async function makeArchive({ testing = false, visible = false } = {}) {
     if (visible) main = main.replace('browserWindow.removeMenu(),', `browserWindow.removeMenu(),
       browserWindow.setTitle('PolyCup test client ' + (process.env.PWC_TEST_CLIENT || '')),
       browserWindow.webContents.on('page-title-updated', e => e.preventDefault()),`);
+    if (!main.includes('browserWindow.loadFile("index.html")')) throw new Error('Unexpected test launcher navigation.');
+    main = main.replace('browserWindow.loadFile("index.html")', 'process.env.PWC_QA_MANUAL_START === "1" ? browserWindow.loadURL("about:blank") : browserWindow.loadFile("index.html")');
     files.set('electron/main.js', Buffer.from(main));
   }
   return pack(files);
@@ -91,7 +147,7 @@ async function install() {
   const output = await makeArchive();
   await writeFile(archive + '.world-cup-new', output); await rename(archive + '.world-cup-new', archive);
   await writeFile(receipt, JSON.stringify({ loader: 'v0.6.3-1', mod: modVersion, originalHash, installedHash: digest(output) }, null, 2));
-  console.log(`Installed PolyCup ${modVersion} with PolyModLoader v0.6.3-1. Launch PolyTrack.exe and press F8.`);
+  console.log(`Installed PolyCup ${modVersion} with PolyModLoader v0.6.3-1. Launch PolyTrack.exe and open PolyCup from the main menu.`);
   console.log('Original game backed up as resources/app.asar.before-world-cup.');
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) install().catch(error => { console.error(error.message); process.exitCode = 1; });

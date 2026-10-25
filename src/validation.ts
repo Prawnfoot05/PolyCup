@@ -36,6 +36,24 @@ export function validSnapshot(value: unknown): value is PublicCupState {
         Number.isSafeInteger(p.id) &&
         p.id !== 0 &&
         text(p.name) &&
+        (p.rank === undefined ||
+          p.rank === null ||
+          (obj(p.rank) &&
+            [
+              'provisional',
+              'bronze',
+              'silver',
+              'gold',
+              'platinum',
+              'diamond',
+              'master',
+              'grandmaster',
+            ].includes(p.rank.tier) &&
+            num(p.rank.rating) &&
+            p.rank.rating <= 1000000000 &&
+            typeof p.rank.provisional === 'boolean' &&
+            (p.rank.gm_position === null ||
+              (num(p.rank.gm_position) && p.rank.gm_position >= 1 && p.rank.gm_position <= 10)))) &&
         (p.countryCode == null ||
           (typeof p.countryCode === 'string' && /^[a-z]{2}$/i.test(p.countryCode))),
     ) ||
@@ -125,6 +143,13 @@ export function validSnapshot(value: unknown): value is PublicCupState {
     if (!trackId(id) || !obj(r) || !obj(r.pbs) || Object.keys(r.pbs).length > 128) return false;
     for (const [id, p] of Object.entries(r.pbs))
       if (!ids([Number(id)]) || !validPB(p)) return false;
+    if (
+      r.cupPbs !== undefined &&
+      (!obj(r.cupPbs) ||
+        Object.keys(r.cupPbs).length > 128 ||
+        Object.entries(r.cupPbs).some(([id, time]) => !ids([Number(id)]) || !frames(time)))
+    )
+      return false;
     if (r.wr && !validWR(r.wr)) return false;
     if (r.tr && (!obj(r.tr) || !frames(r.tr.frames) || !ids(r.tr.ids))) return false;
   }

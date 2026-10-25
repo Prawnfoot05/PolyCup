@@ -3,7 +3,7 @@ import type { CupState, Match, RaceRecord, Track } from './types.ts';
 // Competition state is owned by the native multiplayer host. No game internals here.
 import { isBanned, picksOpen, resetDraft, rosterOpen } from './draft.ts';
 import { rulesFor, standardPreset, validPreset, type CupPreset, type CupRules } from './presets.ts';
-export const VERSION = '0.3.3';
+export const VERSION = '0.4.0';
 export const RULES = Object.freeze({
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   target: 140,
@@ -231,7 +231,10 @@ export function removePlayer(state: CupState, id: number) {
   if (state.selections) delete state.selections[id];
   state.draftReady = [];
   delete state.draftStartsAt;
-  for (const r of Object.values(state.records)) delete r.pbs[id];
+  for (const r of Object.values(state.records)) {
+    delete r.pbs[id];
+    if (r.cupPbs) delete r.cupPbs[id];
+  }
   pruneTracks(state);
   touch(state);
 }
@@ -564,10 +567,12 @@ export function refreshSessionRecords(state: CupState) {
   for (const t of state.tracks) {
     const records = (state.records[t.id] ??= { pbs: {} });
     records.tr = null;
+    records.cupPbs = {};
     for (const m of state.matches)
       for (const r of m.roundsLog)
         if (r.trackId === t.id) {
           for (const [id, frames] of Object.entries(r.finishes)) {
+            records.cupPbs[Number(id)] = Math.min(records.cupPbs[Number(id)] ?? Infinity, frames);
             if (!records.tr || frames < records.tr.frames)
               records.tr = { frames, ids: [Number(id)] };
             else if (frames === records.tr.frames && !records.tr.ids.includes(Number(id)))
@@ -759,6 +764,7 @@ function remapIdentities(state: CupState, mapping: Map<number, number>) {
   }
   for (const r of Object.values(state.records)) {
     r.pbs = keys(r.pbs);
+    if (r.cupPbs) r.cupPbs = keys(r.cupPbs);
     if (r.tr) r.tr.ids = replace(r.tr.ids);
   }
   state.matches.forEach(updateMatch);

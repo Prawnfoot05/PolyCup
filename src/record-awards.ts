@@ -1,13 +1,33 @@
-import type { RecordBaselines, RecordAward, Round, TrackRecords } from './types.ts';
+import type { RaceRecord, RecordBaselines, RecordAward, Round, TrackRecords } from './types.ts';
+
+export type PersonalRecord = Omit<RaceRecord, 'source'> & { source?: RaceRecord['source'] | 'cup' };
+export function personalRecord(
+  records: TrackRecords | undefined,
+  id: number,
+  liveFrames?: number,
+): PersonalRecord | undefined {
+  const saved = records?.pbs[id];
+  const cup = Math.min(records?.cupPbs?.[id] ?? Infinity, liveFrames ?? Infinity);
+  if (Number.isFinite(cup) && (saved?.status !== 'ready' || cup < saved.frames!))
+    return { status: 'ready', frames: cup, source: 'cup' };
+  return saved;
+}
 
 export function recordBaselines(records: TrackRecords | undefined): RecordBaselines {
   return {
     ...(records?.wr?.status === 'ready' ? { wr: records.wr.frames } : {}),
     ...(records?.tr ? { tr: records.tr.frames } : {}),
     pbs: Object.fromEntries(
-      Object.entries(records?.pbs ?? {}).flatMap<[string, number | null]>(([id, pb]) =>
-        pb.status === 'ready' ? [[id, pb.frames!]] : pb.status === 'missing' ? [[id, null]] : [],
-      ),
+      [
+        ...new Set([...Object.keys(records?.pbs ?? {}), ...Object.keys(records?.cupPbs ?? {})]),
+      ].flatMap<[string, number | null]>((id) => {
+        const pb = personalRecord(records, Number(id));
+        return pb?.status === 'ready'
+          ? [[id, pb.frames!]]
+          : pb?.status === 'missing'
+            ? [[id, null]]
+            : [];
+      }),
     ),
   };
 }

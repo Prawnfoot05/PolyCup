@@ -30,7 +30,9 @@ export class PresetEditor {
     this.#ui = ui;
   }
   get dirty() {
-    return presetKey(this.#draft) !== this.#base;
+    return (
+      !!this.#base && this.#cupId === this.#ui.c.cup?.id && presetKey(this.#draft) !== this.#base
+    );
   }
 
   render() {
@@ -552,12 +554,13 @@ export class PresetEditor {
       }
     }
   }
-  applyDraft() {
+  async applyDraft() {
     clearTimeout(this.#applyTimer);
     if (!validPreset(this.#draft)) return;
     try {
-      this.#ui.c.setPreset(this.#draft);
-      this.#base = presetKey(this.#draft);
+      const draft = structuredClone(this.#draft);
+      await this.#ui.c.setPreset(draft);
+      this.#base = presetKey(draft);
       this.#ui.redraw();
     } catch (error) {
       this.#ui.c.fail(error);

@@ -5,11 +5,12 @@ const root = process.cwd();
 const types = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.html': 'text/html',
   '.css': 'text/css', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.glb': 'model/gltf-binary' };
 const port = Number(process.env.PWC_PORT || 8787);
+const modRoot = process.env.PWC_DEV_BUILD === '1' ? 'output/dev-mod' : 'dist';
 http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
     const mod = url.pathname === '/mod' || url.pathname.startsWith('/mod/');
-    const base = path.resolve(root, mod ? 'dist' : '.research/PolyModLoader');
+    const base = path.resolve(root, mod ? modRoot : '.research/PolyModLoader');
     let relative = decodeURIComponent(mod ? url.pathname.slice(4) : url.pathname);
     if (relative === '' || relative === '/') relative = '/index.html';
     let file = path.resolve(base, '.' + relative);
@@ -17,7 +18,7 @@ http.createServer(async (req, res) => {
     if ((await stat(file)).isDirectory()) file = path.join(file, 'index.html');
     let body = await readFile(file);
     if (!mod && relative === '/index.html' && process.env.PWC_AUTOLOAD !== '0') {
-      const boot = `<script>const mods=JSON.parse(localStorage.getItem('polyMods')||'[]');if(!mods.some(m=>m.base===location.origin+'/mod')){mods.push({base:location.origin+'/mod',version:'latest',loaded:true});localStorage.setItem('polyMods',JSON.stringify(mods));}</script>`;
+      const boot = `<script>const mods=JSON.parse(localStorage.getItem('polyMods')||'[]');if(!mods.some(m=>String(m.base).endsWith('/pmlcore')||String(m.base).endsWith('/pmlcore/')))mods.unshift({base:'https://cdn.polymodloader.com/pml/PolyModLoader/pmlcore',version:'latest',loaded:true});if(!mods.some(m=>m.base===location.origin+'/mod'))mods.push({base:location.origin+'/mod',version:'latest',loaded:true});localStorage.setItem('polyMods',JSON.stringify(mods));</script>`;
       body = Buffer.from(body.toString().replace('<head>', '<head>' + boot));
     }
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream',

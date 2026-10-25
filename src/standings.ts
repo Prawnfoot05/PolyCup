@@ -1,6 +1,14 @@
 import * as Cup from './cup.ts';
 import { rulesFor } from './presets.ts';
 import type { CupState, SessionRecord } from './types.ts';
+import { personalRecord } from './record-awards.ts';
+export function playerRecord(s: CupState, trackId: string, playerId: number) {
+  const live =
+    s.phase === 'racing' && s.runtime?.trackId === trackId
+      ? s.runtime.finishes[playerId]
+      : undefined;
+  return personalRecord(s.records[trackId], playerId, live);
+}
 export function standings(s: CupState) {
   const m = Cup.currentMatch(s);
   if (!m) return [];

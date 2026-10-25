@@ -13,6 +13,7 @@ export interface NativeCar {
   update(delta: number): void;
   getTime(): { numberOfFrames: number };
   getFinishTime(): { numberOfFrames: number } | null;
+  getRecording?(): { serialize(): string } | null;
   getNextCheckpointIndex(): number;
   addCheckpointCallback(callback: (index: number) => void): void;
   addFinishCallback(callback: () => void): void;
@@ -50,6 +51,7 @@ export interface LobbyPlayer {
 export interface NativeConnection {
   dispose(): void;
   getPlayers(): LobbyPlayer[];
+  getMaxPlayers?(): number;
   getPing?(id: number): number | null;
   kickPlayer?(id: number): void;
   isInviteAllowed(): boolean;
@@ -115,6 +117,7 @@ export interface NativeApi {
   presentation(game: NativeGame, cup: boolean, watching: boolean): void;
   leaderboardUploads(game: NativeGame, enabled?: boolean): void;
   carThumbnail(style: CarStyle): Promise<string>;
+  carStyleFromText?(text: string): CarStyle;
   readInputs(game: NativeGame): { frames: number; controls: DrivingControls };
   watchInputs(game: NativeGame, callback: () => void): () => void;
   createInputVisualizer(parent: HTMLElement): InputVisualizer;
@@ -174,6 +177,7 @@ export interface NativeApi {
   };
 }
 export interface PolyModLoader {
+  settingClass?: { checkKeyBinding: (event: KeyboardEvent, key: unknown) => boolean };
   getPhysicsWasmURL?: (...args: unknown[]) => string;
   registerClassMixin(
     path: string,

@@ -24,6 +24,20 @@ function room(t) {
   return c;
 }
 
+test('ranked completion sends all scored rounds while live snapshots stay compact',t=>{
+ const c=room(t);
+ for(let i=0;i<15;i++) {
+  c.state.phase='racing';c.state.runtime.startsAt=0;c.state.runtime.finishes={1:1000,2:1500,3:2000};
+  Cup.completeRound(c.state);if(c.state.phase!=='complete')Cup.beginRound(c.state);
+ }
+ assert.equal(c.state.phase,'complete');
+ c.waitingRoom={active:false,ranked:true,snapshot:{}};
+ assert.equal(c.networkState().matches[0].roundsLog.length,15);
+ assert.ok(validSnapshot(c.networkState()));
+ c.state.phase='between-rounds';assert.equal(c.networkState().matches[0].roundsLog.length,1);
+ c.state.phase='complete';c.waitingRoom=undefined;assert.equal(c.networkState().matches[0].roundsLog.length,1);
+});
+
 test('session replacement without any rendered frame retains Cup, transport and identity',async t=>{
   const c=room(t),state=c.state,connection=c.connection,old=c.game,info=c.info;
   let closes=0;c.transport.dispose=c.cameraTransport.dispose=()=>closes++;
@@ -96,4 +110,18 @@ test('native stale-slot cleanup only removes terminal peers and invokes native d
   const native=connectNative(pml,{});native.pruneClosedPeers(connection);
   assert.equal(active.length,2);assert.equal(notifications,2);
   native.pruneClosedPeers(connection);assert.equal(notifications,2);
+});
+
+test('verified ranked account rebind preserves scores and uses the returning garage name at a round boundary',t=>{
+ const c=room(t);c.waitingRoom={ranked:true,snapshot:{},active:false};
+ c.lobby=c.lobby.filter(p=>p.id!==2);c.lobby.push({id:4,nickname:'Different garage profile'});c.hello.add(4);
+ c.state.matches[0].scores[2]=18;
+ c.verifiedRankedReconnect(2,4);assert.ok(Cup.player(c.state,2));assert.equal(Cup.player(c.state,4),undefined);
+ Cup.voidRound(c.state,'Test boundary');c.applyReconnects();
+ assert.equal(Cup.player(c.state,2),undefined);assert.equal(Cup.player(c.state,4).name,'Different garage profile');assert.equal(c.state.matches[0].scores[4],18);assert.equal(c.rankedReconnect.size,0);
+});
+
+test('rendering a disposed native connection cannot reattach it or recreate closing channels',t=>{
+ const c=room(t),connection=c.connection,stale={info:{...c.info}};c.connectionDisposed(connection);
+ c.observeGame(stale);assert.equal(c.connection,null);assert.equal(c.state,null);assert.equal(c.game,null);
 });

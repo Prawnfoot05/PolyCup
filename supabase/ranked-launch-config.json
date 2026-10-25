@@ -1,0 +1,28 @@
+{
+  "gameVersion": "0.6.3",
+  "clientVersion": "0.4.0",
+  "modelVersion": "btf-6.2.0-t025-softplus-v1",
+  "provisionalMatches": 5,
+  "tierFloors": [
+    0,
+    5000,
+    10000,
+    15000,
+    20000,
+    25000
+  ],
+  "tierNames": [
+    "bronze",
+    "silver",
+    "gold",
+    "platinum",
+    "diamond",
+    "master"
+  ],
+  "grandmaster": "Top 10 eligible Master players after provisionals",
+  "catalog": "catalogs/polytrack-0.6.3.json",
+  "catalogPolicy": "Every official/main and community track bundled with this game version; no custom tracks",
+  "targetPlayers": 4,
+  "threePlayerWaitSeconds": 60,
+  "twoPlayerWaitSeconds": 120
+}

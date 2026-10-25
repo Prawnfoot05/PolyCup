@@ -1,0 +1,11 @@
+project_id = "polycup-local"
+
+[functions.polycup-results]
+# Internal Cron HMAC signature is checked before any database connection. User JWTs and
+# publishable keys do NOT authorize settlement. Do not remove the handler check.
+verify_jwt = false
+entrypoint = "./functions/polycup-results/index.ts"
+
+[functions.polycup-input-review]
+verify_jwt = false
+entrypoint = "./functions/polycup-input-review/index.ts"

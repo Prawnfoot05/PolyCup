@@ -1,0 +1,24 @@
+{
+  "name": "polycup-result-worker",
+  "version": "0.4.0-dev.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run typecheck && node build.mjs",
+    "start": "node dist/main.mjs",
+    "start:loop": "node dist/main.mjs --loop",
+    "typecheck": "tsc --noEmit",
+    "build:edge": "npm run typecheck && node build-edge.mjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.25.12",
+    "typescript": "5.9.3"
+  }
+}

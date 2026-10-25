@@ -17,7 +17,11 @@ button.selected::after,button.track-card.added::after { border-bottom:0; }
 .menu-version { position:fixed; right:18px; top:16px; z-index:100100; color:var(--muted); font-size:18px; line-height:1.2; pointer-events:none; }
 .panel { position:fixed; z-index:100101; left:50%; top:50%; transform:translate(-50%,-50%); width:min(880px,calc(100vw - 36px)); height:min(900px,calc(100dvh - 32px)); max-height:calc(100dvh - 32px); display:flex; flex-direction:column; background:var(--deep); border-top:4px solid var(--gold); clip-path:var(--cut); }
 header { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:18px 24px 14px; background:var(--blue); }
-.header-title { flex:1; min-width:0; } .header-title p { overflow-wrap:anywhere; }
+.header-title { flex:1; min-width:180px; } .header-title p { overflow-wrap:anywhere; }
+.panel > header { flex-wrap:wrap; row-gap:12px; }
+.header-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:12px; max-width:100%; }
+.scoreboard-panel .header-actions { flex:1 1 max-content; }
+.scoreboard-panel .header-actions button { font-size:18px; }
 .header-hide { flex:none; }
 .lobby-invite { flex:none; max-width:100%; }
 .invite-actions { display:flex; align-items:flex-end; gap:4px; }
@@ -230,9 +234,9 @@ button.pov-cycle.next { clip-path:polygon(0 0,calc(100% - 8px) 0,100% 100%,8px 1
 }
 
 /* Car artwork is centered across the identity and draft-choice lines. */
-.lobby-roster .lobby-racer { display:grid; grid-template-columns:36px minmax(0,1fr) auto; column-gap:6px; row-gap:5px; align-items:center; min-height:60px; padding:8px 10px; }
+.lobby-roster .lobby-racer { display:grid; grid-template-columns:36px minmax(0,1fr) auto; column-gap:8px; row-gap:5px; align-items:center; min-height:60px; padding:8px 10px; }
 .lobby-racer > .car-skin { grid-column:1; grid-row:1; align-self:center; justify-self:center; width:36px; height:32px; }
-.lobby-racer > .racer-name { grid-column:2; grid-row:1; min-width:0; gap:4px; }
+.lobby-racer > .racer-name { grid-column:2; grid-row:1; min-width:0; gap:8px; }
 .lobby-roster .lobby-choices { grid-column:1 / -1; grid-row:2; margin-left:0; }
 .lobby-racer > small { grid-column:1 / -1; grid-row:4; }
 .lobby-racer .country-flag { flex:none; width:20px; height:15px; object-fit:contain; filter:drop-shadow(1px 1px 1px #0006); }
@@ -408,7 +412,9 @@ footer > [data-setup-start],footer > .lobby-start { margin-left:auto; }
 .header-rules { white-space:nowrap; }
 @media(max-width:650px) { .panel > header { flex-wrap:wrap; gap:8px; } .panel > header .header-title { flex:1 1 100%; } .score-row.with-pb { grid-template-columns:20px minmax(0,1fr) 20px 48px 90px; } .score-row.with-pb .racer-name { font-size:18px; } .score-pb { font-size:14px; } .rules-dialog-body,.rules-dialog-heading { padding:16px; } }
 
-.rules-dialog[open] { display:flex; flex-direction:column; }
+/* Closing dialogs remain visible during the exit transition; keep their layout. */
+.rules-dialog { flex-direction:column; }
+.rules-dialog[open] { display:flex; }
 .rules-dialog-heading { flex:none; }
 .rules-dialog-body { overflow-y:auto; min-height:0; container-type:inline-size; }
 .score-pb { white-space:nowrap; }
@@ -517,7 +523,7 @@ button.lobby-kick:hover,button.lobby-kick:focus-visible { color:#ffaaaa; backgro
 @media(max-width:1050px) { .preset-editable { column-gap:18px; } }
 @media(max-width:560px) { .preset-editable { grid-template-columns:1fr; } .preset-editable .rule-points-editor { grid-template-columns:repeat(4,minmax(0,1fr)); row-gap:12px; } }
 
-@media(max-width:950px) { .cup-lobby:has(.preset-editable) > .lobby-action { order:-1; } }
+@media(max-width:950px) { .cup-lobby:has(.preset-editable) > .lobby-action { order:0; } }
 
 .cup-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .cup-actions button { font-size:16px; }
@@ -714,3 +720,18 @@ button.track-card:focus-visible { background:var(--button-bg); text-decoration:n
 .finish-cue { opacity:1; transition:opacity 160ms ease,display 160ms allow-discrete; }
 .finish-cue[hidden] { opacity:0; pointer-events:none; }
 @starting-style { .chat-person-menu:not([hidden]) { opacity:0; translate:0 4px; } .rules-dialog[open]::backdrop,.finish-cue:not([hidden]) { opacity:0; } }
+/* Compact ranks sit beside names without taking over the draft roster. */
+.panel .ranked-rating-badge.lobby-rank-badge { width:88px; height:26px; margin-left:0; vertical-align:middle; }
+.panel .lobby-rank-badge .ranked-rating-value { font-size:23px; }
+.panel .lobby-rank-badge.is-grandmaster .ranked-rating-value { font-size:14px; }
+.panel .lobby-rank-badge .ranked-rating-value small { font-size:11px; }
+.panel .lobby-rank-badge.is-unranked { width:auto; min-width:0; max-width:110px; font:400 14px ForcedSquare,Arial,sans-serif; }
+.panel .lobby-rank-badge.is-unranked > span { text-decoration:none; white-space:normal; }
+.draft-badge-icon{display:inline-grid;place-items:center;flex-shrink:0}.draft-badge-icon .status-icon{display:block;width:16px;height:16px}
+
+.room-code { display:inline-flex; align-items:center; gap:14px; flex:none; white-space:nowrap; }
+.room-code > small { flex:none; }
+.panel .racer-name > .lobby-rank-badge { flex:none; }
+@media(max-width:1000px) { .lobby-racer > .racer-name { flex-wrap:wrap; } .lobby-racer > .racer-name > .lobby-rank-badge { margin-right:8px; } .panel > header { flex-wrap:wrap; row-gap:12px; } }
+.waiting-room-connection { display:flex; align-items:center; gap:12px; }
+.waiting-room-elapsed { color:#adc3df; font-size:16px; }

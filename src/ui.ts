@@ -1,4 +1,6 @@
+import { rankBadge } from './rank-badge.ts';
 import type { RaceRecord, RecordAward, SessionRecord } from './types.ts';
+import { coverNativeMenu } from './native-cup-menu.ts';
 import type { InputVisualizer, LibraryTrack } from './game-types.ts';
 import type { Controller } from './controller.ts';
 import { downtimeLabel, roundSeconds } from './race-status.ts';
@@ -13,17 +15,18 @@ import { ChatUI } from './chat-ui.ts';
 import { PresetEditor } from './preset-ui.ts';
 import { rulesFor, type TrackCategory } from './presets.ts';
 import { inputControls } from './inputs.ts';
+import { CupHub } from './cup-hub.ts';
 import { CupInvite } from './invite.ts';
 import { countryFlag, lobbyPanel } from './lobby.ts';
 import { RestartHint } from './restart-hint.ts';
 import { resultRows, resultsImage } from './results.ts';
-import { reviewPanel } from './review-ui.ts';
 import { PlayerMenu } from './player-menu.ts';
-import { recordTrack, sessionRecord, standings } from './standings.ts';
+import { playerRecord, recordTrack, sessionRecord, standings } from './standings.ts';
 import { formatGap, formatTime as time } from './time.ts';
 import { CupToolbar } from './toolbar.ts';
 import { ConnectionQuality } from './connection-quality.ts';
 import { DraftSlotMotion } from './draft-slot-motion.ts';
+import { AccountUI } from './account-ui.ts';
 import css from './world-cup.css';
 const names = {
   registration: 'Registration',
@@ -35,6 +38,8 @@ const names = {
   complete: 'Cup results',
 };
 export class CupUI {
+  #accountUI: AccountUI;
+  #finder: CupHub;
   #connectionQuality = new ConnectionQuality();
   #chatUI: ChatUI;
   get panelOpen() {
@@ -139,6 +144,12 @@ export class CupUI {
     this.#shadow = root.attachShadow({ mode: 'open' });
     const style = h('style', css);
     this.#shadow.append(style, this.#viewerBadge);
+    this.#accountUI = new AccountUI(this.#shadow);
+    this.#finder = new CupHub(this.#shadow, this.#accountUI, this.#c, () => {
+      this.#open = true;
+      this.#signature = '';
+      this.render();
+    });
     this.#playerMenu = new PlayerMenu(this, this.#shadow);
     this.#viewerBadge.innerHTML =
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span></span>';
@@ -216,10 +227,12 @@ export class CupUI {
           event.stopImmediatePropagation();
           return;
         }
-        if (this.#rulesDialog.open) {
+        if (this.#rulesDialog.open || this.#accountUI.isOpen || this.#finder.isOpen) {
           if (event.code === 'F8') {
             event.preventDefault();
-            this.#rulesDialog.close();
+            if (this.#finder.isOpen) this.#finder.close();
+            else if (this.#accountUI.isOpen) this.#accountUI.close();
+            else this.#rulesDialog.close();
           }
           event.stopImmediatePropagation();
           return;
@@ -259,7 +272,12 @@ export class CupUI {
           event.preventDefault();
           event.stopImmediatePropagation();
           this.endScoreboardPeek();
-        } else if (this.#rulesDialog.open || this.#playerMenu.open)
+        } else if (
+          this.#rulesDialog.open ||
+          this.#playerMenu.open ||
+          this.#accountUI.isOpen ||
+          this.#finder.isOpen
+        )
           event.stopImmediatePropagation();
       },
       { capture: true },
@@ -352,7 +370,7 @@ export class CupUI {
               : key.startsWith('track:')
                 ? cls.includes('ban-choice')
                   ? 'Banning…'
-                  : 'Loading…'
+                  : 'Picking…'
                 : ((
                     {
                       'Join as racer': 'Joining…',
@@ -437,6 +455,10 @@ export class CupUI {
     this.render();
   }
   togglePanel() {
+    if (!this.#c.state && !this.#c.connection) {
+      this.#finder.open();
+      return;
+    }
     this.#peekCup = null;
     this.#open = !this.#open;
     this.#signature = '';
@@ -544,8 +566,10 @@ export class CupUI {
     this.#panel.classList.toggle('lobby-panel', s?.phase === 'registration');
     this.#panel.classList.toggle('scoreboard-panel', !!s && s.phase !== 'registration');
     this.#invite.update(c.connection, this.#open);
+    this.#finder.update();
     if (this.#panel.hidden === this.#open) this.#chatUI.preserveScroll();
     this.#panel.hidden = !this.#open;
+    coverNativeMenu(this.#finder.isOpen || (this.#open && !!c.waitingRoom));
     this.#notice.classList.toggle('panel-open', this.#open || this.#chatUI.isOpen);
     this.renderStartCue();
     if (
@@ -571,6 +595,7 @@ export class CupUI {
       this.#open,
       s?.id,
       s?.revision,
+      c.waitingRoom?.rankRevision,
       c.isHost,
       c.selfId,
       c.reconnectPending,
@@ -594,9 +619,6 @@ export class CupUI {
       !!c.startingCup,
       c.preparingRandom,
       c.canSpectate(),
-      c.isHost && this.#open
-        ? [c.review.dropped, c.review.runs.map((r) => [r.id, r.outcome, r.flag, r.reviewed])]
-        : null,
     ]);
     let restoreScroll: (() => void) | undefined;
     if (key !== this.#signature) {
@@ -656,7 +678,29 @@ export class CupUI {
           },
           'quiet header-hide',
         );
-        header.append(title, this.#invite.element);
+        header.append(title);
+        if (c.room?.snapshot && !c.ranked) {
+          const room = c.room,
+            info = h('div', undefined, 'room-code');
+          info.append(
+            h('small', 'Room code'),
+            this.button(
+              room.snapshot!.code,
+              () => navigator.clipboard.writeText(room.snapshot!.code),
+              'quiet',
+            ),
+          );
+          header.append(info);
+          if (room.isHost && room.active) {
+            const visibility = this.button(
+              room.snapshot!.data.public ? 'Public' : 'Private',
+              () => room.submit('public', !room.snapshot!.data.public),
+              'quiet',
+            );
+            visibility.title = 'Change whether this Cup appears in the finder';
+            header.append(visibility);
+          }
+        } else if (!c.ranked) header.append(this.#invite.element);
         if (s && s.phase !== 'registration') {
           const chat = this.button(
             'Chat',
@@ -671,8 +715,85 @@ export class CupUI {
           rules.setAttribute('aria-haspopup', 'dialog');
           header.append(rules);
         }
-        header.append(hide);
+        const finder = this.button(
+          'Find lobby',
+          () => {
+            if (c.game) c.clearDrivingInput();
+            this.#finder.open();
+          },
+          'quiet header-account',
+        );
+        finder.setAttribute('aria-haspopup', 'dialog');
+        if (c.room) {
+          header.append(
+            this.button(
+              'Friends',
+              () => {
+                c.clearDrivingInput();
+                this.#accountUI.openFriends(
+                  c.room?.snapshot && !c.ranked
+                    ? {
+                        id: c.room.snapshot.id,
+                        instance: sessionStorage.getItem('polycup.room.instance') || '',
+                      }
+                    : undefined,
+                );
+              },
+              'quiet header-friends',
+            ),
+            this.button(
+              c.isHost && !c.ranked ? 'Close Cup' : 'Leave Cup',
+              () => {
+                if (
+                  c.ranked &&
+                  c.room?.snapshot?.data.launch?.stage === 'racing' &&
+                  s?.phase !== 'complete' &&
+                  !confirm(
+                    'Leave this ranked Cup? Reconnect within 2 minutes or it counts as an abandonment loss. Closing the host game ends the Cup for everyone.',
+                  )
+                )
+                  return;
+                if (
+                  c.isHost &&
+                  !c.ranked &&
+                  !confirm('Close this Cup for everyone and return to the finder?')
+                )
+                  return;
+                return c.room!.leave();
+              },
+              'quiet',
+            ),
+          );
+          if (!c.waitingRoom) header.append(hide);
+        } else header.append(finder, hide);
+        const headerActions = h('div', undefined, 'header-actions');
+        headerActions.append(...[...header.children].filter((child) => child !== title));
+        header.append(headerActions);
         this.#panel.append(header);
+        const launch = c.waitingRoom?.snapshot?.data.launch;
+        if (launch?.stage === 'connecting' || launch?.stage === 'racing') {
+          const connection = h('div', undefined, 'waiting-room-connection');
+          connection.append(
+            h(
+              'span',
+              c.waitingRoom?.connectionFailure
+                ? 'Connection failed'
+                : launch.stage === 'racing'
+                  ? 'Joining race…'
+                  : 'Connecting racers…',
+            ),
+          );
+          if (!c.waitingRoom?.connectionFailure) {
+            const elapsed = h('small', '', 'waiting-room-elapsed');
+            elapsed.dataset.connectionSince = String(launch.at);
+            connection.append(elapsed);
+          }
+          if (c.isHost && !c.ranked && launch.stage === 'connecting')
+            connection.append(
+              this.button('Cancel start', () => c.waitingRoom!.submit('cancel'), 'quiet'),
+            );
+          this.#panel.append(connection);
+        }
         if (c.error) {
           const error = h('p', c.error, 'error');
           error.setAttribute('role', 'alert');
@@ -693,22 +814,21 @@ export class CupUI {
             'Client-reported physics check. This warns only; it does not block racing or prove a client is unmodified.';
           this.#panel.append(warnings);
         }
-        if (!c.connection) this.welcome();
+        if (!c.connection && !c.waitingRoom) this.welcome();
         else if (!s) this.setup();
         else {
           this.#body = h('div', undefined, 'body');
           this.#panel.append(this.#body);
           this.tournament();
-          if (c.isHost) {
+          if (c.isHost && !c.ranked) {
             this.hostControls();
             if (s.phase !== 'registration') this.lobbyPeople();
-            if (c.review.runs.length || c.review.dropped) this.#body.append(reviewPanel(this));
           }
           this.#panel.append(h('div', undefined, 'panel-chat-slot'));
           if (this.#resultControls) this.#panel.append(this.#resultControls);
           if (c.isHost || this.#membershipControls || this.#lobbyStart) {
             const footer = h('footer');
-            if (c.isHost) {
+            if (c.isHost && !c.ranked) {
               const tools = h('div', undefined, 'cup-actions');
               const automatic = this.button(
                 c.auto ? 'Auto rounds: on' : 'Auto rounds: off',
@@ -717,39 +837,36 @@ export class CupUI {
               );
               automatic.setAttribute('aria-pressed', String(c.auto));
               tools.append(automatic);
-              if (c.review.runs.length || c.review.dropped)
-                tools.append(
-                  this.button(
-                    'Run review',
-                    () => {
-                      this.#shadow
-                        .querySelector('.review-panel')
-                        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                    },
-                    'quiet',
-                  ),
-                );
               if (s.phase === 'registration' && !rosterOpen(s)) {
-                const back = this.button('Return to lobby', () => c.reopenRoster(), 'quiet');
+                const back = this.button(
+                  'Reset draft',
+                  () => {
+                    if (
+                      confirm('Reset everyone’s bans, picks and readiness and return to Cup setup?')
+                    )
+                      return c.reopenRoster();
+                  },
+                  'quiet',
+                );
                 back.title = 'Return to Cup setup. Bans, picks and readiness will be cleared.';
                 tools.prepend(back);
               }
-              tools.prepend(
-                this.button(
-                  'End Cup',
-                  () => {
-                    if (confirm('End this Cup for everyone and return to normal multiplayer?'))
-                      c.endCup();
-                  },
-                  'quiet danger',
-                ),
-              );
+              if (!c.room)
+                tools.prepend(
+                  this.button(
+                    'End Cup',
+                    async () => {
+                      if (confirm('End this Cup for everyone?')) await c.endCup();
+                    },
+                    'quiet danger',
+                  ),
+                );
               footer.append(tools);
             }
             if (this.#membershipControls) footer.append(this.#membershipControls);
             const startControl = this.#startControls();
             if (startControl) footer.append(startControl);
-            else if (c.isHost && s.phase === 'between-rounds') {
+            else if (c.isHost && !c.ranked && s.phase === 'between-rounds') {
               const next = this.button(
                 'Start next round',
                 async () => {
@@ -841,8 +958,16 @@ export class CupUI {
             );
     this.#downtime.hidden = !label;
     if (this.#downtime.textContent !== label) this.#downtime.textContent = label;
-    this.#toolbar.sync(this.#open);
+    this.#toolbar.sync(this.#open, !!s);
     this.refreshPendingButtons();
+    for (const node of this.#shadow.querySelectorAll<HTMLElement>('[data-connection-since]')) {
+      const seconds = Math.max(
+        0,
+        Math.floor((Date.now() - Number(node.dataset.connectionSince)) / 1000),
+      );
+      node.textContent =
+        seconds >= 8 ? `${seconds}s · Waiting for the multiplayer connection` : `${seconds}s`;
+    }
     for (const e of this.#shadow.querySelectorAll('[data-clock]')) {
       const run = s?.runtime;
       const target = s?.phase === 'racing' ? run?.deadline : run?.startsAt;
@@ -967,6 +1092,7 @@ export class CupUI {
   }
   playerPing(id: number) {
     const ping = h('span', undefined, 'player-ping');
+    ping.hidden = !!this.#c.waitingRoom;
     ping.dataset.pingPlayer = String(id);
     ping.setAttribute('role', 'img');
     const bars = h('span', undefined, 'connection-bars');
@@ -986,6 +1112,15 @@ export class CupUI {
       element.title = label;
     }
   }
+  lobbyRank(id: number) {
+    const profile = this.#c.waitingRoom
+      ? this.#c.waitingRoom.rank(id)
+      : this.#c.state?.roster.find((p) => p.id === id)?.rank;
+    if (profile === undefined) return null;
+    const badge = rankBadge(profile);
+    badge.classList.add('lobby-rank-badge');
+    return badge;
+  }
   racerName(id: number, name: string, showFlag = false, actions = false) {
     const group = h('span', undefined, 'racer-name grow'),
       image = h('img', undefined, 'car-skin');
@@ -1001,7 +1136,7 @@ export class CupUI {
     const flag = showFlag ? this.flag(this.country(id)) : null;
     if (flag) group.append(flag);
     group.append(h('span', name));
-    if (actions && this.#c.isHost && id !== this.#c.localPlayerId) {
+    if (actions && this.#c.isHost && !this.#c.ranked && id !== this.#c.localPlayerId) {
       const button = this.button(
         '',
         () => this.#playerMenu.show(id),
@@ -1492,6 +1627,10 @@ export class CupUI {
         `score-row${r.id === this.#c.localPlayerId ? ' highlighted' : ''}${r.finalist ? ' finalist' : ''}${r.id === this.#c.localPlayerId ? ' self' : ''}`,
       );
       const name = this.racerName(r.id, this.name(r.id), false, personalBests);
+      if (personalBests) {
+        const badge = this.lobbyRank(r.id);
+        if (badge) name.insertBefore(badge, name.querySelector('.player-actions-toggle'));
+      }
       name.title = this.name(r.id);
       const movement = h(
         'small',
@@ -1541,7 +1680,7 @@ export class CupUI {
         const car = name.querySelector('.car-skin');
         if (car) identity.prepend(car);
         const track = recordTrack(s);
-        const pb = track ? s.records[track]?.pbs[r.id] : null;
+        const pb = track ? playerRecord(s, track, r.id) : null;
         const best = !track
           ? '—'
           : !pb
@@ -1552,7 +1691,7 @@ export class CupUI {
                 ? 'Unavailable'
                 : 'No record';
         const record = h('small', undefined, 'score-pb');
-        record.title = 'Overall personal best for this track';
+        record.title = 'Best known time for this track, including this Cup';
         record.append(h('span', 'PB'), h('span', best));
         identity.append(record);
       }
@@ -1748,7 +1887,7 @@ export class CupUI {
     const c = this.#c,
       id = recordTrack(c.cup),
       watching = c.watchId !== null && c.watchable().includes(c.watchId);
-    const pb = watching && id ? c.cup.records[id]?.pbs[c.watchId!] : null;
+    const pb = watching && id ? playerRecord(c.cup, id, c.watchId!) : null;
     const record = h('div', undefined, 'pov-pb');
     const best = !watching
       ? '—'
@@ -1759,7 +1898,7 @@ export class CupUI {
           : pb.status === 'unavailable'
             ? 'Unavailable'
             : 'No record';
-    record.title = `${watching ? `${this.name(c.watchId)} — ` : ''}Overall personal best for this track${pb?.source ? ` (${pb.source === 'online' ? 'online leaderboard' : 'saved profile'})` : ''}`;
+    record.title = `${watching ? `${this.name(c.watchId)} — ` : ''}Best known time for this track${pb?.source ? ` (${pb.source === 'online' ? 'online leaderboard' : pb.source === 'cup' ? 'this Cup' : 'saved profile'})` : ''}`;
     record.append(h('span', 'PB'), h('strong', best));
     return record;
   }
@@ -1772,14 +1911,17 @@ export class CupUI {
         const row = h('div', undefined, `final-row${r.winner ? ' champion' : ''}`);
         const score = h('span', r.score, 'final-score');
         score.title = 'Cup points';
-        row.append(h('strong', r.place), this.racerName(r.id, r.name));
+        const name = this.racerName(r.id, r.name),
+          badge = this.lobbyRank(r.id);
+        if (badge) name.append(badge);
+        row.append(h('strong', r.place), name);
         if (r.winner) row.append(h('span', 'Winner', 'winner-label'));
         row.append(score);
         board.append(row);
       }
       this.#body.append(board);
       const controls = h('div', undefined, 'controls result-controls');
-      if (this.#c.isHost)
+      if (this.#c.isHost && !this.#c.ranked)
         controls.append(
           this.button('Race again', () => this.#c.rematch(), 'primary'),
           this.button('Choose new tracks', () => this.#c.rematch(true)),

@@ -9,6 +9,10 @@ export type Phase =
   | 'between-rounds'
   | 'complete';
 export interface Racer {
+  rank?: Pick<
+    import('./ranked.ts').RankedProfile,
+    'tier' | 'rating' | 'gm_position' | 'provisional'
+  > | null;
   countryCode?: string | null;
   id: PlayerId;
   name: string;
@@ -37,6 +41,8 @@ export interface SessionRecord {
 }
 export interface TrackRecords {
   pbs: Record<PlayerId, RaceRecord>;
+  /** Best confirmed Cup finish, retained when peer snapshots omit old rounds. */
+  cupPbs?: Record<PlayerId, number>;
   wr?: RaceRecord;
   tr?: SessionRecord | null;
 }

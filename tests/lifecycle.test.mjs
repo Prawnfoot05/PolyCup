@@ -36,6 +36,25 @@ function room() {
   return { host, guests, clients, drop: value => { drop = value; } };
 }
 
+test('waiting-room handoff closes a panel reopened after native round arrival without locking later scoreboard access', () => {
+  let updates = 0, suspended = false;
+  const c = new Controller(() => { updates++; });
+  c.state = Cup.newCup(); c.state.phase = 'warmup';
+  c.state.runtime = { id: 'first-round', sessionId: 1 };
+  c.syncRoundPanel();
+  c.requestPanel(true);
+  const revision = c.panelRequest.revision;
+  c.waitingRoom = { suspend() { suspended = true; } };
+  c.finishWaitingRace();
+  assert.equal(suspended, true);
+  assert.equal(c.panelRequest.open, false);
+  assert.ok(c.panelRequest.revision > revision);
+  assert.equal(updates, 1);
+  c.requestPanel(true);
+  c.syncRoundPanel();
+  assert.equal(c.panelRequest.open, true, 'later scoreboard access remains available');
+});
+
 test('Cup creation opens every panel once; personal panel changes are never shared', () => {
   const { host, clients } = room();
   host.create('Evening Cup');

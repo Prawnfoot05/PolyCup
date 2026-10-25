@@ -94,3 +94,23 @@ test('automatic return notice accepts only the current host and never opens a pr
  c.connection={};c.native={};c.state.roster[0].id=9;c.syncReconnect();assert.equal(c.reconnectPending,false);
  c.state=null;await c.receiveReconnect(0,notice);assert.equal(c.reconnectPending,false);
 });
+
+test('a returning custom Cup finisher retains final standings and PBs without a duplicate spectator',async()=>{
+ const {Controller,validSnapshot}=await import('../.research/test-src/controller.ts');
+ const Cup=await import('../.research/test-src/cup.ts');
+ const host=new Controller(()=>{});host.isHost=true;host.selfId=1;host.connection={};
+ const s=host.state=Cup.newCup('Completed reconnect'),track='a'.repeat(64);
+ for(const id of [1,2]){Cup.addPlayer(s,id,'P'+id);Cup.chooseTrack(s,id,{id:track,name:'Winter 2'});}
+ Cup.lockRegistration(s);host.lobby=[{id:1,isSelf:true,nickname:'Host'},{id:2,nickname:'P2'}];host.hello=new Set([2,9,8]);host.broadcast=()=>{};host.transport.has=()=>true;
+ const identity=await profileIdentity('finished-profile',s.id),messages=[];host.transport.send=(id,m)=>{messages.push(m);return true;};
+ const register=async(id,proof=identity)=>{await host.receiveReconnect(id,{type:'identity-open',cupId:s.id,publicKey:proof.publicKey});const nonce=messages.at(-1).nonce;await host.receiveReconnect(id,{type:'identity-proof',cupId:s.id,nonce,signature:await proof.sign(nonce)});};
+ await register(2);
+ for(let i=0;i<15;i++){Cup.beginRound(s);s.phase='countdown';Cup.startRace(s,0);Cup.recordFinish(s,2,27346,30000);Cup.completeRound(s);}
+ assert.equal(s.phase,'complete');const score=s.matches[0].scores[2],rounds=s.matches[0].rounds;
+ host.lobby=[{id:1,isSelf:true,nickname:'Host'},{id:8,nickname:'P2'},{id:9,nickname:'P2'}];host.syncReconnect();
+ await register(8,await profileIdentity('impostor',s.id));assert.ok(Cup.player(s,2));
+ await register(9);assert.equal(Cup.player(s,2),undefined);assert.ok(Cup.player(s,9));
+ assert.equal(s.phase,'complete');assert.equal(s.roster.length,2);assert.equal(s.results[0].id,9);assert.equal(s.matches[0].scores[9],score);assert.equal(s.matches[0].rounds,rounds);assert.equal(s.records[track].cupPbs[9],27346);
+ assert.ok(validSnapshot(host.networkState()));
+ const guest=new Controller(()=>{});guest.selfId=9;guest.receive(0,host.syncMessage());guest.finishWaitingRace();assert.equal(guest.state.phase,'complete');assert.equal(guest.panelRequest.open,true);
+});

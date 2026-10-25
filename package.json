@@ -1,6 +1,6 @@
 {
   "name": "polytrack-world-cup",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,12 +10,16 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "pretest": "node scripts/prepare-tests.mjs"
+    "pretest": "node scripts/prepare-tests.mjs",
+    "build:release": "npm run typecheck && node scripts/build.mjs --output output/release-candidate/dist"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
     "prettier": "3.6.2",
     "tsx": "4.20.6",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
   }
 }

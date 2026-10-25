@@ -15,6 +15,7 @@ export class CupToolbar {
   #observer: MutationObserver;
   #resize: ResizeObserver;
   #open: boolean = false;
+  #cupActive = false;
 
   constructor({
     fallback,
@@ -81,8 +82,9 @@ export class CupToolbar {
     window.addEventListener('resize', this.#schedule);
     this.sync();
   }
-  sync(open?: boolean) {
+  sync(open?: boolean, cupActive?: boolean) {
     if (open !== undefined) this.#open = open;
+    if (cupActive !== undefined) this.#cupActive = cupActive;
     const toolbar = document.querySelector<HTMLElement>('.game-toolbar-ui');
     if (toolbar !== this.#toolbar) {
       this.#resize.disconnect();
@@ -98,6 +100,10 @@ export class CupToolbar {
     const container = toolbar?.querySelector(':scope > .button-container');
     if (container && this.#button.parentElement !== container) container.append(this.#button);
     if (!container) this.#button.remove();
+    for (const button of toolbar?.querySelectorAll('button') ?? []) {
+      if (button.textContent?.trim() === 'Change Track')
+        button.classList.toggle('polycup-track-locked', this.#cupActive);
+    }
     this.#fallback.hidden = !!container;
     this.#button.setAttribute('aria-expanded', String(!!this.#open));
     this.#button.tabIndex = toolbar?.classList.contains('visible') ? 0 : -1;

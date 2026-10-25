@@ -25,3 +25,4 @@
      The ordinary Players panel stays available during an active session. */
   display: none !important;
 }
+.game-toolbar-ui .polycup-track-locked { display:none!important; }

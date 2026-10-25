@@ -1,3 +1,4 @@
+import { statusIcon } from './status-icon.ts';
 import type { CupUI } from './ui.ts';
 import { element as h } from './dom.ts';
 import { banTurn, banEntries } from './draft.ts';
@@ -9,7 +10,8 @@ function draftBadge(name: string, banned: boolean, button?: HTMLButtonElement) {
   badge.classList.add('draft-badge', banned ? 'draft-ban' : 'draft-pick');
   badge.title = `${banned ? 'Banned' : 'Picked'}: ${name}`;
   badge.setAttribute('aria-label', badge.title);
-  const icon = h('span', banned ? '×' : '✓', 'draft-badge-icon');
+  const icon = h('span', undefined, 'draft-badge-icon');
+  icon.append(statusIcon(banned ? 'cross' : 'check'));
   icon.setAttribute('aria-hidden', 'true');
   badge.append(icon, h('span', name, 'draft-badge-name'));
   return badge;
@@ -63,7 +65,7 @@ export function lobbyPanel(ui: CupUI) {
   action.setAttribute('aria-label', 'Current lobby action');
   const rules = rulesFor(s);
   const heading = h('div', undefined, 'lobby-roster-heading');
-  heading.append(h('h2', `Racers · ${s.roster.length}/8`));
+  heading.append(h('h2', `Racers · ${s.roster.length}/${c.ranked ? s.roster.length : 8}`));
   roster.append(heading);
   const order = s.draft?.order.length ? s.draft.order : s.roster.map((p) => p.id);
   if (!order.length) roster.append(h('p', 'No racers yet.', 'muted'));
@@ -78,6 +80,8 @@ export function lobbyPanel(ui: CupUI) {
     row.classList.toggle('draft-ready', ready);
     const car = identity.querySelector('.car-skin');
     if (car) row.append(car);
+    const badge = ui.lobbyRank(id);
+    if (badge) identity.insertBefore(badge, identity.querySelector('.player-actions-toggle'));
     identity.insertBefore(ui.playerPing(id), identity.querySelector('.player-actions-toggle'));
     row.append(identity);
     const meta = h('div', undefined, 'lobby-meta');
@@ -170,7 +174,7 @@ export function lobbyPanel(ui: CupUI) {
     spectate.disabled = !view.joined;
     more.append(spectate);
   }
-  roster.append(more);
+  if (!c.ranked) roster.append(more);
   if (!s.draft && !view.joined) action.append(ui.joinControls());
   if (view.mode === 'join') {
     if (c.isHost) {
@@ -214,11 +218,23 @@ export function lobbyPanel(ui: CupUI) {
       selfReady && c.isHost ? 'quiet' : 'primary',
       'track:draft-ready',
     );
-    readyButton.disabled = !picksComplete(s, c.selfId!) || !!c.pendingUpload;
-    readyButton.title = readyButton.disabled ? 'Choose all your tracks first.' : '';
+    const connecting = c.waitingRoom?.snapshot?.data.launch?.stage;
+    readyButton.disabled =
+      !picksComplete(s, c.selfId!) ||
+      !!c.pendingUpload ||
+      (c.ranked && connecting === 'grace') ||
+      connecting === 'connecting' ||
+      connecting === 'racing';
+    readyButton.title = !readyButton.disabled
+      ? ''
+      : connecting
+        ? 'The Cup is starting.'
+        : c.pendingUpload
+          ? 'Your track is still uploading.'
+          : 'Choose all your tracks first.';
     ui.setLobbyStart(readyButton);
   }
-  if (c.isHost && view.stage === 'picks' && (!view.joined || selfReady)) {
+  if (c.isHost && !c.ranked && view.stage === 'picks' && (!view.joined || selfReady)) {
     const start = ui.button(
       c.startingCup ? 'Starting…' : 'Start Cup',
       () => c.startCup(),

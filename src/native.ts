@@ -108,6 +108,7 @@ export function connectNative(pml: PolyModLoader, controller: Controller) {
     },
     records: g => ({ server: jd.get(da.get(g)), profiles: ha.get(g), store: da.get(g) }),
     carThumbnail: style => kr.F(style, new Sr.A()),
+    carStyleFromText: text => Zt.A.deserializeSafe(text),
     readInputs: g => ({ frames: Xa.get(g).getTime().numberOfFrames, controls: qa.get(g).getControls() }),
     watchInputs: (g, callback) => { const c=qa.get(g); c.addChangeCallback(callback); return () => c.removeChangeCallback(callback); },
     createInputVisualizer: parent => { const view=new Df(parent); return { element: If.get(view),
@@ -345,7 +346,12 @@ export class CupTransport {
         this.#onChange();
       }
     for (const { id, pc } of peers)
-      if (!this.#peers.has(pc) && pc.connectionState !== 'closed') {
+      if (
+        !this.#peers.has(pc) &&
+        !['closed', 'failed'].includes(pc.connectionState) &&
+        pc.signalingState !== 'closed' &&
+        pc.sctp?.state !== 'closed'
+      ) {
         const channel = pc.createDataChannel(
           `polytrack-world-cup-${this.#channelId}`,
           this.#realtime

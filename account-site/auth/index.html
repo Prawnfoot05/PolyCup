@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Return to PolyCup</title>
+  <link rel="stylesheet" href="return.css">
+  <script src="return.js" defer></script>
+</head>
+<body>
+  <main>
+    <div class="brand">PolyCup</div>
+    <section aria-labelledby="title">
+      <h1 id="title">Finish in PolyCup</h1>
+      <p id="status" role="status">Checking your sign-in return…</p>
+      <div id="handoff" hidden>
+        <label for="code">Return code</label>
+        <textarea id="code" readonly spellcheck="false" rows="3"></textarea>
+        <button id="copy" type="button">Copy return code</button>
+        <p class="note">Paste it into <strong>Account → Finish sign-in</strong> in the game. Keep the same game window open.</p>
+        <p class="note">Use this code within five minutes. It works once, only with the sign-in you started.</p>
+      </div>
+      <noscript>JavaScript is needed to return to PolyCup. Enable it, then start sign-in again from the game.</noscript>
+    </section>
+    <footer>Your Discord password stays with Discord.</footer>
+  </main>
+</body>
+</html>

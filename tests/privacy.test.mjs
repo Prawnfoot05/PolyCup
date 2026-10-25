@@ -41,7 +41,7 @@ test('PML hooks override inherited own no-ops without exposing controller or UI'
   const start = source.indexOf('const { PolyMod, MixinType }');
   const end = source.indexOf('class PolyCup', start);
   const bundle = await build({stdin:{contents:source.slice(0,start)+stub+source.slice(end),resolveDir:'src',loader:'ts'},
-    bundle:true,write:false,format:'esm',target:'es2022',loader:{'.css':'text','.svg':'text'}});
+    bundle:true,write:false,format:'esm',target:'es2022',loader:{'.css':'text','.svg':'text','.png':'dataurl'}});
   const { polyMod } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
   assert.equal('controller' in polyMod, false);
   assert.equal('ui' in polyMod, false);

@@ -1,0 +1,70 @@
+.ranked-queue-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;font:400 17px ForcedSquare,Arial,sans-serif}
+.ranked-queue-count{color:#b6c7df}.ranked-queue-message{color:#ffb0b0;font:400 16px ForcedSquare,Arial,sans-serif;overflow-wrap:anywhere}
+.ranked-match-deadline{display:block;margin-top:6px;color:#ffda6c;font-size:16px}
+.ranked-match-dialog{border:0;border-top:4px solid #ffda6c;padding:0;background:#1b2343;color:#f3f5ff;width:min(520px,calc(100vw - 24px));max-height:calc(100dvh - 32px);font:400 18px ForcedSquare,Arial,sans-serif;box-sizing:border-box}
+.ranked-match-dialog::backdrop{background:#080e22b0}.ranked-match-dialog header{background:#293662;padding:18px 22px}.ranked-match-dialog h2{font:400 26px ForcedSquare,Arial,sans-serif;margin:0}
+.ranked-match-body{padding:18px 22px}.ranked-match-rules{margin:0 0 6px;color:#b9cbe4}.ranked-match-roster{margin-top:20px}.ranked-match-racer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;padding:14px 0;border-bottom:1px solid #3b496b}.ranked-match-racer>span:first-child{overflow-wrap:anywhere}.ranked-match-racer>span:last-child{color:#b6c7df}.ranked-match-racer .is-ready{color:#7be4b9!important}.ranked-match-stage{font:400 16px ForcedSquare,Arial,sans-serif;color:#b6c7df;margin:18px 0 0}
+.ranked-match-dialog footer{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:14px 22px;border-top:1px solid #3b496b}.ranked-match-dialog footer>span{margin-right:auto}.ranked-match-dialog button{font:400 18px ForcedSquare,Arial,sans-serif;padding:8px 14px;border:0;background:#293662;color:#fff;cursor:pointer}.ranked-match-dialog button.primary{background:#ffda6c;color:#152044}.ranked-match-dialog button:disabled{opacity:.5;cursor:default}.ranked-match-dialog button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+.ranked-queue-bar{flex:none;justify-content:space-between;border-top:1px solid #40517a;padding:16px 0;gap:16px;min-height:76px}
+.ranked-queue-identity{display:flex;align-items:center;gap:16px;min-width:0}
+.ranked-queue-identity h2{font:400 18px ForcedSquare,Arial,sans-serif;margin:0;width:96px;flex:none}
+.ranked-queue-controls{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-left:auto}
+.ranked-queue-controls .ranked-queue-message{flex-basis:100%;text-align:right}
+.ranked-rating-badge{position:relative;width:140px;height:42px;overflow:hidden;flex:none}
+.ranked-rating-badge>img{position:absolute;width:120.47%;height:100%;max-width:none;inset:0 auto 0 0}
+.ranked-rating-value{position:absolute;left:24%;right:5%;top:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#11140f;font:italic 400 38px ForcedSquare,Arial,sans-serif;line-height:.8}
+.ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:21px;gap:0}
+.ranked-rating-value small{font:italic 400 18px/.8 ForcedSquare,Arial,sans-serif}
+.ranked-rating-badge.is-unranked{width:auto;min-width:110px;display:flex;align-items:center;color:#b6c7df;font-size:18px}
+.ranked-match-dialog header{text-align:center}.ranked-match-ready{display:flex;gap:12px;justify-content:center;padding:6px 0}
+.ranked-match-ready>span{display:grid;place-items:center;width:34px;height:34px;background:#293662;color:#91a7c7;border:1px solid #52678c;font-family:Arial,sans-serif}
+.ranked-match-ready>span.is-ready{background:#254d4c;color:#7be4b9;border-color:#7be4b9}
+.ranked-match-progress{text-align:center;color:#b6c7df;font-size:17px;margin:12px 0 0}
+.ranked-match-dialog footer{justify-content:center}.ranked-match-dialog footer button{min-width:120px}
+@media(max-width:850px){.ranked-queue-bar{gap:10px}.ranked-queue-identity{gap:10px}.ranked-queue-identity h2{width:74px;font-size:16px}.ranked-queue-controls{gap:8px}.ranked-queue-count{font-size:15px}}
+@media(max-width:620px){.ranked-queue-identity{flex:1 1 100%;justify-content:space-between}.ranked-queue-controls{flex:1;justify-content:space-between}.ranked-queue-bar{gap:8px}}
+
+.ranked-player-stats { display:flex; flex-direction:column; gap:5px; color:#b6c7df; font:400 15px/1.15 ForcedSquare,Arial,sans-serif; white-space:nowrap; }
+@media(max-width:620px){.ranked-queue-identity { flex-wrap:wrap; }.ranked-player-stats{margin-left:auto}}
+
+@media(min-width:621px) and (max-width:1000px) {
+ .ranked-queue-bar,.ranked-queue-identity { gap:10px; }
+ .ranked-queue-identity h2 { width:74px; font-size:16px; }
+ .ranked-rating-badge { width:120px; height:36px; }
+ .ranked-rating-value { font-size:33px; }
+ .ranked-rating-badge.is-grandmaster .ranked-rating-value { font-size:20px; }
+ .ranked-rating-value small { font-size:15px; }
+ .ranked-player-stats { font-size:13px; }
+ .ranked-queue-controls { gap:8px; }
+ .ranked-queue-count { font-size:15px; }
+}
+
+.ranked-rating-badge.is-provisional .ranked-rating-value{color:#c2cad9}
+
+.hub-activities .ranked-leaderboard{margin-inline:auto;width:142px;font-size:18px;background:#27345a}
+@media(max-width:1000px){.hub-activities .ranked-leaderboard{width:124px;font-size:16px}}
+.ranked-match-ready .status-icon{display:block;width:22px;height:22px}
+
+/* Use available panel width, including the game's UI scaling. */
+.hub-main { container-type:inline-size; }
+@container (min-width:600px) and (max-width:900px) {
+ .hub-activities { padding-inline:12px; }
+ .hub-host { grid-template-columns:74px minmax(0,1fr) 124px; gap:10px; }
+ .hub-activity-title,.ranked-queue-identity h2 { width:74px; font-size:16px; }
+ .hub-activities button { width:124px; font-size:18px; }
+ .hub-activities .ranked-leaderboard { width:116px; font-size:16px; }
+ .ranked-queue-bar,.ranked-queue-identity { gap:10px; }
+ .ranked-queue-controls { gap:8px; }
+ .ranked-queue-identity .ranked-rating-badge { width:112px; height:34px; }
+ .ranked-queue-identity .ranked-rating-value { font-size:30px; }
+ .ranked-queue-identity .is-grandmaster .ranked-rating-value { font-size:18px; }
+ .ranked-queue-identity .ranked-rating-value small { font-size:14px; }
+ .ranked-player-stats { font-size:13px; }
+ .ranked-queue-count { font-size:14px; }
+}
+
+.ranked-queue-controls .ranked-queue-help { color:#b6c7df; }
+.ranked-reconnect-dialog .ranked-match-body p { line-height:1.4; }
+.ranked-reconnect-note { color:#b6c7df; font-size:16px; }
+.ranked-reconnect-time { color:#ffd26b; font-size:24px; font-variant-numeric:tabular-nums; }
