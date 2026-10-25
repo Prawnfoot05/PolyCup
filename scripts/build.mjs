@@ -25,7 +25,13 @@ try {
 const output = staged ? args[1] : mod.version.includes('-') ? 'output/dev-mod' : 'dist';
 const folder = `${output}/${mod.version}`;
 await mkdir(folder, { recursive: true });
-const bundle = await build({ metafile: true, entryPoints: ['src/main.ts'], outfile: `${folder}/main.mod.js`, bundle: true,
+// Text assets must produce identical bytes from Windows working copies and Git archives.
+const textAssets = { name: 'portable-text-assets', setup(build) {
+  build.onLoad({ filter: /\.(css|svg)$/ }, async ({ path }) => ({
+    contents: (await readFile(path, 'utf8')).replace(/\r\n/g, '\n'), loader: 'text',
+  }));
+}};
+const bundle = await build({ plugins: [textAssets], metafile: true, entryPoints: ['src/main.ts'], outfile: `${folder}/main.mod.js`, bundle: true,
   format: 'esm', target: 'es2022', loader: { '.css': 'text', '.svg': 'text', '.png': 'dataurl' }, legalComments: 'inline' });
 await writeFile(`${output}/manifest.json`, JSON.stringify({ name: mod.name, author: mod.author,
   id: mod.id, latest: { [mod.gameVersion]: mod.version } }, null, 2) + '\n');
