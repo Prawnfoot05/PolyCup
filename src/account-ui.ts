@@ -1,3 +1,4 @@
+import { CLIENT_BUILD } from './build-info.ts';
 import { element as h } from './dom.ts';
 import { PolyCupAccount } from './account.ts';
 import { discordIdentity } from './account-flow.ts';
@@ -358,7 +359,12 @@ export class AccountUI {
       if (!this.#signOutAllowed()) signOut.title = 'Leave your Cup before signing out.';
       this.#footer.append(signOut);
       this.#header.append(portrait, labels);
-    } else this.#header.append(h('h2', this.#embedded ? 'Guest' : 'PolyCup account'));
+    } else {
+      this.#header.append(h('h2', this.#embedded ? 'Guest' : 'PolyCup account'));
+      const build = h('small', CLIENT_BUILD, 'account-build');
+      build.title = 'Installed PolyCup build';
+      this.#header.append(build);
+    }
     if (this.#error) {
       const error = h('p', this.#error, 'account-error');
       error.setAttribute('role', 'alert');
