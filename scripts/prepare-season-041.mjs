@@ -7,5 +7,5 @@ const community=catalog.entries.filter(t=>t.category==='community');
 if(community.some(t=>!groups.has(t.id)))throw Error('Native community collection metadata incomplete');
 const latest=[...new Set(community.map(t=>groups.get(t.id).collection))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).at(-1);
 const entries=catalog.entries.filter(t=>t.category==='official'||groups.get(t.id).collection===latest);
-await writeFile('supabase/catalogs/season-1.json',JSON.stringify({id:'season-1',name:'Season 1',gameVersion:'0.6.3',communityCollection:latest,source:'Native bundled track collection metadata; main tracks plus latest CT collection',entries,tracks:entries.map(t=>({id:t.id,...groups.get(t.id)}))},null,2)+'\n');
+await writeFile('supabase/catalogs/season-1.json',JSON.stringify({id:'season-1',name:'Season 0',gameVersion:'0.6.3',communityCollection:latest,source:'Native bundled track collection metadata; main tracks plus latest CT collection',entries,tracks:entries.map(t=>({id:t.id,...groups.get(t.id)}))},null,2)+'\n');
 console.log(JSON.stringify({communityCollection:latest,main:entries.filter(t=>t.category==='official').length,community:entries.filter(t=>t.category==='community').length}));

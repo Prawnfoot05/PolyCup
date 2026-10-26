@@ -4,7 +4,7 @@ Release date: 2026-10-26. The deployment procedure below coordinates the client 
 
 ## Ranked format
 
-Season 1 freezes the 17 main tracks and 10 CT 0.6.3 tracks (27 total). The native bundled collection metadata identifies the CT group; older community collections are excluded. `supabase/catalogs/season-1.json` contains the exact IDs and digests. The reservation selects one track on the server. Accepting the match starts the connection flow without a ban/pick draft or a second ready gate. Connection retries and reconnects retain that track.
+Season 0 freezes the 17 main tracks and 10 CT 0.6.3 tracks (27 total). The native bundled collection metadata identifies the CT group; older community collections are excluded. `supabase/catalogs/season-1.json` contains the exact IDs and digests. The reservation selects one track on the server. Accepting the match starts the connection flow without a ban/pick draft or a second ready gate. Connection retries and reconnects retain that track.
 
 The opening warmup lasts 30 seconds and cannot be ended early by one racer. Scored rounds award 10/7/4/2 points; DNF awards zero. Reach 30 points and then win a round. Round breaks are three seconds. Every round remains on the selected track until the winner is decided. This targets a shorter match, not a guaranteed five-minute duration on long tracks.
 
@@ -32,7 +32,7 @@ The full lobby is blurred and dimmed beneath a Loading overlay after the countdo
 
 ## Deployment sequence
 
-1. Apply `20261026000000_ranked_seasons.sql`, `20261026010000_ranked_single_track_session.sql`, `20261026020000_ranked_season_standings.sql`, `20261026030000_ranked_active_season_ranks.sql`, and `20261026040000_online_player_count.sql`. Season 1 is inserted inactive; these migrations do not switch the production queue.
+1. Apply `20261026000000_ranked_seasons.sql`, `20261026010000_ranked_single_track_session.sql`, `20261026020000_ranked_season_standings.sql`, `20261026030000_ranked_active_season_ranks.sql`, and `20261026040000_online_player_count.sql`. Season 0 is inserted inactive; these migrations do not switch the production queue.
 2. Build/deploy the updated result-processing Edge Function. It validates both the legacy draft format and the seasonal single-track format. No input-review processor change is needed for the subset of the existing corpus.
 3. Prepare/publish the reviewed 0.4.1 distribution and verify the CDN bytes; update the PML library's independent latest mapping as well as the hosted manifest.
 4. Pause new ranked entry, let queued/active/unsettled matches drain, then run `supabase/release/activate-0.4.1.sql`. It refuses a cutover with outstanding queue seats or matches. Do not remove live matches to bypass this gate.
