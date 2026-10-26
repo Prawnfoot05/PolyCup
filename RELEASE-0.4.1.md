@@ -1,6 +1,6 @@
 # PolyCup 0.4.1 release notes
 
-Release date: 2026-10-26. The deployment procedure below coordinates the client and seasonal backend.
+Published on 2026-10-26. CDN bytes match the tested release; the backend migrations and result function are deployed, and Season 0 is active. A fresh client passed live queue admission/cancellation. PML Mod Library registration has a separate latest mapping.
 
 ## Ranked format
 
@@ -32,7 +32,7 @@ The full lobby is blurred and dimmed beneath a Loading overlay after the countdo
 
 ## Deployment sequence
 
-1. Apply `20261026000000_ranked_seasons.sql`, `20261026010000_ranked_single_track_session.sql`, `20261026020000_ranked_season_standings.sql`, `20261026030000_ranked_active_season_ranks.sql`, and `20261026040000_online_player_count.sql`. Season 0 is inserted inactive; these migrations do not switch the production queue.
+1. Apply `20261026000000_ranked_seasons.sql`, `20261026010000_ranked_single_track_session.sql`, `20261026020000_ranked_season_standings.sql`, `20261026030000_ranked_active_season_ranks.sql`, `20261026040000_online_player_count.sql`, and `20261026050000_ranked_season_zero.sql`. Season 0 is inserted inactive; these migrations do not switch the production queue.
 2. Build/deploy the updated result-processing Edge Function. It validates both the legacy draft format and the seasonal single-track format. No input-review processor change is needed for the subset of the existing corpus.
 3. Prepare/publish the reviewed 0.4.1 distribution and verify the CDN bytes; update the PML library's independent latest mapping as well as the hosted manifest.
 4. Pause new ranked entry, let queued/active/unsettled matches drain, then run `supabase/release/activate-0.4.1.sql`. It refuses a cutover with outstanding queue seats or matches. Do not remove live matches to bypass this gate.
