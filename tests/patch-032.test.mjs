@@ -15,6 +15,22 @@ function racer(isHost=false) {
 function finish(c,frames=12000) {
  let callback;c.hookFinish({addCheckpointCallback(){},addFinishCallback(fn){callback=fn;},getTime:()=>({numberOfFrames:frames})},c.state.runtime);callback();
 }
+
+test('finish uses the native crossing time for standings, receipts and input review, including restart offsets',()=>{
+ for(const host of [false,true])for(const offset of [0,4000]) {
+  const c=racer(host),receipts=[],inputs=[],shown=[];let callback;
+  c.now=()=>20000;c.raceClockRound=c.state.runtime.id;c.raceTimeOffset=offset;
+  c.waitingRoom={recordOwnFinish:(...args)=>receipts.push(args),inputReviewEnabled:true,recordOwnInput:run=>inputs.push(run)};
+  c.native.showRoundFinish=(_game,frames)=>shown.push(frames);c.transport.send=()=>true;
+  c.hookFinish({addCheckpointCallback(){},addFinishCallback(fn){callback=fn;},getTime:()=>({numberOfFrames:13859}),
+   getFinishTime:()=>({numberOfFrames:13854}),getRecording:()=>({serialize:()=> 'recording'})},c.state.runtime);
+  callback();
+  assert.equal(host?c.state.runtime.finishes[1]:c.pendingFinish.frames,13854+offset);
+  assert.equal(receipts[0][2],13854+offset);assert.equal(inputs[0].finish,13854+offset);
+  assert.equal(inputs[0].nativeFinish,13854);assert.equal(inputs[0].timeOffset,offset);
+  assert.deepEqual(shown,offset?[13854+offset]:[]);
+ }
+});
 test('finish survives a failed send, dropped message and lost acknowledgement without duplicate scoring',t=>{
  let now=0;t.mock.method(performance,'now',()=>now);
  const guest=racer(),host=racer(true);host.state=structuredClone(guest.state);

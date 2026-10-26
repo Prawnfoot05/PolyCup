@@ -1,0 +1,70 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {test} from 'node:test';
+import {PGlite} from '../../.research/supabase-validation/node_modules/@electric-sql/pglite/dist/index.js';
+import {validateRankedTranscript,settleLocalRanked} from '../ranked-validator.ts';
+const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+test('seasonal ranked: frozen random track, garage identities, retries, settlement and archived standings',async t=>{
+ const db=await PGlite.create();try{
+ await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,raw_user_meta_data jsonb,is_anonymous boolean default false);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema public,auth to anon,authenticated,service_role;`);
+ for(const f of (await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')).sort())await db.exec(await readFile('supabase/migrations/'+f,'utf8'));
+ for(let n=1;n<=4;n++)await db.query('insert into auth.users values($1,$2,false)',[id(n),{full_name:'Account '+n}]);
+ await t.test('public online count deduplicates windows and excludes stale and anonymous sessions',async()=>{
+  await db.query('update auth.users set is_anonymous=true where id=$1',[id(4)]);
+  for(const [player,session,age] of [[1,101,0],[1,102,0],[2,103,91],[3,104,0],[4,105,0]])
+   await db.query("insert into public.friend_presence_sessions values($1,$2,now()-make_interval(secs=>$3))",[id(player),id(session),age]);
+  await db.transaction(async tx=>{await tx.exec('set local role anon');assert.equal((await tx.query('select public.polycup_online_count() n')).rows[0].n,2);});
+  await assert.rejects(db.transaction(async tx=>{await tx.exec('set local role anon');return tx.query('select * from public.friend_presence_sessions');}),/permission denied/);
+ });
+ await db.exec('update public.polycup_ranked_config set enabled=true,provisional_matches=5,tier_floors=array[0,5000,10000,15000,20000,25000]');
+ const as=(who,sql,args=[])=>db.transaction(async tx=>{await tx.exec('set local role authenticated');await tx.query("select set_config('request.jwt.claim.sub',$1,true)",[id(who)]);return tx.query(sql,args);});
+ await assert.rejects(as(1,"select public.polycup_ranked_activate_season('season-1')"),/permission denied/);
+ await db.exec("select public.polycup_ranked_activate_season('season-1')");
+ const pool=(await db.query('select catalog from public.polycup_queue_config')).rows[0].catalog;
+ assert.equal(pool.length,27);
+ await assert.rejects(db.exec("update public.polycup_ranked_seasons set rules='{}' where id='season-1'"),/frozen/);
+ await db.query('select public.polycup_ranked_reserve($1,$2,$3)',[id(500),[id(1),id(2)],pool]);
+ const selected=(await db.query('select selected_track from public.polycup_ranked_matches where id=$1',[id(500)])).rows[0].selected_track;
+ await db.query('select public.polycup_ranked_reserve($1,$2,$3)',[id(500),[id(1),id(2)],pool]);
+ assert.equal((await db.query('select selected_track from public.polycup_ranked_matches where id=$1',[id(500)])).rows[0].selected_track,selected);
+ for(let n=1;n<=2;n++)await as(n,"select public.polycup_ranked_member($1,$2,'accept')",[id(500),id(100+n)]);
+ await db.query("select public.polycup_ranked_advance($1,'draft')",[id(500)]);
+ const session=async(who,action='poll',value=null)=>(await as(who,'select public.polycup_ranked_session($1,$2,$3,$4) s',[id(500),id(100+who),action,JSON.stringify(value)])).rows[0].s;
+ let host=await session(1,'garage',{name:'Garage one',country:'BG',style:'garage-style'});
+ assert.equal(host.members[0].name,'Garage one');assert.equal(host.members[0].country,'bg');assert.equal(host.members[0].style,'garage-style');
+ assert.equal(host.members[0].account,id(1));assert.equal(host.rules.pointsToWin,30);assert.equal(host.rules.warmupSeconds,30);assert.equal(host.rules.uploadLeaderboardTimes,true);
+ assert.equal(host.selected_track,selected);assert.equal(host.session.launch.stage,'grace');
+ await assert.rejects(session(3,'garage',{name:'Spoof'}),/not in this ranked/);
+ await assert.rejects(session(2,'garage',{name:'Bad',country:'../bad'}),/Invalid garage/);
+ await assert.rejects(session(1,'pick',selected),/locked|fixed random/);
+ const firstAttempt=host.session.launch.id;await session(1,'failed',firstAttempt);
+ await assert.rejects(session(1,'ban',pool[0].id),/fixed random/);
+ await session(1,'draft-ready','ready');host=await session(2,'draft-ready','ready');
+ assert.notEqual(host.session.launch.id,firstAttempt);assert.equal(host.selected_track,selected);
+ const attempt=host.session.launch.id;
+ await db.query("update public.polycup_ranked_matches set session=jsonb_set(session,'{launch,at}',to_jsonb((extract(epoch from now())*1000-1)::bigint)) where id=$1",[id(500)]);
+ host=await session(1);const guest=await session(2);
+ await session(1,'bind',{attempt,ticket:host.ticket,native:0});await session(1,'bind',{attempt,ticket:guest.ticket,native:7});
+ await session(1,'race',attempt);
+ await db.query("update public.polycup_ranked_matches set started_at=now()-interval '2 minutes' where id=$1",[id(500)]);
+ const match=(await db.query('select * from public.polycup_ranked_matches where id=$1',[id(500)])).rows[0];
+ const transcript={schema:1,match:match.id,launch:attempt,order:[selected],rounds:Array.from({length:4},(_,i)=>({round:i+1,track:selected,finishes:[{player:id(1),frames:10000},{player:id(2),frames:11000}]}))};
+ const result=validateRankedTranscript(match,transcript);assert.equal(result.standings[0].points,30);assert.equal(result.standings[1].points,28);
+ const wrong=structuredClone(transcript);wrong.rounds[1].track=pool.find(p=>p.id!==selected).id;assert.throws(()=>validateRankedTranscript(match,wrong),/rotation/);
+ for(let n=1;n<=2;n++)await as(n,'select public.polycup_ranked_submit($1,$2,$3)',[match.id,id(100+n),JSON.stringify(transcript)]);
+ await db.exec(`update public.player_ratings set rated_matches=5,rating=12500; insert into public.polycup_rating_state select player_id,jsonb_build_object('model','btf-6.2.0-t025-softplus-v1','mu',25.0,'sigma',25.0/3) from public.player_ratings;`);
+ assert.equal(await settleLocalRanked(db,match.id),'completed');assert.equal(await settleLocalRanked(db,match.id),'completed');
+ assert.equal((await db.query('select count(*)::int n from public.polycup_rating_events')).rows[0].n,2);
+ const board=async()=>(await db.query("select public.polycup_season_leaderboard('season-1') b")).rows[0].b;
+ const before=await board();assert.equal(before.length,2);assert.equal(before[0].rated_matches,1);
+ assert.equal((await db.query('select public.polycup_ranked_match($1) r',[match.id])).rows[0].r.season.id,'season-1');
+ assert.equal((await db.query('select * from public.polycup_leaderboard()')).rows.length,2);
+ await db.exec("insert into public.polycup_ranked_seasons select 'season-2','Season 2',game_version,client_version,community_collection,catalog,rules,tier_floors,provisional_matches,null,null from public.polycup_ranked_seasons where id='season-1'; select public.polycup_ranked_activate_season('season-2');");
+ await db.exec('update public.player_ratings set rating=40000');
+ assert.deepEqual(await board(),before,'past season rating values must remain frozen');
+ assert.deepEqual((await db.query("select public.polycup_season_leaderboard('season-2') b")).rows[0].b,[]);
+ assert.equal((await db.query('select * from public.polycup_leaderboard()')).rows.length,0);
+ assert.equal((await db.query('select * from public.polycup_ranked_profile($1)',[id(1)])).rows[0].gm_position,null);
+ }finally{await db.close();}
+});
+

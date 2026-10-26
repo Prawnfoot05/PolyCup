@@ -16,6 +16,8 @@ export class LeaderboardUI {
   #page = 0;
   #generation = 0;
   #cache = new Map<string, { at: number; rows: Entry[] }>();
+  #season = h('select');
+  #seasonKey = '';
   constructor(
     shadow: ShadowRoot,
     private api: Ranked,
@@ -28,6 +30,14 @@ export class LeaderboardUI {
       this.#button('×', () => this.#dialog.close(), 'Close leaderboards'),
     );
     this.#dialog.setAttribute('aria-label', 'Leaderboards');
+    this.#season.setAttribute('aria-label', 'Ranked season');
+    this.#season.hidden = true;
+    this.#season.onchange = () => {
+      this.#seasonKey = this.#season.value;
+      this.#page = 0;
+      void this.#load();
+    };
+    header.insertBefore(this.#season, header.lastChild);
     this.#tabs.setAttribute('role', 'tablist');
     this.#tabs.setAttribute('aria-label', 'Leaderboard scope');
     this.#body.setAttribute('role', 'tabpanel');
@@ -57,6 +67,22 @@ export class LeaderboardUI {
     this.#page = 0;
     if (!this.#dialog.open) this.#dialog.showModal();
     void this.#load();
+    void this.api
+      .seasons?.()
+      .then((seasons) => {
+        if (!this.#dialog.open || !seasons.length) return;
+        this.#season.replaceChildren();
+        for (const season of seasons) {
+          const option = h('option', season.name + (season.active ? ' · Current' : ''));
+          option.value = season.id;
+          this.#season.append(option);
+        }
+        this.#seasonKey = seasons.find((s) => s.active)?.id ?? seasons[0].id;
+        this.#season.value = this.#seasonKey;
+        this.#season.hidden = false;
+        void this.#load();
+      })
+      .catch(() => {});
   }
   invalidate() {
     this.#cache.clear();
@@ -100,7 +126,8 @@ export class LeaderboardUI {
       );
       return;
     }
-    const key = (tab === 'friends' ? user : 'public') + ':' + tab + ':' + page,
+    const key =
+        this.#seasonKey + ':' + (tab === 'friends' ? user : 'public') + ':' + tab + ':' + page,
       cached = this.#cache.get(key);
     this.#body.replaceChildren(h('p', 'Loading…', 'leaderboard-empty'));
     this.#body.setAttribute('aria-busy', 'true');
@@ -108,9 +135,16 @@ export class LeaderboardUI {
       const rows: Entry[] =
         cached && Date.now() - cached.at < 60000
           ? cached.rows
-          : await (tab === 'friends'
-              ? this.api.friendsLeaderboard(PAGE + 1, page * PAGE)
-              : this.api.leaderboard(PAGE + 1, page * PAGE));
+          : this.#seasonKey
+            ? await this.api.seasonLeaderboard(
+                this.#seasonKey,
+                tab === 'friends',
+                PAGE + 1,
+                page * PAGE,
+              )
+            : await (tab === 'friends'
+                ? this.api.friendsLeaderboard(PAGE + 1, page * PAGE)
+                : this.api.leaderboard(PAGE + 1, page * PAGE));
       if (generation !== this.#generation || user !== this.user() || !this.#dialog.open) return;
       this.#cache.set(key, { rows, at: cached?.rows === rows ? cached.at : Date.now() });
       this.#body.replaceChildren();

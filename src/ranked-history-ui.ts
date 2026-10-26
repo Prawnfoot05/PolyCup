@@ -244,7 +244,7 @@ export class RankedHistoryUI {
     this.#body.replaceChildren(
       h(
         'p',
-        `${new Date(result.finished_at).toLocaleString()} · ${result.rounds} rounds`,
+        `${result.season ? result.season.name + ' · ' : ''}${new Date(result.finished_at).toLocaleString()} · ${result.rounds} rounds`,
         'ranked-history-note',
       ),
     );

@@ -10,6 +10,7 @@ export interface CupRules {
   finalist: boolean;
   points: number[];
   selection: 'draft' | 'random';
+  singleTrack?: boolean;
   bansPerRacer: number;
   picksPerRacer: number;
   pool: TrackCategory[];
@@ -31,12 +32,13 @@ export interface CupPreset {
 const standard: CupRules = {
   allowRacerChanges: false,
   allowSpectatorFreecam: true,
-  uploadLeaderboardTimes: false,
+  uploadLeaderboardTimes: true,
   roundsPerTrack: 4,
   pointsToWin: 140,
   finalist: true,
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   selection: 'draft',
+  singleTrack: false,
   bansPerRacer: 1,
   picksPerRacer: 1,
   pool: ['official', 'community'],
@@ -101,10 +103,12 @@ export function validPreset(value: unknown): value is CupPreset {
     Object.keys(p).every((k) => ['format', 'schema', 'name', 'rules'].includes(k)) &&
     Object.keys(r).length ===
       Object.keys(standard).length -
+        (r.singleTrack === undefined ? 1 : 0) -
         (r.uploadLeaderboardTimes === undefined ? 1 : 0) -
         (r.allowSpectatorFreecam === undefined ? 1 : 0) &&
     Object.keys(r).every((k) => k in standard) &&
     integer(r.roundsPerTrack, 1, 30) &&
+    (r.singleTrack === undefined || typeof r.singleTrack === 'boolean') &&
     integer(r.pointsToWin, 1, 10000) &&
     typeof r.finalist === 'boolean' &&
     typeof r.allowRacerChanges === 'boolean' &&

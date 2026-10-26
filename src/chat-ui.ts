@@ -287,7 +287,7 @@ export class ChatUI {
     }
     const speaker = this.#ui.c.chat.speakers.find((s) => s.id === line.speaker);
     const name =
-      this.#ui.c.isHost && speaker?.canMute
+      this.#ui.c.isHost && !this.#ui.c.ranked && speaker?.canMute
         ? h('button', line.name, 'chat-name')
         : h('strong', line.name, 'chat-name');
     if (name instanceof HTMLButtonElement) {
@@ -397,7 +397,7 @@ export class ChatUI {
   }
   #showPersonMenu(id: number, anchor: HTMLElement) {
     const speaker = this.#ui.c.chat.speakers.find((s) => s.id === id);
-    if (!this.#ui.c.isHost || !speaker?.canMute) return;
+    if (!this.#ui.c.isHost || this.#ui.c.ranked || !speaker?.canMute) return;
     if (this.#selectedSpeaker === id) {
       this.#hidePersonMenu();
       return;

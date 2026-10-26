@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CupChat } from '../.research/test-src/chat.ts';
 import { filterChat } from '../.research/test-src/chat-filter.ts';
+import { RankedRoom } from '../.research/test-src/ranked-room.ts';
 
 function room() {
  let cupId='cup-one';const peers=[{id:1,name:'Host',key:'host'},{id:2,name:'Guest',key:'profile-guest'},{id:3,name:'Spectator',key:'profile-spec'}];
@@ -70,4 +71,38 @@ test('full filtered chat stays in memory and remains separate from race snapshot
  await c.chat.post('fuck that corner');await c.chat.post('n1gger');
  assert.equal(c.chat.lines.length,2);assert.equal(c.chat.lines[0].text,'fuck that corner');assert.equal(c.chat.lines[1].text,'******');assert.equal(c.networkState().chat,undefined);
  assert.equal(typeof c.save,'undefined');assert.equal(typeof c.restore,'undefined');
+});
+
+test('ranked live chat uses server-bound accounts and retains identity and mute across reconnects',async()=>{
+ const oldWindow=globalThis.window,oldStorage=globalThis.sessionStorage;
+ globalThis.window={addEventListener(){}};globalThis.sessionStorage={getItem(){return null;},setItem(){}};
+ const state=Cup.newCup();
+ const raw={id:state.id,status:'racing',host:1,self:1,ticket:'host-ticket',rules:state.preset.rules,pool:[],members:[
+  {id:1,account:'host-account',name:'Host account',native:0,online:true},
+  {id:2,account:'guest-account',name:'Guest account',native:8,online:true}
+ ],session:{revision:1,bans:[],picks:[],ready:[],chat:[],launch:null}};
+ const room=new RankedRoom({browserClient:{rpc:()=>({abortSignal:async()=>({data:{},error:null})})}},
+  {session:async()=>structuredClone(raw)},raw.id,'lease',{list:()=>[],parse(){}});
+ try {
+  await room.enter();room.suspend();
+  const c=new Controller(()=>{});c.isHost=true;c.selfId=0;c.state=state;
+  c.lobby=[{id:0,nickname:'Host garage'},{id:8,nickname:'Guest garage'},{id:9,nickname:'Unbound'}];
+  c.hello.add(8);c.hello.add(9);c.attachWaitingRoom(room,{});
+  const packets=[];c.transport.send=(id,message)=>{packets.push({id,message});return true;};
+  const post=(id,requestId,text='PB')=>c.receive(id,{type:'chat-post',cupId:state.id,requestId,text});
+  post(8,'first');assert.equal(c.chat.lines.length,1);assert.equal(c.chat.lines[0].name,'Guest garage');
+  assert.equal(packets.at(-1).message.error,undefined);
+  post(8,'first');assert.equal(c.chat.lines.length,1,'retry must not duplicate');
+  post(9,'unknown');assert.match(packets.at(-1).message.error,/Verifying/);
+  c.chat.mute(c.chat.lines[0].speaker,true);
+  raw.members[1].native=10;raw.session.revision++;await room.poll();
+  c.lobby.push({id:10,nickname:'Returned garage'});c.hello.add(10);
+  post(10,'muted');assert.match(packets.at(-1).message.error,/muted/);
+  post(8,'stale');assert.match(packets.at(-1).message.error,/Verifying/);
+  c.chat.mute(c.chat.lines[0].speaker,false);post(10,'back');
+  assert.equal(c.chat.lines.length,2);assert.equal(c.chat.lines[1].speaker,c.chat.lines[0].speaker);
+  assert.equal(c.chat.lines[1].name,'Returned garage');
+  c.state={...state,id:'different-cup'};c.receive(10,{type:'chat-post',cupId:'different-cup',requestId:'wrong-match',text:'hello'});
+  assert.match(packets.at(-1).message.error,/Verifying/);
+ } finally {room.dismiss();globalThis.window=oldWindow;globalThis.sessionStorage=oldStorage;}
 });

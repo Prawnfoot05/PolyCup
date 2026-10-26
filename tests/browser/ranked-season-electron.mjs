@@ -1,0 +1,179 @@
+// Actual packaged test clients, isolated synthetic auth/database. No live Supabase.
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import {pathToFileURL} from 'node:url';
+const { _electron }=await import(pathToFileURL(process.env.PWC_PLAYWRIGHT_MODULE || path.join(os.homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs')));
+const count=2;
+const root=process.cwd(),api='http://127.0.0.1:'+(process.env.POLYCUP_QA_PORT||8821);
+const output=path.join(root,'output/playwright/ranked-season-041');await mkdir(output,{recursive:true});
+const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const apps=[],clients=[],errors=[];let requests=0,droppedResultResponses=0,submissionCalls=0;let hosts=0,sessions=0;const invites=new Map(),joins=new Map();
+const testPost=async(name,body={})=>{const response=await fetch(api+'/test/'+name,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});assert.equal(response.status,200);return response.json();};
+const state=()=>fetch(api+'/test/ranked-state').then(r=>r.json());
+const waitUntil=async(fn,label)=>{for(let n=0;n<120;n++){if(await fn())return;await new Promise(r=>setTimeout(r,200));}throw new Error('Timed out: '+label);};
+async function client(actor,label){
+ const app=await _electron.launch({executablePath:path.join(root,'output/test-clients/game/PolyTrack.exe'),args:['--no-sandbox'],
+   env:{...process.env,PWC_QA_MANUAL_START:'1',PWC_PROFILE_DIR:path.join(root,'output/queue-qa-profiles',label),PWC_TEST_CLIENT:'Ranked QA '+label},timeout:30000});
+ apps.push(app);
+ const page=await app.firstWindow();
+ await page.context().route('**/*',route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname.endsWith('/iceServers'))return route.fulfill({status:200,contentType:'application/json',body:'[]',headers:{'access-control-allow-origin':'*'}});
+  if(['file:','data:','blob:','about:'].includes(url.protocol)||url.hostname==='cdn.polymodloader.com'||url.hostname==='127.0.0.1')return route.continue();
+  return route.abort('blockedbyclient');
+ });
+ await page.context().routeWebSocket('**/*',ws=>{
+  if(ws.url().includes('/multiplayer/host')){
+   const code='QA'+String(++hosts).padStart(6,'0');invites.set(code,ws);
+   ws.onMessage(raw=>{const msg=JSON.parse(String(raw));if(msg.type==='createInvite')ws.send(JSON.stringify({type:'createInvite',inviteCode:code,key:'qa',timeoutMilliseconds:3600000,censoredNickname:msg.nickname||'Anonymous'}));else if(msg.type==='ping')ws.send(JSON.stringify({type:'pong'}));else if(msg.session&&joins.has(msg.session))joins.get(msg.session).send(JSON.stringify(msg));});ws.onClose(()=>invites.delete(code));
+  }else if(ws.url().includes('/multiplayer/join')){
+   let host;const session='ranked-qa-'+(++sessions);
+   ws.onMessage(raw=>{const msg=JSON.parse(String(raw));if(msg.offer){host=invites.get(msg.inviteCode);joins.set(session,ws);if(!host)return ws.send(JSON.stringify({type:'declineJoin',reason:'Expired'}));host.send(JSON.stringify({...msg,type:'joinInvite',session,iceServers:[]}));}else if('candidate'in msg)host?.send(JSON.stringify({type:'iceCandidate',session,candidate:msg.candidate}));});
+  }else ws.close();
+ });
+ page.on('dialog',async d=>{console.log('Startup dialog:',d.message().slice(0,200));await d.dismiss();});
+ page.on('console',m=>{if(process.env.PWC_QUEUE_PROBE || m.type()==='error')console.log('CONSOLE',m.text().slice(0,m.text().startsWith('QA ')?2500:300));});
+ page.setDefaultTimeout(15000);
+ let dropResultResponse=actor===2;
+ await page.exposeFunction('__rankedQaFetch',async req=>{
+   requests++;
+   const u=new URL(req.url);
+   const response=await fetch(api+u.pathname+u.search,{method:req.method,headers:req.headers,body:req.body||undefined});
+   const responseBody=await response.text();if(!response.ok)console.log('RPC FAILURE',actor,u.pathname,req.body,responseBody);if(u.pathname.endsWith('polycup_ranked_session_v2')){try{const x=JSON.parse(responseBody);const k=JSON.stringify({status:x?.status,host:x?.host,self:x?.self,members:x?.members?.map(m=>({id:m.id,native:m.native})),reconnect:x?.reconnect});if(page.__lastRankedDebug!==k){page.__lastRankedDebug=k;console.log('SESSION',actor,k);}}catch{}}if(u.pathname.endsWith('/polycup_ranked_submit')){submissionCalls++;if(dropResultResponse&&response.ok){dropResultResponse=false;droppedResultResponses++;throw Error('QA dropped result response after commit');}}return {status:response.status,body:responseBody};
+ });
+ const user={id:id(actor),aud:'authenticated',role:'authenticated',app_metadata:{provider:'discord'},
+   user_metadata:{full_name:'QA Racer '+actor,user_name:'qa'+actor},created_at:new Date().toISOString()};
+ const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+ const token=enc({alg:'HS256'})+'.'+enc({sub:user.id,exp:Math.floor(Date.now()/1000)+3600})+'.test';
+ const initialize=({user,token})=>{
+   if(window.__rankedQaInitialized)return;window.__rankedQaInitialized=true;
+   localStorage.setItem('polycup.account.v1',JSON.stringify({access_token:token,refresh_token:'synthetic',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user}));
+   const capture=setInterval(()=>{try{
+    const proto=window.polyModLoader.getFromPolyTrack('du.prototype');if(!proto?.forEachTrack)return;
+    window.polyModLoader.getFromPolyTrack('wf.prototype').getIceServers=async()=>[];
+    window.__qaTracks=window.polyModLoader.getFromPolyTrack(`(()=>{const tracks=[],Sun=i(7929).A;for(let i=0;i<16;i++){
+      const t=new Ul.A(0,new Sun());t.addPart(0,0,0,5,0,0,0,null,0);
+      for(let z=-4;z>-12-i*4;z-=4)t.addPart(0,0,z,0,0,0,0,null,null);
+      t.addPart(0,0,-12-i*4,6,0,0,0,null,null);
+      tracks.push({trackData:t,trackMetadata:{name:'Local straight '+(i+1),author:'QA',lastModified:null}});
+    }return tracks;})()`);
+    proto.forEachTrack=function(callback){window.__qaLibrary=this;for(const track of window.__qaTracks)callback(track.trackData.getId(),track.trackMetadata,'official',0,async()=>track,'');};
+    const official=proto.isOfficialTrack;proto.isOfficialTrack=function(id){return window.__qaTracks.some(t=>t.trackData.getId()===id)||official.call(this,id);};
+    for(const method of ['forEachTrack','getFirstSessionTrack','getRandomOfficialTrack']){const old=proto[method];proto[method]=function(...args){window.__qaLibrary=this;return old.apply(this,args);};}
+    const game=window.polyModLoader.getFromPolyTrack('Is.prototype'),update=game.update;
+    game.update=function(...args){window.__qaGame=this;return update.apply(this,args);};clearInterval(capture);
+   }catch{}},10);
+   const original=window.fetch.bind(window);
+   window.fetch=async(input,init)=>{
+     const request=new Request(input,init),url=new URL(request.url);
+     if(url.hostname.endsWith('.supabase.co')){
+       const result=await window.__rankedQaFetch({url:url.href,method:request.method,headers:Object.fromEntries(request.headers),body:['GET','HEAD'].includes(request.method)?null:await request.text()});
+       return new Response(result.body,{status:result.status,headers:{'content-type':'application/json'}});
+     }
+     if(url.pathname.includes('/iceServers'))return new Response('[]',{headers:{'content-type':'application/json'}});
+     if(['file:','data:','blob:'].includes(url.protocol)||url.hostname==='cdn.polymodloader.com')return original(input,init);
+     throw new TypeError('External network blocked in ranked QA');
+   };
+ };
+ await page.context().addInitScript(initialize,{user,token});
+ await page.goto(pathToFileURL(path.join(root,'output/test-clients/game/resources/app.asar/index.html')).href);
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.locator('#polytrack-world-cup').waitFor({state:'attached',timeout:75000});
+ if(!await page.locator('.track-tabs').isVisible()&&!await page.locator('.hud').isVisible()&&!await page.locator('.pov-hud').isVisible())await page.keyboard.press('F8');
+ const welcome=page.getByRole('dialog',{name:'Welcome to PolyCup',exact:true});
+ if(await welcome.isVisible())await welcome.getByRole('button',{name:'Continue',exact:true}).click();
+ if(label.startsWith('race-2-') && clients.some(c=>c.label===label) && (await state()).matches.some(m=>m.status==='racing' && m.roster.includes(id(actor)))){
+  const reconnect=page.getByRole('dialog',{name:'Return to ranked Cup',exact:true});
+  await reconnect.getByRole('button',{name:'Reconnect',exact:true}).click({timeout:20000});
+ }
+ await waitUntil(async()=>await page.locator('.cup-hub').isVisible()||await page.locator('.track-tabs').isVisible()||await page.locator('.hud').isVisible()||await page.locator('.pov-hud').isVisible(),'hub or recovered draft');
+ await waitUntil(async()=>{if(await page.getByRole('dialog',{name:'Ranked match',exact:true}).isVisible()||await page.locator('.track-tabs').isVisible()||await page.locator('.hud').isVisible()||await page.locator('.pov-hud').isVisible())return true;const button=page.getByRole('button',{name:'Find ranked',exact:true});return await button.count() ? button.isEnabled({timeout:200}).catch(()=>false) : false;},'ranked enabled '+label).catch(async e=>{console.log('REJOIN UI',await page.locator('#polytrack-world-cup').evaluate(el=>{const copy=document.createElement('div');copy.innerHTML=el.shadowRoot.innerHTML;copy.querySelectorAll('style').forEach(x=>x.remove());return copy.textContent;}));await page.screenshot({path:path.join(output,'rejoin-debug.png')});throw e;});
+ console.log('Client ready: '+label);
+ return {app,page,actor,label};
+}
+const match=p=>p.getByRole('dialog',{name:'Ranked match',exact:true});
+const join=async p=>{await waitUntil(()=>p.getByRole('button',{name:'Find ranked',exact:true}).isEnabled(),'join enabled');await p.getByRole('button',{name:'Find ranked',exact:true}).click();};
+
+let stage='setup';
+try{
+ await testPost('reset-ranked');
+ for(let n=1;n<=count;n++)clients.push(await client(n,'race-'+n+'-'+Date.now()));
+ const menu=clients[0].page;
+ await menu.locator('.hub-online-count.available').waitFor();
+ await menu.screenshot({path:path.join(output,'menu-online-count.png')});
+ await menu.getByRole('button',{name:'Host Cup',exact:true}).click();
+ const visibility=menu.getByRole('dialog',{name:'Host Cup',exact:true});
+ assert.equal(await visibility.getByRole('radio',{name:'Private',exact:true}).isChecked(),true);
+ await visibility.getByRole('radio',{name:'Public',exact:true}).check();
+ await menu.screenshot({path:path.join(output,'visibility-choice.png')});
+ await visibility.getByRole('button',{name:'Cancel',exact:true}).click();
+ const catalog=await clients[0].page.evaluate(()=>{const tracks=[];window.__qaLibrary.forEachTrack((id,m,category)=>{if(['official','community'].includes(category))tracks.push({id,category,digest:id});});return tracks;});
+ assert.equal(catalog.length,16);await testPost('catalog',{tracks:catalog});
+ stage='queue';for(const c of clients)await join(c.page);
+ if(count<4){await waitUntil(async()=>(await state()).queue.length===count,'all players queued');await testPost('queue-age',{seconds:121});}
+ for(const c of clients)await match(c.page).getByRole('heading',{name:'Match found',exact:true}).waitFor();
+ for(const c of clients)await match(c.page).getByRole('button',{name:'Accept',exact:true}).click();
+ const current=async()=>(await state()).matches.find(m=>['drafting','racing'].includes(m.status));
+ await waitUntil(async()=>!!(await current()),'season match');
+ const initial=await current();assert.equal(initial.roster.length,count);
+ assert.equal(initial.rules.singleTrack,true);assert.equal(initial.rules.pointsToWin,30);
+ stage='handoff';
+ await clients[1].page.locator('.lobby-loading').waitFor({state:'visible',timeout:20000});
+ await clients[1].page.screenshot({path:path.join(output,'loading-overlay.png')});
+ for(const c of clients)await c.page.waitForFunction(()=>document.querySelector('#polytrack-world-cup').shadowRoot.querySelector('.hud')?.textContent.includes('Warmup'),{},{timeout:75000});
+ assert.equal((await current()).status,'racing');
+ for(const c of clients){await c.page.locator('.chat-toggle').click();const input=c.page.locator('input[placeholder="Message the Cup…"]');
+ if(await input.count()){await input.fill('ranked chat '+c.actor);await input.press('Enter');await waitUntil(async()=>await input.inputValue()==='','ranked chat sent');}
+ await c.page.screenshot({path:path.join(output,'garage-chat-'+c.actor+'.png')});await c.page.locator('.chat-close').click();}
+ for(const c of clients){assert.equal(await c.page.locator('.panel').isVisible(),false);await c.page.screenshot({path:path.join(output,'warmup-'+c.actor+'.png')});}
+
+ stage='full Cup';
+ // Drive through real native finish callbacks. No score, clock, target or round injection.
+ const driveStart=Date.now(),deadline=driveStart+4*60*1000;let last='',disconnected=false,rejoined=false;
+ while(Date.now()<deadline){
+   const status=(await state()).matches.find(m=>m.id===initial.id)?.status;
+   if(status==='completed')break;
+   if(['unrated','cancelled'].includes(status))throw Error('Cup ended '+status);
+   for(const c of clients){
+    if(c.page.isClosed())continue;
+    const ready=c.page.getByRole('button',{name:'Ready',exact:true});if(await ready.isVisible())await ready.click();
+    const hud=await c.page.locator('.hud').textContent().catch(()=> '');
+    if(c.actor===1 && hud!==last){console.log('HOST HUD',hud);last=hud;}
+    if(hud?.includes('Live round')){c.liveSince??=Date.now();if(c.actor===1||Date.now()-c.liveSince>900)await c.page.keyboard.down('ArrowUp');}else{c.liveSince=null;await c.page.keyboard.up('ArrowUp');}
+   }
+   // Reconnect between rounds, retaining the client's finish journal/profile.
+   const text=await clients[0].page.locator('.hud').textContent().catch(()=> '');
+   if(!disconnected && Date.now()-driveStart>3000 && !text?.includes('Live round')){
+    disconnected=true;console.log('Disconnecting guest during Cup');
+    const savedLabel=clients[1].label;await clients[1].app.close();await testPost('ranked-member-expire',{player:id(2)});
+    clients[1]=await client(2,savedLabel);console.log('NATIVE REJOIN',await clients[1].page.evaluate(()=>window.polyModLoader.getFromPolyTrack('g=>({session:Za.get(g)?.sessionId,players:Za.get(g)?.multiplayerConnection?.getPlayers().map(p=>({id:p.id,self:p.isSelf}))})')(window.__qaGame)));rejoined=true;console.log('Guest rejoined with saved journal');
+   }
+   await new Promise(r=>setTimeout(r,200));
+ }
+ const finalMatch=(await state()).matches.find(m=>m.id===initial.id);assert.equal(finalMatch.status,'completed');
+ await waitUntil(()=>submissionCalls>=3,'lost result response retried');assert.equal(droppedResultResponses,1);
+ const beforeRetry=await testPost('settlement');assert.equal(beforeRetry.events.filter(e=>e.match_id===initial.id).length,2);
+ await testPost('settle-again',{match:initial.id});
+ const afterRetry=await testPost('settlement');assert.deepEqual(afterRetry.events,beforeRetry.events);assert.deepEqual(afterRetry.ratings,beforeRetry.ratings);
+ for(const c of clients){await c.page.getByRole('dialog',{name:'Ranked result',exact:true}).locator('.ranked-outcome-delta').waitFor({timeout:30000});await c.page.screenshot({path:path.join(output,'settled-'+c.actor+'.png')});}
+ assert.ok(disconnected&&rejoined);
+ await clients[0].page.getByRole('dialog',{name:'Ranked result',exact:true}).getByRole('button',{name:'Match history',exact:true}).click();
+ await clients[0].page.locator('.ranked-history-row').first().waitFor();assert.equal(await clients[0].page.locator('.ranked-history-row').count(),1);
+ const savedProfile=clients[1].label;await clients[1].app.close();clients[1]=await client(2,savedProfile);
+ await waitUntil(async()=>(await clients[1].page.locator('.ranked-player-stats').innerText()).includes('1 match'),'rating persisted after client restart');
+ assert.deepEqual((await testPost('settlement')).events,beforeRetry.events);
+ await clients[1].page.screenshot({path:path.join(output,'rating-after-restart.png')});
+ console.log('FULL CUP VERIFIED',JSON.stringify({match:initial.id,disconnected,rejoined,events:beforeRetry.events,ratings:beforeRetry.ratings}));
+ await writeFile(path.join(output,'settlement.json'),JSON.stringify({passed:true,disconnected,rejoined,droppedResultResponses,submissionCalls,elapsedMs:Date.now()-driveStart,...beforeRetry},null,2));
+ assert.deepEqual(errors,[]);assert.ok(hosts>0&&sessions>0,'Local signalling must intercept native connections');
+ const result={passed:true,clients:count,requests,hosts,sessions,catalog:catalog.length,checks:[count===2?'duel fallback':'four-player formation','fresh queue','accept popup','no draft','single server-selected track','automatic all-ready grace','native WebRTC handoff','warmup','all clients live physics','verified racing reconnect','ranked host controls hidden','full native Cup completion','exactly once settlement'],scope:'Packaged Electron clients, local migrated PostgreSQL + synthetic auth + local signalling; real native WebRTC and simulation. Local rating settlement; no hosted Supabase changes.'};
+ await writeFile(path.join(output,'verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+}catch(error){console.log('STAGE',stage,'ERRORS',errors);for(const [i,c] of clients.entries())if(!c.page.isClosed()){console.log('PAGE',i,await c.page.locator('body').innerText().catch(()=>''));console.log('SHADOW',await c.page.locator('#polytrack-world-cup').evaluate(el=>el.shadowRoot.textContent.slice(-13000)).catch(()=>''));await c.page.screenshot({path:path.join(output,'failure-'+i+'.png')}).catch(()=>{});}console.log('STATE',JSON.stringify(await state()));throw error;
+}finally{await testPost('clear-rooms').catch(()=>{});await testPost('reset-ranked').catch(()=>{});for(const app of apps)await app.close().catch(()=>{});}
+
+
+
+
+

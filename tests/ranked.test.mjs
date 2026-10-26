@@ -7,7 +7,9 @@ test('ranked preview agrees with the complete server rules snapshot', async () =
   const sql = await readFile('supabase/migrations/20261021070000_ranked_foundation.sql', 'utf8');
   const snapshot = JSON.parse(sql.match(/select '(\{"version":1,[\s\S]*?\})'::jsonb/)[1]);
   const { version, minPlayers, maxPlayers, targetPlayers, ...rules } = snapshot;
-  assert.deepEqual(rankedPreset().rules, rules);
+  const seasonSql = await readFile('supabase/migrations/20261026000000_ranked_seasons.sql', 'utf8');
+  const seasonRules = JSON.parse(seasonSql.match(/\|\| '(\{"singleTrack"[^']+)'::jsonb/)[1]);
+  assert.deepEqual(rankedPreset().rules, {...rules, ...seasonRules});
   assert.equal(version, 1);
   assert.deepEqual([minPlayers, maxPlayers, targetPlayers], [2, 4, 4]);
 });

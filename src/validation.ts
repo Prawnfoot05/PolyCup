@@ -226,7 +226,11 @@ export function validSnapshot(value: unknown): value is PublicCupState {
         num(m.randomTrack!.rounds) &&
         m.randomTrack!.rounds === rulesFor(s).roundsPerTrack &&
         m.randomTrack!.fromRound <= m.rounds &&
-        m.rounds <= m.randomTrack!.fromRound + m.randomTrack!.rounds)) &&
+        (rulesFor(s).singleTrack
+          ? m.randomTrack!.fromRound === 0 &&
+            m.order.length === 1 &&
+            m.randomTrack!.id === m.order[0]
+          : m.rounds <= m.randomTrack!.fromRound + m.randomTrack!.rounds))) &&
     Object.entries(m.finalists).every(
       ([id, f]) =>
         m.players.includes(Number(id)) &&

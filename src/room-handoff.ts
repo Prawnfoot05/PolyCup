@@ -259,7 +259,7 @@ export function controllerRaceBridge(c: Controller): RaceBridge {
         .availableTracks()
         .filter((t) => rulesFor(data.cup).pool.includes(t.category as 'official'));
       let chosen = data.cup.tracks;
-      if (rulesFor(data.cup).selection === 'random') {
+      if (rulesFor(data.cup).selection === 'random' && !rulesFor(data.cup).singleTrack) {
         if (!pool.length) throw new Error('The track pool is empty.');
         chosen = [pool[Math.floor(Math.random() * pool.length)]];
       }
@@ -278,8 +278,10 @@ export function controllerRaceBridge(c: Controller): RaceBridge {
       }
       return map;
     },
-    connect: (host, signal, tracks, code) =>
-      launchNativeRace(host ? 'host' : 'join', signal, tracks?.values().next().value, code),
+    connect: (host, signal, tracks, code) => {
+      c.setWaitingRaceLoading(true);
+      return launchNativeRace(host ? 'host' : 'join', signal, tracks?.values().next().value, code);
+    },
     self: () => c.nativeSelfId,
     peers: (connection) => c.native.peers(connection),
     ready: (ids) => c.connectedRacers(ids),
@@ -305,6 +307,9 @@ export function controllerRaceBridge(c: Controller): RaceBridge {
         state.tracks = [...tracks.entries()].map(([id, t]) => ({ id, name: t.trackMetadata.name }));
       await c.acceptWaitingRace(state, tracks);
     },
-    returnToMenu: returnToNativeMenu,
+    returnToMenu: () => {
+      c.setWaitingRaceLoading(false);
+      returnToNativeMenu();
+    },
   };
 }

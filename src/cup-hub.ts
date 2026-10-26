@@ -23,6 +23,9 @@ export class CupHub {
   #social = h('aside', undefined, 'hub-social');
   #list = h('div', undefined, 'hub-list');
   #error = h('p', undefined, 'error');
+  #online = h('span', 'Online: —', 'hub-online-count');
+  #onlineAt = 0;
+  #onlineBusy = false;
   #back = h('button', 'Back', 'quiet hub-back');
   #account: AccountUI;
   #controller: Controller;
@@ -127,6 +130,10 @@ export class CupHub {
     this.#dialog.setAttribute('aria-label', 'PolyCup');
     const header = h('header', undefined, 'hub-header');
     header.append(h('h1', 'PolyCup'));
+    this.#online.title =
+      'Signed-in PolyCup players active in the last 90 seconds. Each account counts once.';
+    this.#online.setAttribute('aria-label', 'Online players unavailable');
+    header.append(this.#online);
     if (account.account) {
       const board = new LeaderboardUI(
         shadow,
@@ -348,7 +355,7 @@ export class CupHub {
           void account.queue.refresh();
         }
       });
-      await room.enter();
+      await room.enter(menuIdentity());
       if (!room.snapshot) throw new Error('This ranked match ended.');
       entered = true;
       this.#rankedEntered = id;
@@ -497,6 +504,30 @@ export class CupHub {
   }
   async refresh() {
     if (this.#refreshing) return;
+    if (this.#dialog.open && !this.#onlineBusy && Date.now() - this.#onlineAt >= 30000) {
+      const api = this.#account.account?.ranked;
+      if (api) {
+        this.#onlineBusy = true;
+        this.#onlineAt = Date.now();
+        void api
+          .onlineCount()
+          .then((count) => {
+            if (!Number.isSafeInteger(count) || count < 0)
+              throw new Error('Invalid presence count');
+            this.#online.textContent = `${count} online`;
+            this.#online.setAttribute('aria-label', `${count} players online`);
+            this.#online.classList.add('available');
+          })
+          .catch(() => {
+            this.#online.textContent = 'Online: —';
+            this.#online.setAttribute('aria-label', 'Online players unavailable');
+            this.#online.classList.remove('available');
+          })
+          .finally(() => {
+            this.#onlineBusy = false;
+          });
+      }
+    }
     this.#refreshing = true;
     const button = this.#dialog.querySelector<HTMLButtonElement>('.hub-list-header button');
     if (button) {

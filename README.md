@@ -1,6 +1,6 @@
 # PolyCup
 
-Custom and ranked Cups for **PolyTrack 0.6.3**, by **Kiki**. Version **0.4.0**.
+Custom and ranked Cups for **PolyTrack 0.6.3**, by **Kiki**. Version **0.4.1**.
 
 ## Install
 
@@ -10,7 +10,7 @@ Install [PolyModLoader](https://wiki.polymodloader.com/quick-start/) for PolyTra
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-All participants need the same PolyCup version. Enter **0.4.0** explicitly if the CDN still selects an older cached version. Restart the game after updating.
+All participants need the same PolyCup version. Enter **0.4.1** explicitly if the CDN still selects an older cached version. Restart the game after updating.
 
 For the bundled Windows installer, place this project folder beside PolyTrack.exe, close the game and run **Install-PolyCup.cmd**. **Restore-Original.cmd** restores the original installation; run it before switching from the bundled installer to a normal PML installation. Installation preserves the game's existing profile and backs up its original application archive.
 
@@ -22,7 +22,7 @@ Name your Cup and choose **Host Cup**, then select public or private before crea
 
 Choose a preset and edit its rules before starting the draft. Bans happen before picks. Each racer locks their picks with **Ready up**; the host starts the Cup when everyone is ready. Rounds then advance automatically. The **Rules** button keeps the locked rules accessible during play.
 
-Custom presets can change scoring, finalist target, bans and picks, rounds per track, random rotation, warmups, timing, spectator camera and mid-Cup racer changes. Custom tracks require zero bans. Save, rename, import or export presets using the controls beside the preset name. **Leaderboard uploads** is off by default; enabling it uses the native game's Casual mode and its usual account and track eligibility rules.
+Custom presets can change scoring, finalist target, bans and picks, rounds per track, random rotation, warmups, timing, spectator camera and mid-Cup racer changes. Custom tracks require zero bans. Save, rename, import or export presets using the controls beside the preset name. **Leaderboard uploads** is on by default; it uses the native game's Casual mode and its usual account and track eligibility rules.
 
 ## Ranked
 
@@ -31,13 +31,14 @@ Sign in, then choose **Find ranked**. Matchmaking aims for four racers and can f
 | Ranked rules | Value |
 | --- | --- |
 | Racers | Target 4; 3 or 2 after a longer wait |
-| Track pool | All bundled main and community tracks |
-| Draft | 2 bans and 2 picks per racer |
-| Rounds per track | 3 |
-| Finalist target | 140 points, then win a subsequent round outright |
+| Track pool | 17 main tracks + the 10 community tracks from CT 0.6.3 |
+| Track selection | One random track per match; no draft |
+| Opening warmup | 30 seconds |
+| Place points | 10 / 7 / 4 / 2; DNF 0 |
+| Finalist target | 30 points, then win a subsequent round outright |
 | Provisional period | 5 completed rated matches |
 
-Ratings use an opponent-aware Bradley–Terry Full model. The ranked panel shows your badge, matches and win rate; **?** shows tier thresholds. **Leaderboards** includes global and friends standings. Grandmaster is reserved for the top ten qualifying Master players. Ratings persist without seasonal resets or decay.
+Ratings use an opponent-aware Bradley–Terry Full model. The ranked panel shows your badge, matches and win rate; **?** shows tier thresholds. **Leaderboards** includes global and friends standings, with a season selector for archived standings. Each season freezes its track pool; current standings require rated activity in that season. Grandmaster is reserved for the top ten qualifying Master players. Ratings persist without seasonal resets or decay.
 
 When a Cup settles, the result shows your rating change. If you close the game first, the result is delivered after reopening it. Match histories are publicly readable, including results and any **Possible copied inputs detected** flags. These flags compare submitted inputs with reference replays; they do not automatically impose penalties or prove how a player produced a run.
 
@@ -51,8 +52,8 @@ Add friends using their player code. The chevron beside a friend opens their act
 
 ## Racing and controls
 
-- Default place points are **10 / 8 / 6 / 5 / 4 / 3 / 2 / 1**; DNF earns zero. Exact ties share place points. A finalist must finish first outright to win.
-- Drafted playlists repeat after the selected number of rounds per track. Warmup readiness can end practice early.
+- Custom Cup default place points are **10 / 8 / 6 / 5 / 4 / 3 / 2 / 1**; DNF earns zero. Exact ties share place points. A finalist must finish first outright to win.
+- In custom Cups, drafted playlists repeat after the selected number of rounds per track. Warmup readiness can end practice early.
 - **G** toggles other players' ghosts; **Y** opens Cup chat. Rebind these under Settings → Controls → PolyCup.
 - **[ / ]** switch spectator targets. The native free-camera key works when allowed by the rules. Automatic spectating after finishing can be disabled in settings.
 - Your **full restart** key means DNF during a live round. **Checkpoint reset** returns you to the start before the first checkpoint while keeping elapsed Cup time; later it uses normal checkpoint respawn.

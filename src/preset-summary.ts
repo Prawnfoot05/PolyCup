@@ -17,14 +17,21 @@ export function presetSummary(rules: CupRules) {
     summary.append(section);
   };
   group('Race', [
-    ['Rounds per track', String(rules.roundsPerTrack)],
+    ['Rounds per track', rules.singleTrack ? 'Until a winner' : String(rules.roundsPerTrack)],
     [rules.finalist ? 'Finalist target' : 'Points to win', String(rules.pointsToWin)],
     ['Finalist', rules.finalist ? 'Enabled' : 'Disabled'],
     ['To win', rules.finalist ? 'Win as a finalist' : 'Lead at the target'],
-    ['Leaderboard uploads', rules.uploadLeaderboardTimes ? 'On · Casual' : 'Off · Competitive'],
+    ['Leaderboard uploads', rules.uploadLeaderboardTimes ? 'On' : 'Off'],
   ]);
   const tracks: [string, string][] = [
-    ['Selection', rules.selection === 'random' ? 'Random rotation' : 'Racer draft'],
+    [
+      'Selection',
+      rules.singleTrack
+        ? 'One random track'
+        : rules.selection === 'random'
+          ? 'Random rotation'
+          : 'Racer draft',
+    ],
     [
       'Pool',
       rules.pool

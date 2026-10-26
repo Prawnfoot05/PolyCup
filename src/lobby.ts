@@ -88,15 +88,17 @@ export function lobbyPanel(ui: CupUI) {
     const disconnected = !c.lobby.some((p) => p.id === id) || c.needsRebind?.has(id);
     const status = disconnected
       ? 'Offline'
-      : view.turn === id
-        ? 'Banning…'
-        : view.stage === 'picks'
-          ? ready
-            ? '✓ Ready'
-            : picksComplete(s, id)
-              ? 'Not ready'
-              : 'Picking…'
-          : '';
+      : rules.singleTrack
+        ? 'Accepted'
+        : view.turn === id
+          ? 'Banning…'
+          : view.stage === 'picks'
+            ? ready
+              ? '✓ Ready'
+              : picksComplete(s, id)
+                ? 'Not ready'
+                : 'Picking…'
+            : '';
     if (status)
       meta.append(h('span', status, `racer-ready-status${disconnected ? ' offline' : ''}`));
     row.append(meta);
@@ -211,7 +213,7 @@ export function lobbyPanel(ui: CupUI) {
   } else action.append(h('p', `${view.ready}/${s.roster.length} racers ready`, 'muted'));
   const selfReady = draftReady(s, c.selfId!);
   let readyButton: HTMLButtonElement | undefined;
-  if (view.joined && view.stage === 'picks') {
+  if (view.joined && view.stage === 'picks' && !rules.singleTrack) {
     readyButton = ui.button(
       selfReady ? 'Unready' : 'Ready up',
       () => c.action('draft-ready', selfReady ? 'editing' : 'ready'),

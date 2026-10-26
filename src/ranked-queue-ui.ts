@@ -216,7 +216,7 @@ export class RankedQueueUI {
     }
     const footer = h('footer');
     if (confirming) {
-      footer.append(h('span', 'Opening draft…', 'ranked-match-progress'));
+      footer.append(h('span', 'Opening match…', 'ranked-match-progress'));
     } else if (match.status === 'reserved') {
       const accept = this.#button(
         accepted ? 'Accepted' : 'Accept',

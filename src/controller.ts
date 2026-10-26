@@ -83,6 +83,15 @@ export class Controller {
   get nativeState() {
     return this.#state;
   }
+  #waitingRaceLoading = false;
+  get waitingRaceLoading() {
+    return this.#waitingRaceLoading;
+  }
+  setWaitingRaceLoading(value: boolean) {
+    if (this.#waitingRaceLoading === value) return;
+    this.#waitingRaceLoading = value;
+    this.#onChange();
+  }
   get nativeSelfId() {
     return this.#selfId;
   }
@@ -108,6 +117,7 @@ export class Controller {
     await this.runRound();
   }
   finishWaitingRace() {
+    this.setWaitingRaceLoading(false);
     this.#waitingRoom?.suspend();
     // The native round can arrive before the waiting-room handoff finishes.
     // Close at that boundary, except when rejoining to view final standings.
@@ -388,7 +398,14 @@ export class Controller {
                 .map((p) => ({
                   id: p.id,
                   name: p.nickname ?? `Player ${p.id}`,
-                  key: p.id === this.#selfId && this.#isHost ? 'host' : this.#reconnect.key(p.id),
+                  key:
+                    p.id === this.#selfId && this.#isHost
+                      ? 'host'
+                      : this.ranked
+                        ? this.#waitingRoom?.snapshot?.id === this.#state?.id
+                          ? this.#waitingRoom?.verifiedChatKey(p.id)
+                          : undefined
+                        : this.#reconnect.key(p.id),
                 })),
             }
           : null,
@@ -905,11 +922,14 @@ export class Controller {
       )
         return;
       this.flushInputs();
+      // A simulation update can run past the finish crossing before callbacks
+      // reach the UI. Match the native timer's frozen finish, not its live clock.
+      const nativeFinish = (car.getFinishTime?.() ?? car.getTime()).numberOfFrames;
       const message: FinishMessage = {
         type: 'finish',
         roundId: run.id,
         sessionId: run.sessionId,
-        frames: this.lapFrames(car.getTime().numberOfFrames),
+        frames: this.lapFrames(nativeFinish),
         checkpoint,
       };
       this.#waitingRoom?.recordOwnFinish(run.round, run.trackId, message.frames);
@@ -922,7 +942,7 @@ export class Controller {
               round: run.round,
               track: run.trackId,
               finish: message.frames,
-              nativeFinish: car.getTime().numberOfFrames,
+              nativeFinish,
               timeOffset: this.#raceTimeOffset,
               recording,
             });
@@ -1869,6 +1889,11 @@ export class Controller {
     }
   }
   availableTracks() {
+    if (this.#native && !this.#native.trackLibrary && typeof window !== 'undefined') {
+      const detail: { trackLibrary?: import('./game-types.ts').TrackLibrary } = {};
+      window.dispatchEvent(new CustomEvent('polycup-menu-profile', { detail }));
+      this.#native.trackLibrary = detail.trackLibrary;
+    }
     if (!this.#native?.trackLibrary)
       throw new Error(
         'The game track library is not ready. Open the normal track selector once, then try again.',

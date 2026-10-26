@@ -12,4 +12,5 @@
 
 .leaderboard-body td,.leaderboard-body th,.leaderboard-body th:last-child,.leaderboard-body td:last-child{text-align:center}.leaderboard-body td button{text-align:center}.leaderboard-body .ranked-rating-badge{margin-inline:auto}
 .leaderboard-body table{color:inherit}.leaderboard-body .player-with-portrait{justify-content:center;text-align:left}.leaderboard-body .player-with-portrait>span:last-child{font-style:normal}
+.cup-leaderboard header{gap:12px;flex-wrap:wrap}.cup-leaderboard header select{margin-left:auto;max-width:190px;min-width:0;padding:8px;color:inherit;background:#17254c;border:1px solid #52658c;font:400 16px ForcedSquare,Arial,sans-serif}.cup-leaderboard header select[hidden]{display:none}
 @media(max-width:620px){.leaderboard-body th:last-child{width:60px;font-size:12px}}

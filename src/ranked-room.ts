@@ -9,6 +9,8 @@ import { rankedTranscript, verifyOwnFinishes } from './ranked-transcript.ts';
 import type { CupState } from './types.ts';
 
 export interface RankedSession {
+  selected_track?: string;
+  season?: { id: string; name: string };
   reconnect?: { player: string; name: string; until: string; abandoned: boolean }[];
   id: string;
   status: string;
@@ -21,7 +23,8 @@ export interface RankedSession {
     id: number;
     account: string;
     name: string;
-    country: null;
+    country: string | null;
+    style?: string | null;
     online: boolean;
     native: number | null;
   }[];
@@ -39,7 +42,8 @@ export function rankedRoomSnapshot(raw: RankedSession, tracks: RoomTracks): Room
   const preset = standardPreset();
   preset.name = 'Ranked';
   for (const key of Object.keys(preset.rules))
-    (preset.rules as unknown as Record<string, unknown>)[key] = raw.rules[key];
+    if (raw.rules[key] !== undefined)
+      (preset.rules as unknown as Record<string, unknown>)[key] = raw.rules[key];
   const cup = newCup('Ranked Cup', preset);
   cup.id = raw.id;
   cup.roster = raw.members.map((m) => ({ id: m.id, name: m.name }));
@@ -57,6 +61,13 @@ export function rankedRoomSnapshot(raw: RankedSession, tracks: RoomTracks): Room
     banHistory: bans,
   };
   for (const p of raw.session.picks) chooseTrack(cup, actor(p.player_id), track(p.track_id));
+  if (preset.rules.singleTrack) {
+    if (!raw.selected_track || !raw.pool.some((t) => t.id === raw.selected_track))
+      throw new Error('The ranked track is unavailable.');
+    cup.tracks = [track(raw.selected_track)];
+    cup.draft = { stage: 'picks', order: raw.members.map((m) => m.id), bans: {} };
+    cup.name = raw.season?.name ? `Ranked · ${raw.season.name}` : 'Ranked Cup';
+  }
   cup.draftReady = raw.session.ready.map(actor);
   cup.revision = raw.session.revision;
   if (raw.session.launch?.stage === 'grace') cup.draftStartsAt = raw.session.launch.at;
@@ -169,6 +180,12 @@ export class RankedRoom extends WaitingRoom {
   override verifiedConnection(nativeId: number) {
     return this.#raw?.members.find((m) => m.id === this.selfId)?.native === nativeId;
   }
+  override verifiedChatKey(nativeId: number) {
+    // Use the server's ticket-bound native/account mapping. Ranked deliberately
+    // skips the separate casual reconnect identity handshake.
+    const member = this.#raw?.members.find((m) => m.native === nativeId);
+    return member ? `ranked:${member.account}` : undefined;
+  }
   override get ranked() {
     return true;
   }
@@ -216,8 +233,9 @@ export class RankedRoom extends WaitingRoom {
   #changed() {
     for (const fn of this.#listeners) fn();
   }
-  async enter() {
+  async enter(identity?: { name: string; country?: string | null; style?: string }) {
     await this.#request('rejoin');
+    if (this.#view && identity) await this.#request('garage', identity);
     if (this.#view && !this.#timer)
       this.#timer = setInterval(() => {
         if (Date.now() - this.#last >= (this.#suspended ? 5000 : 1000)) void this.poll();

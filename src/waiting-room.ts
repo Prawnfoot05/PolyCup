@@ -34,6 +34,9 @@ export class WaitingRoom {
   verifiedConnection(_nativeId: number) {
     return true;
   }
+  verifiedChatKey(_nativeId: number): string | undefined {
+    return undefined;
+  }
   get ranked(): boolean {
     return false;
   }

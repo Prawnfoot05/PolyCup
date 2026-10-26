@@ -13,12 +13,20 @@ export function validateRankedTranscript(match: any, value: RankedTranscript, no
   if (!value || value.schema!==1 || value.match!==match.id || value.launch!==match.session?.launch?.id ||
       !Array.isArray(value.rounds) || !value.rounds.length || value.rounds.length>1000) fail('Invalid transcript identity or size.');
   const preset=standardPreset();
-  for (const key of Object.keys(preset.rules)) (preset.rules as any)[key]=match.rules[key];
-  if (preset.rules.pointsToWin!==140 || preset.rules.roundsPerTrack!==3 || !preset.rules.finalist) fail('Unsupported ranked rules.');
+  for (const key of Object.keys(preset.rules)) if(match.rules[key]!==undefined) (preset.rules as any)[key]=match.rules[key];
+  const single=!!match.season_id && preset.rules.singleTrack===true;
+  if (!preset.rules.finalist || (single
+    ? preset.rules.pointsToWin!==30 || preset.rules.roundsPerTrack!==1 || preset.rules.selection!=='random' || JSON.stringify(preset.rules.points)!=='[10,7,4,2,0,0,0,0]'
+    : preset.rules.pointsToWin!==140 || preset.rules.roundsPerTrack!==3 || preset.rules.singleTrack)) fail('Unsupported ranked rules.');
   const state=Cup.newCup('Ranked',preset); state.id=match.id;
   const roster: string[]=match.roster;
   state.roster=roster.map((account,i)=>({id:i+1,name:account}));
   state.draft={stage:'picks',order:state.roster.map(p=>p.id),bans:{},banHistory:[]};
+  if(single){
+    if(!match.track_pool.some((t:any)=>t.id===match.selected_track && ['official','community'].includes(t.category)))fail('Track outside reserved pool.');
+    state.tracks=[{id:match.selected_track,name:match.selected_track}];
+    if(match.draft?.picks?.length || match.draft?.bans?.length)fail('Single-track match cannot contain draft choices.');
+  }
   for (const pick of match.draft.picks) {
     if (!match.track_pool.some((t:any)=>t.id===pick.track_id && ['official','community'].includes(t.category))) fail('Track outside reserved pool.');
     Cup.chooseTrack(state,roster.indexOf(pick.player_id)+1,{id:pick.track_id,name:pick.track_id});

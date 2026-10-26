@@ -735,3 +735,13 @@ button.track-card:focus-visible { background:var(--button-bg); text-decoration:n
 @media(max-width:1000px) { .lobby-racer > .racer-name { flex-wrap:wrap; } .lobby-racer > .racer-name > .lobby-rank-badge { margin-right:8px; } .panel > header { flex-wrap:wrap; row-gap:12px; } }
 .waiting-room-connection { display:flex; align-items:center; gap:12px; }
 .waiting-room-elapsed { color:#adc3df; font-size:16px; }
+
+/* Keep the complete lobby visibly behind one loading state until handoff succeeds. */
+.panel.is-loading { overflow:hidden; }
+.panel.is-loading > :not(.lobby-loading) { filter:blur(5px); pointer-events:none; user-select:none; }
+.lobby-loading { position:absolute; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:rgba(9,14,34,.76); text-align:center; padding:24px; }
+.lobby-loading h2 { margin:0; font-size:32px; }
+.lobby-loading-hint { min-height:20px; margin:0; color:var(--muted); font-size:18px; }
+.lobby-loading-spinner { width:34px; height:34px; border:3px solid #526087; border-top-color:var(--gold); border-radius:50%; animation:lobby-loading-spin 1s linear infinite; }
+@keyframes lobby-loading-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .lobby-loading-spinner { animation:none; border-color:var(--gold); } }

@@ -3,7 +3,7 @@ import type { CupState, Match, RaceRecord, Track } from './types.ts';
 // Competition state is owned by the native multiplayer host. No game internals here.
 import { isBanned, picksOpen, resetDraft, rosterOpen } from './draft.ts';
 import { rulesFor, standardPreset, validPreset, type CupPreset, type CupRules } from './presets.ts';
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 export const RULES = Object.freeze({
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   target: 140,
@@ -356,6 +356,8 @@ export function practiceReady(state: CupState, id: number, roundId: string) {
 export function trackProgress(state: CupState, completedRounds = currentMatch(state)?.rounds ?? 0) {
   const m = state && currentMatch(state);
   if (!m?.order.length) return null;
+  if (rulesFor(state).singleTrack)
+    return { trackId: m.order[0], round: completedRounds + 1, rounds: 0 };
   if (rulesFor(state).selection === 'random') {
     const block = m.randomTrack;
     if (

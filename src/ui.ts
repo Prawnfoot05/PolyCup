@@ -102,6 +102,7 @@ export class CupUI {
   #playerThumbnails: Map<number, Promise<string | null>> = new Map();
   #shadow: ShadowRoot;
   #panel: HTMLElement;
+  #loadingOverlay = h('div', undefined, 'lobby-loading');
   #hud: HTMLElement;
   #povHud: HTMLElement;
   #povRecordHud: HTMLElement;
@@ -157,6 +158,8 @@ export class CupUI {
     const menuVersion = h('div', `PolyCup ${Cup.VERSION}`, 'menu-version');
     this.#panel = h('section', undefined, 'panel');
     this.#panel.setAttribute('aria-label', 'Simple Cup');
+    this.#loadingOverlay.setAttribute('role', 'status');
+    this.#loadingOverlay.setAttribute('aria-live', 'polite');
     this.#hud = h('aside', undefined, 'hud');
     this.#povHud = h('aside', undefined, 'pov-hud');
     this.#povRecordHud = h('aside', undefined, 'pov-record-hud');
@@ -532,6 +535,13 @@ export class CupUI {
   render() {
     const c = this.#c,
       s = c.state;
+    const launch = c.room?.snapshot?.data.launch;
+    const loading =
+      (!!c.waitingRoom || c.waitingRaceLoading) &&
+      !!launch &&
+      !c.error &&
+      !c.waitingRoom?.connectionFailure &&
+      (launch.stage !== 'grace' || Date.now() >= launch.at);
     this.#draftSlots.sync(s);
     if (this.#noticeCupId !== (s?.id ?? null)) {
       this.dismissNotice();
@@ -545,7 +555,7 @@ export class CupUI {
         Cup.activeIds(s).includes(c.localPlayerId) &&
         !Cup.roundDone(s, c.localPlayerId),
     );
-    if (c.panelRequest.revision !== this.#seenPanelRequest) {
+    if (c.panelRequest.revision !== this.#seenPanelRequest && (!loading || c.panelRequest.open)) {
       this.#seenPanelRequest = c.panelRequest.revision;
       if (c.panelRequest.revision > 0) {
         this.#peekCup = null;
@@ -560,6 +570,7 @@ export class CupUI {
       this.#peekCup = null;
       this.#open = false;
     }
+    if (loading) this.#open = true;
     if (!this.#open && this.#rulesDialog.open) this.#rulesDialog.close();
     this.renderCompletion();
 
@@ -617,6 +628,7 @@ export class CupUI {
       c.hideOtherGhosts,
       c.game && !c.info?.disposed ? c.native?.ghostKeys?.(c.game) : null,
       !!c.startingCup,
+      loading,
       c.preparingRandom,
       c.canSpectate(),
     ]);
@@ -668,7 +680,7 @@ export class CupUI {
           title.append(
             h(
               'p',
-              `${s.name} / ${s.phase === 'registration' ? ({ roster: 'Lobby', bans: 'Banning', picks: 'Picking' }[s.draft?.stage ?? 'picks'] ?? 'Picking') : s.phase === 'between-rounds' && this.#c.needsRebind.size ? 'Cup paused' : names[s.phase]}`,
+              `${s.name} / ${s.phase === 'registration' ? (rulesFor(s).singleTrack ? 'Preparing race' : ({ roster: 'Lobby', bans: 'Banning', picks: 'Picking' }[s.draft?.stage ?? 'picks'] ?? 'Picking')) : s.phase === 'between-rounds' && this.#c.needsRebind.size ? 'Cup paused' : names[s.phase]}`,
             ),
           );
         const hide = this.button(
@@ -750,7 +762,9 @@ export class CupUI {
                   c.room?.snapshot?.data.launch?.stage === 'racing' &&
                   s?.phase !== 'complete' &&
                   !confirm(
-                    'Leave this ranked Cup? Reconnect within 2 minutes or it counts as an abandonment loss. Closing the host game ends the Cup for everyone.',
+                    c.isHost
+                      ? 'Leaving closes the race for everyone. This hosted race cannot be restored, and leaving counts as an abandonment loss.'
+                      : 'Leave this ranked Cup? Reconnect within 2 minutes or it counts as an abandonment loss.',
                   )
                 )
                   return;
@@ -945,6 +959,28 @@ export class CupUI {
         : null;
     this.#chatUI.mount(chatSlot, s?.phase === 'registration');
     this.#chatUI.render();
+    this.#panel.classList.toggle('is-loading', loading);
+    this.#panel.setAttribute('aria-busy', String(loading));
+    if (loading) {
+      if (!this.#loadingOverlay.parentElement) {
+        const spinner = h('span', undefined, 'lobby-loading-spinner');
+        spinner.setAttribute('aria-hidden', 'true');
+        this.#loadingOverlay.replaceChildren(spinner, h('h2', 'Loading...'));
+        const hint = h('p', '', 'lobby-loading-hint');
+        this.#loadingOverlay.append(hint);
+        if (c.isHost && !c.ranked && launch?.stage === 'connecting')
+          this.#loadingOverlay.append(
+            this.button('Cancel start', () => c.waitingRoom!.submit('cancel'), 'quiet'),
+          );
+        this.#panel.append(this.#loadingOverlay);
+      }
+      const hint = this.#loadingOverlay.querySelector<HTMLElement>('.lobby-loading-hint')!;
+      const slow = Date.now() - launch!.at >= 8000;
+      const text = slow ? 'Waiting for the multiplayer connection...' : '';
+      if (hint.textContent !== text) hint.textContent = text;
+    } else this.#loadingOverlay.remove();
+    for (const child of this.#panel.children)
+      (child as HTMLElement).inert = loading && child !== this.#loadingOverlay;
     restoreScroll?.();
     this.#playerMenu.sync();
     const chatButton = this.#shadow.querySelector<HTMLButtonElement>('.header-chat');
@@ -1203,6 +1239,20 @@ export class CupUI {
     const s = this.#c.cup,
       c = this.#c,
       joined = !!Cup.player(s, c.localPlayerId);
+    if (c.ranked && rulesFor(s).singleTrack) {
+      this.#body.append(h('h2', s.tracks[0]?.name ?? 'Ranked track'));
+      this.#body.append(h('p', 'One track · 30 points, then win a round', 'muted'));
+      this.#body.append(h('p', '30-second opening warmup · 10 / 7 / 4 / 2 points', 'muted'));
+      if (c.error && !c.startingCup)
+        this.#body.append(
+          this.button(
+            'Retry connection',
+            () => c.waitingRoom!.submit('draft-ready', 'ready'),
+            'primary',
+          ),
+        );
+      return;
+    }
     const banning = s.draft?.stage === 'bans' && s.phase === 'registration';
     const mayChoose = banning
       ? banTurn(s) === c.localPlayerId
@@ -1804,7 +1854,10 @@ export class CupUI {
       picker.append(this.playerLabel(player.id));
     }
     picker.title = picked;
-    sub.append(picker, h('strong', `ROUND ${visit.round}/${visit.rounds}`));
+    sub.append(
+      picker,
+      h('strong', visit.rounds ? `ROUND ${visit.round}/${visit.rounds}` : `ROUND ${visit.round}`),
+    );
     title.append(sub);
     const status = h('div', undefined, 'hud-phase');
     status.append(

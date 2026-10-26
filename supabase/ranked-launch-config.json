@@ -1,6 +1,6 @@
 {
   "gameVersion": "0.6.3",
-  "clientVersion": "0.4.0",
+  "clientVersion": "0.4.1",
   "modelVersion": "btf-6.2.0-t025-softplus-v1",
   "provisionalMatches": 5,
   "tierFloors": [
@@ -20,9 +20,10 @@
     "master"
   ],
   "grandmaster": "Top 10 eligible Master players after provisionals",
-  "catalog": "catalogs/polytrack-0.6.3.json",
-  "catalogPolicy": "Every official/main and community track bundled with this game version; no custom tracks",
+  "catalog": "catalogs/season-1.json",
+  "catalogPolicy": "Main tracks plus CT 0.6.3, frozen for Season 1",
   "targetPlayers": 4,
   "threePlayerWaitSeconds": 60,
-  "twoPlayerWaitSeconds": 120
+  "twoPlayerWaitSeconds": 120,
+  "season": "season-1"
 }

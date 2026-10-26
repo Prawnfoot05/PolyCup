@@ -78,6 +78,7 @@ export interface RankedHistoryEntry {
   rounds: number;
 }
 export interface RankedMatchResult {
+  season?: { id: string; name: string } | null;
   match_id: string;
   finished_at: string;
   rounds: number;
@@ -174,9 +175,20 @@ export function rankedLobbyControls(status: RankedStatus) {
 export function rankedPreset(): CupPreset {
   const preset = standardPreset();
   preset.name = 'Ranked';
-  preset.rules.roundsPerTrack = 3;
-  preset.rules.bansPerRacer = 2;
-  preset.rules.picksPerRacer = 2;
+  Object.assign(preset.rules, {
+    singleTrack: true,
+    selection: 'random',
+    roundsPerTrack: 1,
+    pointsToWin: 30,
+    points: [10, 7, 4, 2, 0, 0, 0, 0],
+    bansPerRacer: 0,
+    picksPerRacer: 0,
+    warmup: 'first-visit',
+    warmupTiming: 'fixed',
+    warmupSeconds: 30,
+    readyEndsWarmup: false,
+    roundBreakSeconds: 3,
+  });
   return preset;
 }
 
@@ -269,6 +281,27 @@ export class Ranked {
 
   async leaderboard(pageSize = 50, pageOffset = 0): Promise<LeaderboardEntry[]> {
     const rows = await this.rpc<LeaderboardEntry[]>('polycup_leaderboard', {
+      page_size: pageSize,
+      page_offset: pageOffset,
+    });
+    const pictures = await this.pictures(rows.map((r) => r.player_id));
+    return rows.map((r) => ({ ...r, avatar_url: pictures[r.player_id] }));
+  }
+  seasons(): Promise<{ id: string; name: string; active: boolean }[]> {
+    return this.rpc('polycup_seasons');
+  }
+  onlineCount(): Promise<number> {
+    return this.rpc('polycup_online_count');
+  }
+  async seasonLeaderboard(
+    season: string,
+    friends: boolean,
+    pageSize = 50,
+    pageOffset = 0,
+  ): Promise<LeaderboardEntry[]> {
+    const rows = await this.rpc<LeaderboardEntry[]>('polycup_season_leaderboard', {
+      season_key: season,
+      friends_only: friends,
       page_size: pageSize,
       page_offset: pageOffset,
     });

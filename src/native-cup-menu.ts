@@ -54,6 +54,7 @@ export function registerCupMenu(pml: PolyModLoader, insert: unknown) {
     window.addEventListener('${PROFILE_EVENT}', event => {
       const p = S.getCurrentUserProfile();
       event.detail.profile = { name: p.nickname || 'Player', country: p.countryCode || null, style: p.carStyle.serialize() };
+      event.detail.trackLibrary = x;
     });
     window.addEventListener('${RETURN_EVENT}', () => {
       const returnedRace=document.body.dataset.polycupNativeRace;

@@ -1,0 +1,247 @@
+{
+  "id": "season-1",
+  "name": "Season 1",
+  "gameVersion": "0.6.3",
+  "communityCollection": "0.6.3",
+  "source": "Native bundled track collection metadata; main tracks plus latest CT collection",
+  "entries": [
+    {
+      "id": "0338f449b9948f06c03ffc2ab3ab6cf551fd08a9f2c09a16156b93ef52dd4411",
+      "category": "community",
+      "digest": "e089057d979f49bccafbbe7bc2085c49122a73b08f6c1b24366afd870a8295e8"
+    },
+    {
+      "id": "148826aa16ffaa23dbc453b32cff05e025ddbce1773fc7733cc13d218926515a",
+      "category": "official",
+      "digest": "95a0b9f0dddb1a29107459eb4ea1a00ee03a7ec61d0eb07fe360e8dd70e60a4c"
+    },
+    {
+      "id": "225fad12335dadc12b60bfa1b31369b1026d8a084fd4670583870fb3b71f7ec0",
+      "category": "community",
+      "digest": "abb858de02ae52649420fcb63b6bb136c2cb017da1b10de0ca60d70348646438"
+    },
+    {
+      "id": "27c3384de80b1bed23f1ea15316abe62c8cca33e955805f23d461803f6dee8d4",
+      "category": "community",
+      "digest": "e95e234f25eb40fb57f4f3ef6196a81117bdcd0618c7709a378a1607b5c57502"
+    },
+    {
+      "id": "2806030c503abb41a1a26fa9a570888be14296172bb273798ef0ad87a108a2ec",
+      "category": "official",
+      "digest": "b7a8e4f5c73460ed941c06a5b050b64f752a6f1259b2275fe92864086a475c69"
+    },
+    {
+      "id": "2fe4bd46b0075cc25fc770ce50adbb68447cf493c999635bb272d231811dd264",
+      "category": "official",
+      "digest": "216e6c53ec5dc725f14f808fa0865ecad1cd4813a835d8beb0afce80eb1e18c8"
+    },
+    {
+      "id": "387aab2d3400ebf74b5a780d15c911cdc695053b94be3e7ad23f6ae313b2471c",
+      "category": "community",
+      "digest": "106f02be5915d414e2e5f3c6244a84f47722ea3faafa881cb3b620dce4194110"
+    },
+    {
+      "id": "439f1c61263987365996667f99d65f899ec482dfe21c64edcd9a1b1ae5b4a0a9",
+      "category": "community",
+      "digest": "5dca02df8a97e4a8a1eef3c5990b0f4e6bc8a5e558e8471fe97d4a3a77cba998"
+    },
+    {
+      "id": "4697ea67b18c3f49b30a3d8884602115536650bc5435c88e3732e64d21a72d33",
+      "category": "official",
+      "digest": "a21e6b3d4be690f541f5912c04772940340af1ac823face2ea8a4e4c7333f77f"
+    },
+    {
+      "id": "5803f9e963625804e3de3246d043dc7dde847aa32e991f7f7326b0453f1fa038",
+      "category": "official",
+      "digest": "0f76ea0f7aa2d1696a11bb5a88bc560f324ddfe7fb2a6f634b28bf1f5c66a011"
+    },
+    {
+      "id": "7239b17057127936907a805b0caa5d8c6f6c97eca9bdabf1a5312dce479629b7",
+      "category": "official",
+      "digest": "c6252e3aadd2b1a8a459f0fd452261ac938aab562c4dc92721fd0985302d4db5"
+    },
+    {
+      "id": "7603aaeffa1989a649dfaa8e1804bed4481b49df233e377687d0669899566e52",
+      "category": "official",
+      "digest": "8524bae8fd01a6b4607efbd987afb050a9300006ed02f78f454bce14211f6609"
+    },
+    {
+      "id": "7d134c939df80c676a258266201beedd3b93572d5603f3ff4339ff8679803715",
+      "category": "official",
+      "digest": "1d8fdabc91c39674cdf3cff1cca5f374d3c91ef87f3913535d4e0e07f3596231"
+    },
+    {
+      "id": "7eac4fee1111152cfba4d3737410264ca0f22c7f5a2211e79f0099589b8b48c0",
+      "category": "official",
+      "digest": "2e83057e196041789b9756f7765e7523e5047e7f6e3ddb71235c125f52e1d554"
+    },
+    {
+      "id": "88647ea04145fbbbb19b55f1590e038fb0378acb2571110f02cb545cc46b0d57",
+      "category": "official",
+      "digest": "b2b465ba49e0f252ca3984749b25797402cbe04143ae4812093f5b2fee8cc978"
+    },
+    {
+      "id": "93c7363dfea7fb09ca1d23b72cad5df43a30841d41c8ff25fb544c85bb03c7ae",
+      "category": "official",
+      "digest": "39f629e34f5113c8a2fdef48e2eb6714657a1b2e92038a59c9148e712eaef0a8"
+    },
+    {
+      "id": "99864b635d1891d22e17eb9267527a07a92c49c0f02893729fa2ded90e3ca0f9",
+      "category": "official",
+      "digest": "3fff1ea8ecd83c776bd7f6196b1f079bfdbd293f05e1e014cf7ad01e8fa8cf7f"
+    },
+    {
+      "id": "a5341fe706097cff2a3812a3fc0d87399254557328351ae8e5c882700fc1a196",
+      "category": "official",
+      "digest": "66522d0f79b8659c895bcd31cfdbba98d01bbd8ec027c7c8041ba68f2fde1ba1"
+    },
+    {
+      "id": "a680fa81e6a4b9dec06b4197833f0a96334a275faf387d495c9c674ffd6b8686",
+      "category": "community",
+      "digest": "d57ca1a9194e3891423ace1eca0b4d4e5c249cea0ddac27156dc2131a0e8a7db"
+    },
+    {
+      "id": "c117823cf6788e3247b9ee63a0c091c07352bbe352c650a7790dc6718148c2fa",
+      "category": "official",
+      "digest": "57ee5d4304fce569e78c362c6514fc81c03b0d93859d4207cd5816e977f52c60"
+    },
+    {
+      "id": "c20b4ee3cd517ca6cae7e43f047548757287fbd08ba81b97892a3ef520159a34",
+      "category": "official",
+      "digest": "618d88414d8b02f32d386734554b85a95d3d343598b0635bb7df1652b58c3923"
+    },
+    {
+      "id": "d57a81355f36d5ef0bd2c063d251baf6d28401c275a8b3e3a62e0ae5071a2559",
+      "category": "community",
+      "digest": "28230ece237ed412f63ad2e61dc44e81a8a23253c95f2f7859a52a0567f10620"
+    },
+    {
+      "id": "d9bc51ec180bc46558e079c7949ba10b9ade52078c4c145f217a6a8543df2377",
+      "category": "community",
+      "digest": "6cf28f35de15f73938157544a0b54e29b3b69b3f4cc78723c4221fd3f5a2ed40"
+    },
+    {
+      "id": "dc7783fef2a5fbb7a2d75b9c6fdd6a9d600b833d47c6274374ea4388c707517a",
+      "category": "community",
+      "digest": "02716e8f9c7849824acce1021c80db4f18bc3e5f2e095a04ab3b40a987900ed1"
+    },
+    {
+      "id": "e4bcaca3a583bb0eb62a700a69d14e89c852f0c5bf740fca76e0519ebdfc9ab1",
+      "category": "official",
+      "digest": "8882111f26f655860b3d0ebcee4d674da38189d5ba992a499d600f437eaf69c7"
+    },
+    {
+      "id": "e5d084e06db4ab71196fea44efeceb23c8561266a78669c324a38f92581fe2db",
+      "category": "official",
+      "digest": "1023cb227137f0dbf5358f02f280b64c078642baa6ddcb1a2195b789c3da8494"
+    },
+    {
+      "id": "f40d385d5e97e00a166a9a05d19789d8f2bf3621a8c1c8919c8bec41ab6347ab",
+      "category": "community",
+      "digest": "675835b818e1a80a4664b5dacac3870ff9c141b3027c338f809140042a6fbc5d"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "0338f449b9948f06c03ffc2ab3ab6cf551fd08a9f2c09a16156b93ef52dd4411",
+      "collection": "0.6.3",
+      "name": "݁˖.˚ Evanescent Bliss. ݁₊˚ ."
+    },
+    {
+      "id": "148826aa16ffaa23dbc453b32cff05e025ddbce1773fc7733cc13d218926515a"
+    },
+    {
+      "id": "225fad12335dadc12b60bfa1b31369b1026d8a084fd4670583870fb3b71f7ec0",
+      "collection": "0.6.3",
+      "name": "Solaris"
+    },
+    {
+      "id": "27c3384de80b1bed23f1ea15316abe62c8cca33e955805f23d461803f6dee8d4",
+      "collection": "0.6.3",
+      "name": "𐌀𐌕𐌋𐌀𐌍𐌕𐌉𐌔"
+    },
+    {
+      "id": "2806030c503abb41a1a26fa9a570888be14296172bb273798ef0ad87a108a2ec"
+    },
+    {
+      "id": "2fe4bd46b0075cc25fc770ce50adbb68447cf493c999635bb272d231811dd264"
+    },
+    {
+      "id": "387aab2d3400ebf74b5a780d15c911cdc695053b94be3e7ad23f6ae313b2471c",
+      "collection": "0.6.3",
+      "name": "La Infinita"
+    },
+    {
+      "id": "439f1c61263987365996667f99d65f899ec482dfe21c64edcd9a1b1ae5b4a0a9",
+      "collection": "0.6.3",
+      "name": "Zenith"
+    },
+    {
+      "id": "4697ea67b18c3f49b30a3d8884602115536650bc5435c88e3732e64d21a72d33"
+    },
+    {
+      "id": "5803f9e963625804e3de3246d043dc7dde847aa32e991f7f7326b0453f1fa038"
+    },
+    {
+      "id": "7239b17057127936907a805b0caa5d8c6f6c97eca9bdabf1a5312dce479629b7"
+    },
+    {
+      "id": "7603aaeffa1989a649dfaa8e1804bed4481b49df233e377687d0669899566e52"
+    },
+    {
+      "id": "7d134c939df80c676a258266201beedd3b93572d5603f3ff4339ff8679803715"
+    },
+    {
+      "id": "7eac4fee1111152cfba4d3737410264ca0f22c7f5a2211e79f0099589b8b48c0"
+    },
+    {
+      "id": "88647ea04145fbbbb19b55f1590e038fb0378acb2571110f02cb545cc46b0d57"
+    },
+    {
+      "id": "93c7363dfea7fb09ca1d23b72cad5df43a30841d41c8ff25fb544c85bb03c7ae"
+    },
+    {
+      "id": "99864b635d1891d22e17eb9267527a07a92c49c0f02893729fa2ded90e3ca0f9"
+    },
+    {
+      "id": "a5341fe706097cff2a3812a3fc0d87399254557328351ae8e5c882700fc1a196"
+    },
+    {
+      "id": "a680fa81e6a4b9dec06b4197833f0a96334a275faf387d495c9c674ffd6b8686",
+      "collection": "0.6.3",
+      "name": "Oyasumi"
+    },
+    {
+      "id": "c117823cf6788e3247b9ee63a0c091c07352bbe352c650a7790dc6718148c2fa"
+    },
+    {
+      "id": "c20b4ee3cd517ca6cae7e43f047548757287fbd08ba81b97892a3ef520159a34"
+    },
+    {
+      "id": "d57a81355f36d5ef0bd2c063d251baf6d28401c275a8b3e3a62e0ae5071a2559",
+      "collection": "0.6.3",
+      "name": "Out of Bounds"
+    },
+    {
+      "id": "d9bc51ec180bc46558e079c7949ba10b9ade52078c4c145f217a6a8543df2377",
+      "collection": "0.6.3",
+      "name": "Tucks Factory"
+    },
+    {
+      "id": "dc7783fef2a5fbb7a2d75b9c6fdd6a9d600b833d47c6274374ea4388c707517a",
+      "collection": "0.6.3",
+      "name": "𝔚𝔦𝔫𝔱𝔢𝔯𝔱𝔦𝔡𝔢"
+    },
+    {
+      "id": "e4bcaca3a583bb0eb62a700a69d14e89c852f0c5bf740fca76e0519ebdfc9ab1"
+    },
+    {
+      "id": "e5d084e06db4ab71196fea44efeceb23c8561266a78669c324a38f92581fe2db"
+    },
+    {
+      "id": "f40d385d5e97e00a166a9a05d19789d8f2bf3621a8c1c8919c8bec41ab6347ab",
+      "collection": "0.6.3",
+      "name": "The CrossFades"
+    }
+  ]
+}

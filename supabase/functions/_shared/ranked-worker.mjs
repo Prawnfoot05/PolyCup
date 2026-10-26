@@ -67,12 +67,13 @@ import { createHash as createHash2 } from "node:crypto";
 var standard = {
   allowRacerChanges: false,
   allowSpectatorFreecam: true,
-  uploadLeaderboardTimes: false,
+  uploadLeaderboardTimes: true,
   roundsPerTrack: 4,
   pointsToWin: 140,
   finalist: true,
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   selection: "draft",
+  singleTrack: false,
   bansPerRacer: 1,
   picksPerRacer: 1,
   pool: ["official", "community"],
@@ -104,7 +105,7 @@ function validPreset(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const p = value, r = p.rules;
   const integer = (n, min, max) => Number.isSafeInteger(n) && Number(n) >= min && Number(n) <= max;
-  return p.format === "polycup-preset" && p.schema === 1 && typeof p.name === "string" && p.name.trim().length > 0 && p.name.length <= 64 && !/[\u0000-\u001f\u007f]/.test(p.name) && !!r && typeof r === "object" && !Array.isArray(r) && Object.keys(p).every((k) => ["format", "schema", "name", "rules"].includes(k)) && Object.keys(r).length === Object.keys(standard).length - (r.uploadLeaderboardTimes === void 0 ? 1 : 0) - (r.allowSpectatorFreecam === void 0 ? 1 : 0) && Object.keys(r).every((k) => k in standard) && integer(r.roundsPerTrack, 1, 30) && integer(r.pointsToWin, 1, 1e4) && typeof r.finalist === "boolean" && typeof r.allowRacerChanges === "boolean" && (r.allowSpectatorFreecam === void 0 || typeof r.allowSpectatorFreecam === "boolean") && (r.uploadLeaderboardTimes === void 0 || typeof r.uploadLeaderboardTimes === "boolean") && Array.isArray(r.points) && r.points.length === 8 && r.points[0] > 0 && r.points.every((n, i) => integer(n, 0, 1e3) && (!i || n <= r.points[i - 1])) && ["draft", "random"].includes(r.selection) && integer(r.bansPerRacer, 0, 3) && integer(r.picksPerRacer, 0, 3) && Array.isArray(r.pool) && r.pool.length > 0 && new Set(r.pool).size === r.pool.length && r.pool.every((k) => ["official", "community", "custom"].includes(k)) && (r.bansPerRacer === 0 || !r.pool.includes("custom")) && (r.selection === "random" ? r.bansPerRacer === 0 && r.picksPerRacer === 0 : r.picksPerRacer >= 1 && (!r.bansPerRacer || r.pool.some((k) => k !== "custom"))) && ["off", "first-visit", "every-visit"].includes(r.warmup) && ["wr", "fixed"].includes(r.warmupTiming) && integer(r.warmupSeconds, 10, 600) && integer(r.warmupMinimumSeconds, 10, 300) && typeof r.warmupMultiplier === "number" && Number.isFinite(r.warmupMultiplier) && r.warmupMultiplier >= 0.5 && r.warmupMultiplier <= 5 && typeof r.readyEndsWarmup === "boolean" && integer(r.finishTimeoutSeconds, 5, 120) && integer(r.roundBreakSeconds, 3, 60);
+  return p.format === "polycup-preset" && p.schema === 1 && typeof p.name === "string" && p.name.trim().length > 0 && p.name.length <= 64 && !/[\u0000-\u001f\u007f]/.test(p.name) && !!r && typeof r === "object" && !Array.isArray(r) && Object.keys(p).every((k) => ["format", "schema", "name", "rules"].includes(k)) && Object.keys(r).length === Object.keys(standard).length - (r.singleTrack === void 0 ? 1 : 0) - (r.uploadLeaderboardTimes === void 0 ? 1 : 0) - (r.allowSpectatorFreecam === void 0 ? 1 : 0) && Object.keys(r).every((k) => k in standard) && integer(r.roundsPerTrack, 1, 30) && (r.singleTrack === void 0 || typeof r.singleTrack === "boolean") && integer(r.pointsToWin, 1, 1e4) && typeof r.finalist === "boolean" && typeof r.allowRacerChanges === "boolean" && (r.allowSpectatorFreecam === void 0 || typeof r.allowSpectatorFreecam === "boolean") && (r.uploadLeaderboardTimes === void 0 || typeof r.uploadLeaderboardTimes === "boolean") && Array.isArray(r.points) && r.points.length === 8 && r.points[0] > 0 && r.points.every((n, i) => integer(n, 0, 1e3) && (!i || n <= r.points[i - 1])) && ["draft", "random"].includes(r.selection) && integer(r.bansPerRacer, 0, 3) && integer(r.picksPerRacer, 0, 3) && Array.isArray(r.pool) && r.pool.length > 0 && new Set(r.pool).size === r.pool.length && r.pool.every((k) => ["official", "community", "custom"].includes(k)) && (r.bansPerRacer === 0 || !r.pool.includes("custom")) && (r.selection === "random" ? r.bansPerRacer === 0 && r.picksPerRacer === 0 : r.picksPerRacer >= 1 && (!r.bansPerRacer || r.pool.some((k) => k !== "custom"))) && ["off", "first-visit", "every-visit"].includes(r.warmup) && ["wr", "fixed"].includes(r.warmupTiming) && integer(r.warmupSeconds, 10, 600) && integer(r.warmupMinimumSeconds, 10, 300) && typeof r.warmupMultiplier === "number" && Number.isFinite(r.warmupMultiplier) && r.warmupMultiplier >= 0.5 && r.warmupMultiplier <= 5 && typeof r.readyEndsWarmup === "boolean" && integer(r.finishTimeoutSeconds, 5, 120) && integer(r.roundBreakSeconds, 3, 60);
 }
 
 // ../../src/draft.ts
@@ -113,7 +114,7 @@ var banEntries = (s) => s.draft?.banHistory ?? Object.entries(s.draft?.bans ?? {
 var isBanned = (s, id) => banEntries(s).some((b) => b.track.id === id);
 
 // ../../src/cup.ts
-var VERSION = "0.4.0-dev.1";
+var VERSION = "0.4.1";
 var RULES = Object.freeze({
   points: [10, 8, 6, 5, 4, 3, 2, 1],
   target: 140,
@@ -264,6 +265,8 @@ function practiceForRecord(wr, rules = rulesFor(null)) {
 function trackProgress(state, completedRounds = currentMatch(state)?.rounds ?? 0) {
   const m = state && currentMatch(state);
   if (!m?.order.length) return null;
+  if (rulesFor(state).singleTrack)
+    return { trackId: m.order[0], round: completedRounds + 1, rounds: 0 };
   if (rulesFor(state).selection === "random") {
     const block = m.randomTrack;
     if (!block || completedRounds < block.fromRound || completedRounds >= block.fromRound + block.rounds)
@@ -455,13 +458,19 @@ function validateRankedTranscript(match, value, now = Date.now()) {
   };
   if (!value || value.schema !== 1 || value.match !== match.id || value.launch !== match.session?.launch?.id || !Array.isArray(value.rounds) || !value.rounds.length || value.rounds.length > 1e3) fail("Invalid transcript identity or size.");
   const preset = standardPreset();
-  for (const key of Object.keys(preset.rules)) preset.rules[key] = match.rules[key];
-  if (preset.rules.pointsToWin !== 140 || preset.rules.roundsPerTrack !== 3 || !preset.rules.finalist) fail("Unsupported ranked rules.");
+  for (const key of Object.keys(preset.rules)) if (match.rules[key] !== void 0) preset.rules[key] = match.rules[key];
+  const single = !!match.season_id && preset.rules.singleTrack === true;
+  if (!preset.rules.finalist || (single ? preset.rules.pointsToWin !== 30 || preset.rules.roundsPerTrack !== 1 || preset.rules.selection !== "random" || JSON.stringify(preset.rules.points) !== "[10,7,4,2,0,0,0,0]" : preset.rules.pointsToWin !== 140 || preset.rules.roundsPerTrack !== 3 || preset.rules.singleTrack)) fail("Unsupported ranked rules.");
   const state = newCup("Ranked", preset);
   state.id = match.id;
   const roster = match.roster;
   state.roster = roster.map((account, i) => ({ id: i + 1, name: account }));
   state.draft = { stage: "picks", order: state.roster.map((p) => p.id), bans: {}, banHistory: [] };
+  if (single) {
+    if (!match.track_pool.some((t) => t.id === match.selected_track && ["official", "community"].includes(t.category))) fail("Track outside reserved pool.");
+    state.tracks = [{ id: match.selected_track, name: match.selected_track }];
+    if (match.draft?.picks?.length || match.draft?.bans?.length) fail("Single-track match cannot contain draft choices.");
+  }
   for (const pick of match.draft.picks) {
     if (!match.track_pool.some((t) => t.id === pick.track_id && ["official", "community"].includes(t.category))) fail("Track outside reserved pool.");
     chooseTrack(state, roster.indexOf(pick.player_id) + 1, { id: pick.track_id, name: pick.track_id });

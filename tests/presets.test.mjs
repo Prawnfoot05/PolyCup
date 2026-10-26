@@ -140,8 +140,8 @@ test('a drafted rematch with late entrants reopens setup rather than assigning t
 });
 
 
-test('leaderboard uploads opt in, survive preset storage/export, and old presets stay competitive',()=>{
- const p=quickplayPreset();assert.equal(p.rules.uploadLeaderboardTimes,false);assert.equal(standardPreset().rules.uploadLeaderboardTimes,false);
+test('leaderboard uploads default on, survive preset storage/export, and old presets retain their setting',()=>{
+ const p=quickplayPreset();assert.equal(p.rules.uploadLeaderboardTimes,true);assert.equal(standardPreset().rules.uploadLeaderboardTimes,true);
  p.name='Public times';p.rules.uploadLeaderboardTimes=true;assert.deepEqual(parsePreset(presetText(p)),p);
  const values=new Map(),store={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},library=new PresetLibrary(store);
  library.save(p);assert.equal(library.list()[0].rules.uploadLeaderboardTimes,true);
@@ -186,8 +186,8 @@ test('eight-racer Cup stress: split/finish duplicates, tied finishes, DNFs, undo
 
 test('preset selection compares rules independently of JSON property order and legacy defaults',()=>{
  const p=standardPreset(),reordered={...p,rules:Object.fromEntries(Object.entries(p.rules).reverse())};
- assert.equal(presetKey(p),presetKey(reordered));delete reordered.rules.uploadLeaderboardTimes;assert.equal(presetKey(p),presetKey(reordered));
- reordered.rules.uploadLeaderboardTimes=true;assert.notEqual(presetKey(p),presetKey(reordered));
+ assert.equal(presetKey(p),presetKey(reordered));delete reordered.rules.uploadLeaderboardTimes;assert.notEqual(presetKey(p),presetKey(reordered));
+ reordered.rules.uploadLeaderboardTimes=true;assert.equal(presetKey(p),presetKey(reordered));
 });
 
 test('host moving a recovering racer to spectators cancels automatic readmission and keeps their score',()=>{
