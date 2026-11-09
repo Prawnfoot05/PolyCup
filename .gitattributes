@@ -1,6 +1,0 @@
-* text=auto eol=lf
-*.cmd text eol=crlf
-# Release artifacts are immutable bytes, independent of checkout platform.
-dist/** -text
-*.png -text
-*.zip -text

@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.4.1",
+  "version": "0.6.1",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
-  "description": "Custom and ranked Cups with matchmaking, Discord accounts, friends, ratings and match history.",
-  "changelog": "- **Changed**: Shorter ranked matches on one randomly selected track, with a 30-second opening warmup, 10/7/4/2 points and a 30-point finalist target.\n- **Added**: Ranked seasons using main tracks and the latest community-track collection, with archived seasonal leaderboards. Ratings and placement progress carry over.\n- **Added**: Online player count beside the PolyCup title.\n- **Changed**: Leaderboard uploads are enabled by default for new casual Cups and ranked matches.\n- **Improved**: A blurred, darkened lobby with a loading overlay during race connection, clearer Private/Public selectors and streamlined ranked lobby controls.\n- **Fixed**: Ranked chat profile verification, garage car thumbnails and garage identities inside Cups.\n- **Fixed**: Cup finish times now match the native finish-crossing timer.\n- **Fixed**: Single-track standings updates after round two, including reconnects and final rating settlement."
+  "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
+  "changelog": "- Current PolyCup client with shared ranked matchmaking and casual cross-play on polycup.online.\n- Profiles, progression, social features, track records and match replays.\n- Native PML menus and practice remain available."
 }
