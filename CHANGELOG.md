@@ -1,5 +1,13 @@
 # PolyCup releases
 
+## 0.6.3 - 2026-11-10
+
+- Replies in DMs and community chat, plus in-game chat carried into postgame.
+- New level-reward profile banners and a top-three track record showcase.
+- Cleaner, more consistent profiles, leaderboards and player presentation.
+- More reliable match transitions and result delivery, with a 45-second loading timeout.
+- In-game patch notes with release history, available from the hub.
+
 ## 0.6.2 - 2026-11-09
 
 - Finish times in ranked match histories, including your time in the list and every racer's time in individual results.
