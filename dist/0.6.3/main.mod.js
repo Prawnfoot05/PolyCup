@@ -8794,6 +8794,7 @@ var init_player_looks2 = __esm({
         for (const portrait of node.querySelectorAll(
           ".player-portrait,.friend-avatar,.account-avatar"
         )) {
+          if (portrait.dataset.playerAvatar === "independent") continue;
           if (value.avatar_url !== void 0) {
             const url = avatarURL(value.avatar_url);
             let image = portrait.querySelector(":scope > img");
@@ -9486,7 +9487,11 @@ function replyAction(select) {
 function replyQuote(reply, log) {
   const quote2 = element("button", void 0, "message-reply-quote");
   quote2.type = "button";
-  if (!reply.unavailable) quote2.append(profilePicture(reply.display_name ?? "", reply.avatar_url));
+  if (!reply.unavailable) {
+    const portrait = profilePicture(reply.display_name ?? "", reply.avatar_url);
+    portrait.dataset.playerAvatar = "independent";
+    quote2.append(portrait);
+  }
   quote2.append(element("strong", reply.display_name ?? ""), element(
     "span",
     reply.unavailable ? "Original message unavailable" : excerpt(reply.body ?? "")
