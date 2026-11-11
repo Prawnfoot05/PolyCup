@@ -1,5 +1,9 @@
 # PolyCup releases
 
+### 0.6.3 server hotfix - 2026-11-11
+
+- Fixed ranked result delivery getting stuck on older unread matches. Ratings continue to settle normally; confirmation now follows the current match, including for older clients.
+
 ## 0.6.3 - 2026-11-10
 
 - Replies in DMs and community chat, plus in-game chat carried into postgame.
