@@ -1719,7 +1719,7 @@ var init_cup = __esm({
     init_draft();
     init_presets();
     APPLICATION_VERSION = true ? "0.6.7" : LEGACY_VERSION;
-    VERSION = true ? CUP_WIRE_VERSION : LEGACY_VERSION;
+    VERSION = /^0\.6\.\d+$/.test(APPLICATION_VERSION) && Number(APPLICATION_VERSION.split(".")[2]) >= 3 ? CUP_WIRE_VERSION : APPLICATION_VERSION;
     RULES = Object.freeze({
       points: [10, 8, 6, 5, 4, 3, 2, 1],
       target: 140,
