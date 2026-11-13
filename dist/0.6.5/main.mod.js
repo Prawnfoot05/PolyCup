@@ -4356,7 +4356,7 @@ var init_controller = __esm({
           this.#state ? rulesFor(this.#state).uploadLeaderboardTimes === true : void 0
         );
         if (!this.#state || this.localPlayerId === null) return;
-        const racing = racingIds(this.#state).includes(this.localPlayerId);
+        const racing = racingIds(this.#state).includes(this.localPlayerId) && !roundDone(this.#state, this.localPlayerId);
         if (racing && this.#cameraRestoredGame !== game) {
           this.#native.release?.(game, this.#drivingView);
           this.#cameraRestoredGame = game;
@@ -4813,7 +4813,7 @@ var init_controller = __esm({
           // The authoritative Cup roster owns departures and round completion. The
           // native lobby list can briefly omit a still-racing peer during delivery.
           standings(this.#state).map((row) => row.id).filter(
-            (id) => racingIds(this.#state).includes(id) && !roundDone(this.#state, id)
+            (id) => racingIds(this.#state).includes(id) && !this.#state.runtime?.dnfs.includes(id) && !roundDone(this.#state, id)
           )
         ) : [];
       }
@@ -4857,7 +4857,9 @@ var init_controller = __esm({
           this.#native.presentation?.(game, true, true);
           this.#native.visibility(
             game,
-            this.hideOtherGhosts ? [] : racingIds(this.#state),
+            this.hideOtherGhosts ? [] : racingIds(this.#state).filter(
+              (id) => !this.#state.runtime?.dnfs.includes(id)
+            ),
             this.#selfId
           );
           this.#filteredCars = true;
@@ -4872,7 +4874,13 @@ var init_controller = __esm({
           this.#filteredCars = false;
           return;
         }
-        const now = this.now(), active = racingIds(this.#state);
+        const now = this.now(), active = racingIds(this.#state).filter((id) => !this.#state.runtime?.dnfs.includes(id));
+        if (this.#followingId !== null && !this.watchable().includes(this.#followingId)) {
+          this.#followingId = null;
+          this.#watchedPose = null;
+          this.#lastWatchPose = null;
+          this.#lastSubscribe = 0;
+        }
         if (this.canSpectate() && !this.watchable().includes(this.#watchId))
           this.selectWatch(this.watchable()[0]);
         if (!spectating && this.#followingGame === game) {
@@ -18270,9 +18278,9 @@ var init_release_notes = __esm({
         date: "2026-11-14",
         entries: [
           "Season 1: fresh placements and revised ratings that separate skill estimates from visible progression, making isolated losses less punishing without penalizing repeat opponents. DNFs cannot gain rating.",
-          "A community-voted 30-track ranked pool: 15 Fullspeed and 15 Tech tracks.",
+          "A community-voted 30-track ranked pool: 15 Fullspeed and 15 Tech tracks, with 20 seconds to finish after the first racer.",
           "Season 0 remains viewable through season selectors, with permanent rank badges revealed on your next hub visit. XP and existing unlocks carry over.",
-          "Expanded profile statistics and smoother chat, connections and casual/friendly match transitions."
+          "Expanded profile statistics and smoother chat, connections, retirement/spectating and casual/friendly match transitions."
         ],
         notes: []
       },
