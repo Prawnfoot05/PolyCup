@@ -7393,7 +7393,7 @@ var init_cosmetic_catalog = __esm({
         name: "CHASING PERFECTION",
         family: "Personal bests",
         metric: "pb_improvements",
-        target: 200,
+        target: 100,
         color: "#c8d4e5",
         rarity: "legendary",
         art: null,
@@ -8368,7 +8368,7 @@ var init_reward_reveal = __esm({
       constructor() {
         this.element.hidden = true;
       }
-      show(key2, rewards, done) {
+      show(key2, rewards, done, heading) {
         rewards = rewards.filter((reward) => reward.kind !== "frame" || !!cosmetic(reward.id, "frame"));
         if (!rewards.length || seen.has(key2)) return false;
         try {
@@ -8377,7 +8377,7 @@ var init_reward_reveal = __esm({
         }
         this.#key = key2;
         this.#done = done;
-        const title = element("h2", rewards.length === 1 ? "Item unlocked" : "Items unlocked"), grid = element("div", void 0, "reward-reveal-grid"), close = element("button", "\xD7", "reward-reveal-close"), proceed = element("button", "Continue", "primary");
+        const title = element("h2", heading ?? (rewards.length === 1 ? "Item unlocked" : "Items unlocked")), grid = element("div", void 0, "reward-reveal-grid"), close = element("button", "\xD7", "reward-reveal-close"), proceed = element("button", "Continue", "primary");
         title.id = "reward-reveal-heading";
         this.element.setAttribute("role", "region");
         this.element.setAttribute("aria-labelledby", title.id);
@@ -18251,10 +18251,10 @@ var init_release_notes = __esm({
         version: "0.6.5",
         date: "2026-11-14",
         entries: [
-          "Season 1: fresh placements, revised ranked progression and the community-voted 30-track pool, with Season 0 statistics preserved.",
-          "Expanded profile statistics, season navigation and new seasonal and Mythic rewards.",
-          "Community mentions and loading-screen chat, with improved replies and stronger shared chat filtering.",
-          "More reliable ranked connections, casual and friendly transitions, result delivery and replay recovery."
+          "Season 1: fresh placements and revised ratings that separate skill estimates from visible progression, making isolated losses less punishing without penalizing repeat opponents. DNFs cannot gain rating.",
+          "A community-voted 30-track ranked pool: 15 Fullspeed and 15 Tech tracks.",
+          "Season 0 remains viewable through season selectors, with permanent rank badges revealed on your next hub visit. XP and existing unlocks carry over.",
+          "Expanded profile statistics and smoother chat, connections and casual/friendly match transitions."
         ],
         notes: []
       },
@@ -18414,6 +18414,62 @@ var init_season_countdown = __esm({
   }
 });
 
+// src/season-rewards.ts
+var SeasonRewards;
+var init_season_rewards = __esm({
+  "src/season-rewards.ts"() {
+    "use strict";
+    init_dom();
+    init_reward_reveal();
+    init_match_finish();
+    SeasonRewards = class {
+      constructor(shadow, safe, user) {
+        this.safe = safe;
+        this.user = user;
+        this.#dialog.append(this.#reveal.element);
+        this.#dialog.addEventListener("cancel", (e) => {
+          e.preventDefault();
+          this.#reveal.acknowledge();
+        });
+        shadow.append(element("style", match_finish_default + `.season-rewards{border:0;padding:0;width:min(800px,calc(100vw - 32px));height:min(570px,calc(100dvh - 32px));background:#10192f;color:var(--pc-text)}.season-rewards::backdrop{background:#080e22bd}.season-rewards .reward-reveal-close{position:absolute;right:12px;top:10px;min-width:44px;background:transparent;font-size:28px}`), this.#dialog);
+      }
+      #dialog = element("dialog", void 0, "match-finish season-rewards polycup-surface");
+      #reveal = new RewardReveal();
+      #busy = false;
+      #last = "";
+      #at = 0;
+      async check(user, api) {
+        if (!user || !api || this.#busy || this.#dialog.open || !this.safe() || this.#last === user && Date.now() - this.#at < 3e4) return;
+        this.#busy = true;
+        this.#last = user;
+        this.#at = Date.now();
+        try {
+          const pending2 = await api.seasonRewards();
+          if (!this.safe() || this.#last !== user || this.user() !== user) return;
+          const reward = pending2[0];
+          if (!reward) return;
+          const shown = this.#reveal.show("season:" + user + ":" + reward.season, reward.rewards, () => {
+            this.#dialog.close();
+            void api.ackSeasonRewards(reward.season).catch(() => {
+            });
+            this.#at = 0;
+          }, reward.name + " rewards");
+          if (shown) this.#dialog.showModal();
+          else await api.ackSeasonRewards(reward.season);
+        } catch {
+        } finally {
+          this.#busy = false;
+        }
+      }
+      close() {
+        if (this.#dialog.open) this.#dialog.close();
+        this.#last = "";
+        this.#at = 0;
+      }
+    };
+  }
+});
+
 // src/cup-hub.ts
 var CupHub;
 var init_cup_hub2 = __esm({
@@ -18440,12 +18496,14 @@ var init_cup_hub2 = __esm({
     init_shared_chat_ui();
     init_patch_notes2();
     init_season_countdown();
+    init_season_rewards();
     CupHub = class {
       constructor(shadow, account, controller, entered, options = {}) {
         this.options = options;
         this.#account = account;
         this.#guide = new CupGuide(shadow);
         this.#patchNotes = new PatchNotes(shadow);
+        this.#seasonRewards = new SeasonRewards(shadow, () => this.isOpen && !document.hidden && !this.#rankedActive && !this.#busy && !this.#resultUI?.isOpen && !controller.nativeState && !this.#room?.snapshot && !shadow.querySelector("dialog[open]:not(.cup-hub):not(.account-embedded)"), () => account.account?.user?.id ?? null);
         account.setSignOutAllowed(() => !this.#room?.requiresAccount && !this.#rankedActive);
         this.#controller = controller;
         this.#entered = entered;
@@ -18934,6 +18992,7 @@ var init_cup_hub2 = __esm({
       #rankedEntered = "";
       #guide;
       #patchNotes;
+      #seasonRewards;
       get #rankedActive() {
         return this.options.rankedActive?.() ?? this.#account.account?.queue.active;
       }
@@ -19127,6 +19186,7 @@ var init_cup_hub2 = __esm({
           this.#error.hidden = false;
         } finally {
           this.#busy = false;
+          void this.#seasonRewards.check(this.#account.account?.user?.id ?? null, this.#account.account?.social);
           for (const [button, label] of labels) button.textContent = label;
           for (const button of this.#dialog.querySelectorAll(
             ".hub-list-header button, .hub-host button, .hub-room button"
@@ -19191,6 +19251,7 @@ var init_cup_hub2 = __esm({
         }, 15e3);
       }
       close() {
+        this.#seasonRewards.close();
         this.#seasonCountdown.stop();
         this.#community?.stop();
         this.#account.closeSocial();
@@ -19209,6 +19270,7 @@ var init_cup_hub2 = __esm({
         coverNativeMenu(false);
       }
       async refresh() {
+        void this.#seasonRewards.check(this.#account.account?.user?.id ?? null, this.#account.account?.social);
         if (this.#refreshing) return;
         if (this.#dialog.open && !this.#onlineBusy && Date.now() - this.#onlineAt >= 3e4) {
           const api = this.#account.account?.ranked;
@@ -21565,6 +21627,12 @@ var init_social = __esm({
       }
       seasons() {
         return this.#rpc("polycup_seasons");
+      }
+      seasonRewards() {
+        return this.#rpc("polycup_season_rewards");
+      }
+      ackSeasonRewards(season) {
+        return this.#rpc("polycup_season_rewards", { action: "ack", season_key: season });
       }
       async profile(player2, season = null) {
         const profile = await this.#rpc("polycup_player_profile_season", {

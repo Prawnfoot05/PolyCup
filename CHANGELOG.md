@@ -2,17 +2,10 @@
 
 ## 0.6.5 - 2026-11-14
 
-- Strengthened shared chat filtering across community, private messages and match chat, including obfuscated slurs.
-- Prepared Season 1 end-of-season rank reward artwork.
-
-- Season 1 preparation: revised ranked progression, the community-voted 30-track pool and season selectors for archived competitive statistics. Season 1 launches after the scheduled Season 0 drain.
-
-- Full profile track-performance and opponent lists, with searchable, sortable ranked statistics and recorded times.
-- Ranked connection recovery tolerates brief interruptions, reports reconnection clearly, and stops local driving when the connection has ended. Delayed finish delivery retains the original valid finish-time cutoff.
-- Browser context menus no longer interrupt gameplay when using the Context Menu key as a driving control.
-- Community mentions, clearer message replies and match chat during loading, with improved postgame typing and gameplay-message avatars.
-- More reliable casual and friendly starts and round changes, with synchronized readiness and recovery from failed loading.
-- Consistent full-row interactions and result alignment, reply notifications, and better replay retention for disconnected racers.
+- Season 1: fresh placements and revised ratings that separate skill estimates from visible progression, making isolated losses less punishing without penalizing repeat opponents. DNFs cannot gain rating.
+- A community-voted 30-track ranked pool: 15 Fullspeed and 15 Tech tracks.
+- Season 0 remains viewable through season selectors, with permanent rank badges revealed on your next hub visit. XP and existing unlocks carry over.
+- Expanded profile statistics and smoother chat, connections and casual/friendly match transitions.
 
 ## 0.6.4 - 2026-11-13
 
