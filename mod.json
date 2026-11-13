@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Replies in DMs and community chat, plus in-game chat carried into postgame.\n- New level-reward profile banners and a top-three track record showcase.\n- Cleaner, more consistent profiles, leaderboards and player presentation.\n- More reliable match transitions and result delivery, with a 45-second loading timeout.\n- In-game patch notes with release history, available from the hub."
+  "changelog": "Season 1 countdown in the Browser hub."
 }
