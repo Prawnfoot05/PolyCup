@@ -64,9 +64,9 @@ function standalonePlatform(origin) {
   return Object.freeze({ distribution: "standalone", serviceOrigin: origin });
 }
 function pmlPlatform(environment = "production") {
-  const serviceOrigin2 = SERVICE_ORIGINS[environment];
-  if (!serviceOrigin2) throw Error("Unknown PolyCup environment");
-  return Object.freeze({ distribution: "pml", serviceOrigin: serviceOrigin2 });
+  const serviceOrigin3 = SERVICE_ORIGINS[environment];
+  if (!serviceOrigin3) throw Error("Unknown PolyCup environment");
+  return Object.freeze({ distribution: "pml", serviceOrigin: serviceOrigin3 });
 }
 function rankedEndpoint(platform2, action) {
   if (!RANKED_ACTIONS.has(action)) throw Error("Unknown ranked service action");
@@ -151,13 +151,13 @@ function protectTransientDisconnect(pc, report2 = () => {
   let timer;
   let releasing = false;
   let expired = false;
-  const pending2 = /* @__PURE__ */ new Set();
+  const pending3 = /* @__PURE__ */ new Set();
   const terminal = () => ["closed", "failed"].includes(pc.connectionState) || ["closed", "failed"].includes(pc.iceConnectionState);
   const disconnected = () => pc.connectionState === "disconnected" || pc.iceConnectionState === "disconnected";
   const clear = () => {
     clearTimeout(timer);
     timer = void 0;
-    pending2.clear();
+    pending3.clear();
   };
   const changed = (event) => {
     if (releasing) return;
@@ -174,19 +174,19 @@ function protectTransientDisconnect(pc, report2 = () => {
     const state = event.type === "connectionstatechange" ? pc.connectionState : pc.iceConnectionState;
     if (state !== "disconnected" || expired) return;
     event.stopImmediatePropagation();
-    pending2.add(event.type);
+    pending3.add(event.type);
     if (timer !== void 0) return;
     report2("rtc_recovering");
     timer = setTimeout(() => {
       timer = void 0;
       if (terminal() || !disconnected()) {
-        pending2.clear();
+        pending3.clear();
         return;
       }
       expired = true;
       report2("rtc_recovery_expired");
-      const events = [...pending2];
-      pending2.clear();
+      const events = [...pending3];
+      pending3.clear();
       releasing = true;
       try {
         for (const type of events) {
@@ -343,10 +343,10 @@ function observeClientGraphics(report2, {
   frame: frame2 = requestAnimationFrame,
   cancel = cancelAnimationFrame,
   room,
-  active,
+  active: active2,
   now = () => performance.now()
 }) {
-  let scope = "", count = 0, losses = 0, previous = 0, started = 0, pending2;
+  let scope = "", count = 0, losses = 0, previous = 0, started = 0, pending3;
   let frames = 0, samples = [];
   const reset = () => {
     previous = 0;
@@ -379,8 +379,8 @@ function observeClientGraphics(report2, {
     reset();
   };
   const tick = () => {
-    pending2 = frame2(tick);
-    if (!changeScope() || doc.hidden || !active() || count >= 12) {
+    pending3 = frame2(tick);
+    if (!changeScope() || doc.hidden || !active2() || count >= 12) {
       reset();
       return;
     }
@@ -404,9 +404,9 @@ function observeClientGraphics(report2, {
     reset();
   };
   for (const name of ["webglcontextlost", "webglcontextrestored", "webglcontextcreationerror"]) doc.addEventListener(name, context, { capture: true });
-  pending2 = frame2(tick);
+  pending3 = frame2(tick);
   return () => {
-    cancel(pending2);
+    cancel(pending3);
     for (const name of ["webglcontextlost", "webglcontextrestored", "webglcontextcreationerror"]) doc.removeEventListener(name, context, { capture: true });
   };
 }
@@ -2069,14 +2069,14 @@ var init_reconnect = __esm({
         return nonce;
       }
       async prove(id, nonce, signature) {
-        const pending2 = this.#pending.get(id), cupId = this.#cupId;
-        if (!pending2 || pending2.nonce !== nonce || pending2.expires < Date.now() || !/^[a-f0-9]{128}$/.test(signature))
+        const pending3 = this.#pending.get(id), cupId = this.#cupId;
+        if (!pending3 || pending3.nonce !== nonce || pending3.expires < Date.now() || !/^[a-f0-9]{128}$/.test(signature))
           return false;
         this.#pending.delete(id);
         try {
           const key2 = await crypto.subtle.importKey(
             "jwk",
-            { kty: "OKP", crv: "Ed25519", x: pending2.key },
+            { kty: "OKP", crv: "Ed25519", x: pending3.key },
             "Ed25519",
             false,
             ["verify"]
@@ -2088,7 +2088,7 @@ var init_reconnect = __esm({
             payload(cupId, nonce)
           );
           if (!valid || this.#cupId !== cupId) return false;
-          this.#peers.set(id, pending2.key);
+          this.#peers.set(id, pending3.key);
           return true;
         } catch {
           return false;
@@ -2565,12 +2565,12 @@ function standings(s) {
   const finishes = live ? s.runtime.finishes : scored ? last.finishes : {};
   const finishOrder = ranking.filter((id) => id in finishes).sort((a, b) => finishes[a] - finishes[b]);
   const splits = live ? s.runtime.splits ?? {} : {};
-  const pending2 = ranking.filter((id) => !finishOrder.includes(id));
+  const pending3 = ranking.filter((id) => !finishOrder.includes(id));
   if (live)
-    pending2.sort(
+    pending3.sort(
       (a, b) => Number(s.runtime.dnfs.includes(a)) - Number(s.runtime.dnfs.includes(b)) || (splits[b]?.index ?? -1) - (splits[a]?.index ?? -1) || (splits[a]?.frames ?? Infinity) - (splits[b]?.frames ?? Infinity)
     );
-  const order = live ? [...finishOrder, ...pending2] : ranking;
+  const order = live ? [...finishOrder, ...pending3] : ranking;
   const teamPoints = live && teamsEnabled(s) ? teamRacePoints(s, finishOrder).points : null;
   const best = finishOrder.length ? finishes[finishOrder[0]] : null;
   return order.map((id) => {
@@ -4512,8 +4512,8 @@ var init_controller = __esm({
           else {
             if (this.#checkpointSender !== this.localPlayerId) this.#pendingCheckpoints.clear();
             this.#checkpointSender = this.localPlayerId;
-            const pending2 = this.#pendingCheckpoints.get(reached);
-            if (!pending2 || pending2.cupId !== message.cupId || pending2.roundId !== message.roundId || pending2.sessionId !== message.sessionId)
+            const pending3 = this.#pendingCheckpoints.get(reached);
+            if (!pending3 || pending3.cupId !== message.cupId || pending3.roundId !== message.roundId || pending3.sessionId !== message.sessionId)
               this.#pendingCheckpoints.set(reached, message);
             this.flushCheckpoints();
           }
@@ -4874,7 +4874,7 @@ var init_controller = __esm({
           this.#filteredCars = false;
           return;
         }
-        const now = this.now(), active = racingIds(this.#state).filter((id) => !this.#state.runtime?.dnfs.includes(id));
+        const now = this.now(), active2 = racingIds(this.#state).filter((id) => !this.#state.runtime?.dnfs.includes(id));
         if (this.#followingId !== null && !this.watchable().includes(this.#followingId)) {
           this.#followingId = null;
           this.#watchedPose = null;
@@ -4888,7 +4888,7 @@ var init_controller = __esm({
           this.#followingGame = null;
           this.#lastWatchPose = null;
         }
-        if (active.includes(this.localPlayerId) && !roundDone(this.#state, this.localPlayerId) && now - this.#lastPose >= 50 && !this.gameInfo.spectator.isEnabled) {
+        if (active2.includes(this.localPlayerId) && !roundDone(this.#state, this.localPlayerId) && now - this.#lastPose >= 50 && !this.gameInfo.spectator.isEnabled) {
           this.#lastPose = now;
           const pose2 = { ...this.#native.camera(game), at: now };
           pose2.frames = this.lapFrames(pose2.frames);
@@ -4908,7 +4908,7 @@ var init_controller = __esm({
           this.#watchedPose = null;
           this.#native.visibility(
             game,
-            this.hideOtherGhosts ? [this.localPlayerId] : active,
+            this.hideOtherGhosts ? [this.localPlayerId] : active2,
             this.localPlayerId
           );
           this.#filteredCars = true;
@@ -4935,7 +4935,7 @@ var init_controller = __esm({
         const viewed = this.watchId;
         this.#native.visibility(
           game,
-          this.hideOtherGhosts ? active.filter((id) => id === viewed) : active,
+          this.hideOtherGhosts ? active2.filter((id) => id === viewed) : active2,
           this.localPlayerId
         );
         this.#filteredCars = true;
@@ -5292,8 +5292,8 @@ var init_controller = __esm({
         if (this.#pendingUpload) throw new Error("Your previous track is still uploading.");
         const cupId = this.cup.id, connection = this.#connection, transferId = crypto.randomUUID();
         const sleep3 = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-        const pending2 = { transferId, done: false, error: null };
-        this.#pendingUpload = pending2;
+        const pending3 = { transferId, done: false, error: null };
+        this.#pendingUpload = pending3;
         this.#transferProgress = "Sending track\u2026";
         this.#onChange();
         const send = async (message) => {
@@ -5301,7 +5301,7 @@ var init_controller = __esm({
           while (true) {
             if (this.#connection !== connection || this.#state?.id !== cupId || this.cup.phase !== "registration")
               throw new Error("The Cup changed during track upload.");
-            if (pending2.error) throw new Error(pending2.error);
+            if (pending3.error) throw new Error(pending3.error);
             if (this.#transport.send(0, { ...message, cupId, transferId })) return;
             if (Date.now() > deadline) throw new Error("Track upload lost its connection. Try again.");
             await sleep3(100);
@@ -5319,9 +5319,9 @@ var init_controller = __esm({
           this.#transferProgress = "Checking track with organizer\u2026";
           this.#onChange();
           const deadline = Date.now() + 15e3;
-          while (!pending2.done && !pending2.error && Date.now() < deadline) await sleep3(100);
-          if (pending2.error) throw new Error(pending2.error);
-          if (!pending2.done) throw new Error("The organizer did not confirm the track. Try again.");
+          while (!pending3.done && !pending3.error && Date.now() < deadline) await sleep3(100);
+          if (pending3.error) throw new Error(pending3.error);
+          if (!pending3.done) throw new Error("The organizer did not confirm the track. Try again.");
         } finally {
           this.#pendingUpload = null;
           this.#transferProgress = "";
@@ -5790,9 +5790,9 @@ var init_controller = __esm({
           }
         } else if (id === 0) {
           if (m.type === "finish-ack") {
-            const pending2 = this.#pendingFinish;
-            if (pending2 && m.roundId === pending2.roundId && m.sessionId === pending2.sessionId && m.frames === pending2.frames) {
-              this.finishDiagnostic("finish_acknowledged", this.localPlayerId, pending2.frames);
+            const pending3 = this.#pendingFinish;
+            if (pending3 && m.roundId === pending3.roundId && m.sessionId === pending3.sessionId && m.frames === pending3.frames) {
+              this.finishDiagnostic("finish_acknowledged", this.localPlayerId, pending3.frames);
               this.#pendingFinish = null;
             }
           } else if (m.type === "action-ack") {
@@ -5806,8 +5806,8 @@ var init_controller = __esm({
             this.#pendingUpload.done = !m.error;
             this.#pendingUpload.error = m.error ? String(m.error).slice(0, 200) : null;
           } else if (m.type === "input-final-ack") {
-            const pending2 = this.#finalInputs.get(m.id);
-            if (pending2 && pending2.message.roundId === m.roundId && pending2.message.sessionId === m.sessionId)
+            const pending3 = this.#finalInputs.get(m.id);
+            if (pending3 && pending3.message.roundId === m.roundId && pending3.message.sessionId === m.sessionId)
               this.#finalInputs.delete(m.id);
           } else if (m.type === "hello-ack" && Number.isFinite(m.sentAt) && Number.isFinite(m.hostAt)) {
             const rtt = Date.now() - m.sentAt;
@@ -6309,9 +6309,9 @@ var init_controller = __esm({
 });
 
 // prototype/standalone/native-routing.ts
-function nativeRoute(input, serviceOrigin2, nativeOrigin, casual) {
-  const url = new URL(input, serviceOrigin2);
-  if (!nativeOrigin || url.origin !== serviceOrigin2 || !url.pathname.startsWith("/v6/"))
+function nativeRoute(input, serviceOrigin3, nativeOrigin, casual) {
+  const url = new URL(input, serviceOrigin3);
+  if (!nativeOrigin || url.origin !== serviceOrigin3 || !url.pathname.startsWith("/v6/"))
     return url.href;
   if (url.pathname === "/v6/user") return url.href;
   if (["/v6/leaderboard", "/v6/leaderboardUserEntry", "/v6/recordings", "/v6/trackOfTheWeek"].includes(url.pathname) || /^\/v6\/trackOfTheWeek\/(image|track)\/[a-f0-9]{64}$/.test(url.pathname)) return url.href;
@@ -6322,9 +6322,9 @@ function nativeRoute(input, serviceOrigin2, nativeOrigin, casual) {
   url.host = target.host;
   return url.href;
 }
-function casualSocket(input, serviceOrigin2, nativeOrigin, casual) {
-  const url = new URL(input, serviceOrigin2);
-  const local = new URL(serviceOrigin2);
+function casualSocket(input, serviceOrigin3, nativeOrigin, casual) {
+  const url = new URL(input, serviceOrigin3);
+  const local = new URL(serviceOrigin3);
   if (!nativeOrigin || !casual || url.host !== local.host || !/^\/v6\/multiplayer\/(host|join)$/.test(url.pathname))
     return url.href;
   const target = new URL(nativeOrigin);
@@ -6893,26 +6893,26 @@ function installErrorDismissal(root) {
     };
     element2.append(close);
   };
-  const collect = (node, pending2) => {
+  const collect = (node, pending3) => {
     const element2 = node instanceof HTMLElement ? node : node.parentElement;
     if (!element2) return;
     const owner = element2.closest(selector);
-    if (owner && root.contains(owner)) pending2.add(owner);
-    if (notices.has(element2)) pending2.add(element2);
-    element2.querySelectorAll(selector).forEach((item) => pending2.add(item));
+    if (owner && root.contains(owner)) pending3.add(owner);
+    if (notices.has(element2)) pending3.add(element2);
+    element2.querySelectorAll(selector).forEach((item) => pending3.add(item));
   };
   const observer2 = new MutationObserver((records) => {
-    const pending2 = /* @__PURE__ */ new Set();
+    const pending3 = /* @__PURE__ */ new Set();
     for (const record of records) {
       if (record.type === "characterData") {
         const owner = record.target.parentElement?.closest(selector);
-        if (owner) pending2.add(owner);
+        if (owner) pending3.add(owner);
       } else {
-        collect(record.target, pending2);
-        record.addedNodes.forEach((node) => collect(node, pending2));
+        collect(record.target, pending3);
+        record.addedNodes.forEach((node) => collect(node, pending3));
       }
     }
-    pending2.forEach(sync);
+    pending3.forEach(sync);
   });
   observer2.observe(root, {
     subtree: true,
@@ -8595,13 +8595,13 @@ function validateAccountName(value) {
   if (Array.from(name).length > 32) throw new Error("Use 32 characters or fewer.");
   return name;
 }
-function parseReturnCode(value, pending2, now = Date.now()) {
-  if (!pending2 || now >= pending2.expires)
+function parseReturnCode(value, pending3, now = Date.now()) {
+  if (!pending3 || now >= pending3.expires)
     throw new Error("Sign-in expired. Start again with Discord.");
   const parts = value.trim().split(":");
   if (parts.length !== 3 || parts[0] !== "polycup1" || !uuid.test(parts[1]) || !codePattern.test(parts[2]))
     throw new Error("Paste the complete return code from the PolyCup sign-in page.");
-  if (parts[1] !== pending2.attempt)
+  if (parts[1] !== pending3.attempt)
     throw new Error("This code belongs to another sign-in. Use the latest sign-in page.");
   return parts[2];
 }
@@ -9541,11 +9541,151 @@ var init_ranked_format = __esm({
   }
 });
 
+// src/official-position.ts
+function configureOfficialPositions(platform2) {
+  serviceOrigin = new URL(rankedEndpoint(platform2, "result"), location.origin).origin;
+}
+function pump() {
+  while (active < 2 && queue.length) {
+    active++;
+    void queue.shift()().finally(() => {
+      active--;
+      pump();
+    });
+  }
+}
+function paint(label, position) {
+  if (position !== null && label.isConnected) {
+    label.textContent = `(PT #${position.toLocaleString("en-US")})`;
+    label.setAttribute("aria-label", `Current verified PolyTrack placement ${position}`);
+  }
+}
+function flush() {
+  scheduled = false;
+  const batches = /* @__PURE__ */ new Map();
+  for (const [node, target] of targets) {
+    if (!node.isConnected) {
+      targets.delete(node);
+      continue;
+    }
+    const rect = node.getBoundingClientRect();
+    if (!rect.width || !rect.height || rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth)
+      continue;
+    targets.delete(node);
+    const key2 = `${target.track}:${target.frames}`, old = cache.get(key2);
+    if (old && old.until > Date.now()) {
+      paint(target.label, old.position);
+      continue;
+    }
+    if (pending2.has(key2)) {
+      pending2.get(key2).push(target.label);
+      continue;
+    }
+    pending2.set(key2, [target.label]);
+    if (!batches.has(target.track)) batches.set(target.track, /* @__PURE__ */ new Map());
+    batches.get(target.track).set(target.frames, [target.label]);
+  }
+  for (const [track, batch] of batches) {
+    const times = [...batch.keys()];
+    for (let offset = 0; offset < times.length; offset += 8) {
+      const frames = times.slice(offset, offset + 8);
+      queue.push(async () => {
+        const positions = /* @__PURE__ */ new Map();
+        try {
+          if (!frames.some(
+            (time2) => pending2.get(`${track}:${time2}`)?.some((label) => label.isConnected)
+          ))
+            return;
+          const response = await fetch(
+            `${serviceOrigin}/native/official-positions?${new URLSearchParams({ track, times: frames.join(",") })}`,
+            { credentials: "omit", signal: AbortSignal.timeout(1e4) }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            for (const row of data.positions ?? [])
+              if (frames.includes(row.frames) && Number.isSafeInteger(row.position) && row.position > 0)
+                positions.set(row.frames, row.position);
+          }
+        } catch {
+        } finally {
+          for (const time2 of frames) {
+            const key2 = `${track}:${time2}`, position = positions.get(time2) ?? null;
+            if (cache.size >= 512) cache.delete(cache.keys().next().value);
+            cache.set(key2, { until: Date.now() + (position === null ? 15e3 : 12e4), position });
+            for (const label of pending2.get(key2) ?? []) paint(label, position);
+            pending2.delete(key2);
+          }
+        }
+      });
+    }
+  }
+  pump();
+}
+function schedule2() {
+  if (!scheduled) {
+    scheduled = true;
+    requestAnimationFrame(flush);
+  }
+}
+function officialLapTime(track, frames, fallback = "\u2014", className = "") {
+  const node = document.createElement("span");
+  node.className = `pc-official-time ${className}`;
+  const value = document.createElement("span");
+  value.className = "pc-lap-time";
+  value.textContent = typeof frames === "number" && frames > 0 ? formatTime(frames) : fallback;
+  node.append(value);
+  if (!track || !/^[a-f0-9]{64}$/.test(track) || !Number.isSafeInteger(frames) || frames <= 0)
+    return node;
+  node.classList.add("has-comparison");
+  const label = document.createElement("small");
+  label.className = "pc-official-position";
+  node.append(label);
+  requestAnimationFrame(() => {
+    if (!node.isConnected) return;
+    const root = node.getRootNode();
+    if (!styledRoots.has(root)) {
+      const style = document.createElement("style");
+      style.textContent = css;
+      (root instanceof ShadowRoot ? root : document.head).append(style);
+      styledRoots.add(root);
+    }
+    if (!observedRoots.has(root)) {
+      new MutationObserver(schedule2).observe(root, { childList: true, subtree: true });
+      observedRoots.add(root);
+    }
+    targets.set(node, { track, frames, label });
+    schedule2();
+  });
+  return node;
+}
+var targets, cache, observedRoots, styledRoots, scheduled, active, queue, pending2, serviceOrigin, css;
+var init_official_position = __esm({
+  "src/official-position.ts"() {
+    "use strict";
+    init_time();
+    init_client_platform();
+    targets = /* @__PURE__ */ new Map();
+    cache = /* @__PURE__ */ new Map();
+    observedRoots = /* @__PURE__ */ new WeakSet();
+    styledRoots = /* @__PURE__ */ new WeakSet();
+    scheduled = false;
+    active = 0;
+    queue = [];
+    pending2 = /* @__PURE__ */ new Map();
+    serviceOrigin = "";
+    css = `.pc-official-time{display:inline-grid;row-gap:.1em;align-content:center;justify-items:center;min-width:0;max-width:100%;vertical-align:middle;line-height:1.1;white-space:nowrap}.pc-official-time.has-comparison{grid-template-rows:1.1em .95em}.pc-lap-time{white-space:nowrap}.pc-official-position{font-size:.78em;color:#aebbd5;white-space:nowrap;font-weight:normal;line-height:1.2}.pc-official-position:empty{visibility:hidden}`;
+    if (typeof window !== "undefined") {
+      window.addEventListener("scroll", schedule2, { capture: true, passive: true });
+      window.addEventListener("resize", schedule2, { passive: true });
+    }
+  }
+});
+
 // src/match-finish.css
 var match_finish_default;
 var init_match_finish = __esm({
   "src/match-finish.css"() {
-    match_finish_default = ".match-finish{--gold:var(--pc-gold);box-sizing:border-box;width:min(900px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:0;background:var(--pc-panel);color:var(--pc-text);font:400 20px ForcedSquare,Arial,sans-serif;box-shadow:0 20px 80px #0007;overflow:auto}\n.match-finish::backdrop{background:linear-gradient(145deg,#17233a,#0b1125);}\n.match-finish header{padding:28px 32px 24px;background:var(--pc-header);text-align:left}\n.finish-mode{font-size:17px;color:var(--pc-muted);margin:0 0 10px}\n.match-finish h1{font:italic 700 44px/1.15 ForcedSquare,Arial,sans-serif;margin:0;color:var(--pc-text);overflow-wrap:anywhere}\n.match-finish.has-winner h1{color:var(--gold)}\n.finish-subtitle{font-size:18px;color:var(--pc-muted);margin:12px 0 0}\n.finish-board{padding:18px 24px 0}\n.finish-columns,.finish-row{display:grid;grid-template-columns:56px minmax(0,1fr) 110px 110px;gap:14px;align-items:center;padding:16px 12px}\n.finish-columns{font-size:16px;color:var(--pc-muted);padding-block:6px 12px}\n.finish-columns>:nth-child(n+3),.finish-rating,.finish-change{text-align:right}\n.finish-row{border-top:2px solid var(--pc-panel);min-height:42px}\n.finish-row.is-winner{background:var(--pc-raised)}\n.finish-row.is-you{box-shadow:none}\n.finish-place{color:var(--pc-muted)}.is-winner .finish-place{color:var(--gold)}\n.finish-player{min-width:0;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}\n.finish-player>span{display:inline-flex;align-items:center;gap:9px;min-width:0}\n.finish-player img{width:32px;height:32px;object-fit:contain;flex:none}\n.finish-player small{font-size:16px;color:var(--pc-muted)}\n.finish-change{font-size:21px;font-weight:700}.finish-rating{font-size:23px}\n.positive{color:var(--pc-positive)}.negative{color:var(--pc-danger)}.neutral{color:var(--pc-muted)}\n.finish-status,.finish-error{min-height:20px;margin:14px 36px;font-size:17px;color:var(--pc-muted)}.finish-error:empty{display:none}.finish-error{color:var(--pc-danger)}\n.match-finish footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:12px;padding:20px 32px;border-top:2px solid var(--pc-canvas)}\n.match-finish button{min-height:48px;border:0;padding:12px 22px;background:var(--pc-action);color:#fff;font:italic 400 20px ForcedSquare,Arial,sans-serif;cursor:pointer;clip-path:var(--cut);font-synthesis:style}\n.match-finish button.primary{background:var(--gold);color:var(--pc-canvas);font-weight:700;font-synthesis:weight style}\n.match-finish button:hover{filter:brightness(1.1)}.match-finish button:focus-visible{outline:none;box-shadow:inset 0 -3px currentColor;text-decoration:underline;text-underline-offset:4px}.match-finish button:disabled{opacity:.6;cursor:wait}\n@media(max-width:600px),(max-height:500px){.match-finish{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);font-size:18px}.match-finish header{padding:16px 18px}.match-finish h1{font-size:30px}.finish-board{padding:12px 8px 0}.finish-columns,.finish-row{grid-template-columns:36px minmax(0,1fr) 70px 70px;gap:8px;padding:12px 8px}.finish-columns{font-size:16px}.finish-rating,.finish-change{font-size:18px}.match-finish footer{padding:14px;gap:8px}.finish-status,.finish-error{margin:12px 16px}.match-finish button{font-size:17px;padding-inline:14px}}\n.finish-player{flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px}\n.finish-departure{color:var(--pc-danger);font-size:18px;white-space:nowrap}\n.finish-rating{display:flex;justify-content:flex-end}\n.finish-rating .ranked-rating-badge{width:110px;height:34px}\n.finish-rating .ranked-rating-value{font-size:28px}\n.finish-rating .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:17px}\n.finish-rating .ranked-rating-value small{font-size:14px}\n.finish-player .player-portrait{width:36px;height:36px;flex-basis:36px}\n.finish-player .player-portrait img{object-fit:cover;width:100%;height:100%}\n@media(max-width:600px){.finish-columns,.finish-row{grid-template-columns:30px minmax(0,1fr) 82px 58px;gap:6px}.finish-rating .ranked-rating-badge{width:82px;height:26px}.finish-rating .ranked-rating-value{font-size:21px}.finish-rating .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:13px}.finish-rating .ranked-rating-value small{font-size:11px}.finish-player .player-portrait{width:28px;height:28px;flex-basis:28px}.finish-departure{font-size:16px}}\n.finish-status:empty{display:none}\n.match-finish.is-casual .finish-columns,.match-finish.is-casual .finish-row{grid-template-columns:56px minmax(0,1fr) 110px}\n.match-finish.is-casual .finish-columns>:last-child,.match-finish.is-casual .finish-change{display:none}\n@media(max-width:600px){.match-finish.is-casual .finish-columns,.match-finish.is-casual .finish-row{grid-template-columns:30px minmax(0,1fr) 70px}}\n.match-finish[open]{display:flex;flex-direction:column;overflow:hidden}.match-finish>header,.match-finish>footer{flex:none}.finish-board{min-height:0;overflow:auto}.finish-status,.finish-error{flex:none}\n@media(max-width:500px){\n .match-finish{width:calc(100vw - 12px);max-height:calc(100dvh - 12px)}\n .match-finish header{padding:16px}.match-finish h1{font-size:29px}\n .finish-columns{grid-template-columns:32px minmax(0,1fr);padding:8px}.finish-columns>:nth-child(n+3){display:none}\n .finish-row{grid-template-columns:32px minmax(0,1fr) 88px;gap:8px 10px;padding:14px 8px}\n .finish-place{grid-column:1;grid-row:1/3;align-self:center}\n .finish-player{grid-column:2/-1;grid-row:1;gap:8px;font-size:18px}\n .finish-rating{grid-column:2;grid-row:2;justify-content:flex-start;padding-left:37px}\n .finish-change{grid-column:3;grid-row:2;font-size:22px}\n .finish-rating .ranked-rating-badge{width:110px;height:34px}.finish-rating .ranked-rating-value{font-size:28px}.finish-rating .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:17px}.finish-rating .ranked-rating-value small{font-size:14px}\n .match-finish.is-casual .finish-row{grid-template-columns:32px minmax(0,1fr) 58px}.is-casual .finish-player{grid-column:2;grid-row:1}.is-casual .finish-rating{grid-column:3;grid-row:1;padding:0;justify-content:flex-end}.is-casual .finish-place{grid-row:1}\n .match-finish footer{padding:12px;gap:8px}.match-finish footer button{flex:1;min-height:48px}\n}\n/* Results and conversation each keep the full dialog width. */\n.match-finish:not(.is-casual) :is(.finish-columns,.finish-row){grid-template-columns:48px minmax(0,1fr) 110px 130px 100px;column-gap:24px}\n.match-finish:not(.is-casual) .finish-columns>:nth-child(n+3),.match-finish:not(.is-casual) .finish-time,.match-finish:not(.is-casual) .finish-change{text-align:center}\n.match-finish:not(.is-casual) .finish-rating{justify-content:center}\n.finish-time{text-align:right;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}\n.finish-xp{margin:12px 0 0;color:var(--pc-positive);font-size:20px}\n@media(max-width:750px){.match-finish:not(.is-casual) :is(.finish-columns,.finish-row){grid-template-columns:28px minmax(0,1fr) 80px 82px 66px;gap:10px}.finish-time{font-size:17px}}\n@media(max-width:500px){\n .match-finish:not(.is-casual) .finish-columns{grid-template-columns:32px minmax(0,1fr)}\n .match-finish:not(.is-casual) .finish-row{grid-template-columns:32px minmax(0,1fr) 88px;gap:6px 10px}\n .match-finish:not(.is-casual) .finish-time{grid-column:2/-1;grid-row:2;text-align:left;padding-left:37px;color:var(--pc-muted)}\n .match-finish:not(.is-casual) .finish-rating{grid-row:3;justify-content:flex-start}.match-finish:not(.is-casual) .finish-change{grid-row:3;text-align:right}\n .match-finish:not(.is-casual) .finish-place{grid-row:1/4}\n}\n.finish-content{display:flex;flex-direction:column;min-height:0;overflow:auto}\n.finish-content:focus-visible{outline:none;box-shadow:inset 3px 0 var(--pc-control-edge)}\n.match-finish.with-chat{width:min(1040px,calc(100vw - 32px))}\n.with-chat .finish-board{flex:none;overflow:visible;padding-bottom:18px}\n.with-chat .finish-content>.shared-chat{border-top:2px solid var(--pc-canvas);min-height:240px;height:280px;flex:1 1 240px}\n.match-finish .finish-chat-toggle{display:none}\n.match-finish .shared-chat h2{padding:14px 24px;background:none}\n.match-finish .shared-chat-log{min-height:0}\n.match-finish footer{align-items:center}\n.match-finish footer>.finish-status{margin:0 8px 0 0;min-height:0;flex:0 1 auto}\n@media(max-width:950px),(max-height:500px){\n .with-chat .finish-content>.shared-chat{display:none;height:320px;min-height:270px}\n .with-chat.chat-expanded .finish-content>.shared-chat{display:flex}\n .match-finish.with-chat .finish-chat-toggle{display:block;flex:none;margin:6px 16px 12px;min-height:44px;text-align:left;color:var(--pc-gold)}\n}\n@media(max-width:500px){\n .match-finish.with-chat{width:calc(100vw - 12px)}\n .with-chat .finish-content>.shared-chat{height:350px}\n .match-finish footer{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}\n .match-finish footer>.finish-status{grid-column:1/-1;margin:0}\n .match-finish footer>button{min-width:0;white-space:nowrap}\n .match-finish footer:has([data-cancel-queue])>.finish-status{grid-column:auto}\n}\n\n.finish-change{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.finish-streak-bonus{font:400 14px/1.2 ForcedSquare,Arial,sans-serif;color:var(--pc-positive);white-space:nowrap}.finish-streak-ended{color:var(--pc-muted);font-size:16px;margin:10px 0 0}\n\n.finish-title-line{display:flex;align-items:center;flex-wrap:wrap;gap:12px 18px}\n.finish-title-line .win-streak{font-size:36px;font-weight:700;gap:7px}\n.finish-title-line .win-streak img{width:32px;height:39px}\n.finish-xp-progress{margin-top:18px;max-width:530px}\n.finish-xp-labels{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:17px;color:var(--pc-muted)}\n.finish-xp-labels>.finish-xp{margin:0;font-size:18px}\n.finish-xp-labels>:first-child{color:var(--pc-text)}\n.finish-xp-amount{margin-left:auto;font-variant-numeric:tabular-nums}\n.finish-xp-track{height:9px;margin-top:8px;background:var(--pc-canvas);overflow:hidden}\n.finish-xp-track>span{height:100%;display:block;background:var(--pc-positive)}\n.finish-xp-progress.is-level-up .finish-xp-track>span{background:var(--pc-gold)}\n.finish-xp-progress.is-level-up .finish-xp{color:var(--pc-gold)}\n@media(max-width:600px),(max-height:500px){.finish-title-line{gap:8px 12px}.finish-title-line .win-streak{font-size:28px}.finish-title-line .win-streak img{width:25px;height:31px}.finish-xp-progress{margin-top:12px}.finish-xp-labels{font-size:15px;gap:6px 10px}.finish-xp-labels>.finish-xp{font-size:16px}}\n\n.reward-reveal[hidden]{display:none}\n.reward-reveal{position:absolute;inset:0;z-index:4;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:36px;background:radial-gradient(ellipse at 50% 35%,#2b3560,#10192f 75%);overflow:auto;text-align:center}\n.reward-reveal>h2{margin:0;color:var(--pc-gold);font:italic 700 36px/1.2 ForcedSquare,Arial,sans-serif}\n.reward-reveal-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:22px;max-height:55dvh;overflow:auto;width:100%;box-sizing:border-box;padding:12px}\n.reward-reveal-card{--reward-color:#ffdb72;flex:1 1 180px;max-width:290px;min-width:0}\n.reward-reveal-art{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;min-height:180px;padding:12px;box-sizing:border-box}\n.reward-reveal-art:before{content:'';position:absolute;z-index:-1;inset:0;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--reward-color) 42%,transparent) 0%,color-mix(in srgb,var(--reward-color) 20%,transparent) 28%,transparent 72%)}\n.reward-reveal-art>img{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 8px 15px #0008);animation:reward-arrive .65s ease-out both}\n.reward-reveal-card.is-banner .reward-reveal-art>img{width:100%;height:110px;object-fit:contain}\n.reward-reveal-title{font:italic 700 29px/1.2 ForcedSquare,Arial,sans-serif;overflow-wrap:anywhere;animation:reward-arrive .65s ease-out both}\n.reward-reveal-kind{font-size:15px;color:var(--pc-muted);margin:8px 0 5px}.reward-reveal-rarity{font-size:16px;line-height:1.3;color:var(--reward-color);margin:0 0 6px}\n.reward-reveal-card h3{font-size:22px;margin:0;color:var(--reward-color)}\n.match-finish .reward-reveal-close{position:absolute;right:12px;top:10px;min-width:44px;padding:8px;background:transparent;font-style:normal;font-size:28px}\n.reward-reveal>button.primary{min-width:160px;flex:none}\n@keyframes reward-arrive{from{transform:translateY(14px) scale(.8);opacity:0}to{transform:none;opacity:1}}\n@media(prefers-reduced-motion:reduce){.reward-reveal-art>img,.reward-reveal-title{animation:none}}\n@media(max-width:600px),(max-height:500px){.reward-reveal{padding:22px 16px;gap:16px;justify-content:flex-start}.reward-reveal>h2{font-size:28px;margin:12px 25px 0}.reward-reveal-grid{max-height:52dvh;gap:16px}.reward-reveal-card{flex-basis:135px}.reward-reveal-art{min-height:135px}.reward-reveal-art>img{width:90px;height:90px}.reward-reveal-card h3{font-size:19px}}\n\n/* Result identities use the same medal size regardless of placement. */\n.finish-row .player-title{font-size:17px}\n.finish-row .player-achievements{--medal-size:var(--plate-medal-s)}\n@container player-identity (min-width:280px){\n .finish-row .player-achievements{--medal-size:var(--plate-medal-m)}\n\n}\n.finish-row.is-winner,.finish-row.is-winner.is-you{box-shadow:none}\n\n/* Short landscape results prioritize the scoreboard over repeated heading space. */\n@media(max-height:500px) and (min-width:601px){\n .match-finish header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;padding:10px 16px}\n .match-finish .finish-mode{grid-column:1;margin:0;font-size:15px}\n .match-finish .finish-title-line{grid-column:1;grid-row:2}\n .match-finish h1{font-size:28px}\n .match-finish .finish-subtitle{grid-column:2;grid-row:1/3;align-self:center;max-width:230px;margin:0;font-size:17px}\n .match-finish .finish-xp-progress{grid-column:1/-1;margin-top:6px}\n .match-finish .finish-streak-ended{grid-column:1/-1;margin:4px 0 0}\n .match-finish .finish-board{padding-top:6px}\n .match-finish .finish-board>.team-scores{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:8px;margin:0;padding:4px 0 8px}\n .match-finish .team-score{padding:6px 10px;min-height:36px}\n .match-finish .team-round-outcome{grid-column:auto;margin:0}\n .match-finish .finish-columns{padding-block:4px 8px}\n .match-finish .finish-row{min-height:48px;padding-block:8px}\n .match-finish footer{padding:10px 14px}\n .match-finish footer button{min-height:44px;padding-block:10px}\n}\n\n/* Track identity stays readable; its related action docks into the scoreboard edge. */\n.match-finish header{padding-bottom:0}\n.finish-track-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;min-height:42px}\n.finish-track-row .finish-subtitle{display:flex;align-items:center;gap:10px;margin:0;padding-bottom:10px;min-width:0}\n.finish-track-art{display:grid;place-items:center;flex:none;width:48px;height:34px;background:none}\n.finish-track-art img{display:block;width:auto;height:auto;max-width:48px;max-height:34px;object-fit:contain;image-rendering:pixelated}\n.match-finish header .finish-track-records{flex:none;align-self:stretch;min-height:40px;margin:0;padding:10px 18px;background:var(--pc-panel);border-top:3px solid var(--pc-gold);color:var(--pc-gold);font:italic 400 18px/1.2 ForcedSquare,Arial,sans-serif;clip-path:var(--cut)}\n.finish-board{padding-top:10px}\n@media(max-height:500px) and (min-width:601px){.match-finish header .finish-track-row{grid-column:1/-1;grid-row:auto;margin-top:4px}.match-finish .finish-track-row .finish-subtitle{grid-column:auto;grid-row:auto;padding-bottom:8px;text-align:left;max-width:none}.match-finish header .finish-track-records{font-size:16px;min-height:36px;padding:8px 14px}}\n@media(max-width:500px){.finish-track-row{gap:8px}.match-finish header .finish-track-records{font-size:16px;padding-inline:14px}.finish-track-row .finish-subtitle{font-size:17px}}\n";
+    match_finish_default = ".match-finish{--gold:var(--pc-gold);box-sizing:border-box;width:min(900px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:0;background:var(--pc-panel);color:var(--pc-text);font:400 20px ForcedSquare,Arial,sans-serif;box-shadow:0 20px 80px #0007;overflow:auto}\n.match-finish::backdrop{background:linear-gradient(145deg,#17233a,#0b1125);}\n.match-finish header{padding:28px 32px 24px;background:var(--pc-header);text-align:left}\n.finish-mode{font-size:17px;color:var(--pc-muted);margin:0 0 10px}\n.match-finish h1{font:italic 700 44px/1.15 ForcedSquare,Arial,sans-serif;margin:0;color:var(--pc-text);overflow-wrap:anywhere}\n.match-finish.has-winner h1{color:var(--gold)}\n.finish-subtitle{font-size:18px;color:var(--pc-muted);margin:12px 0 0}\n.finish-board{padding:18px 24px 0}\n.finish-columns,.finish-row{display:grid;grid-template-columns:56px minmax(0,1fr) 110px 110px;gap:14px;align-items:center;padding:16px 12px}\n.finish-columns{font-size:16px;color:var(--pc-muted);padding-block:6px 12px}\n.finish-columns>:nth-child(n+3),.finish-rating,.finish-change{text-align:right}\n.finish-row{border-top:2px solid var(--pc-panel);min-height:42px}\n.finish-row.is-winner{background:var(--pc-raised)}\n.finish-row.is-you{box-shadow:none}\n.finish-place{color:var(--pc-muted)}.is-winner .finish-place{color:var(--gold)}\n.finish-player{min-width:0;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}\n.finish-player>span{display:inline-flex;align-items:center;gap:9px;min-width:0}\n.finish-player img{width:32px;height:32px;object-fit:contain;flex:none}\n.finish-player small{font-size:16px;color:var(--pc-muted)}\n.finish-change{font-size:21px;font-weight:700}.finish-rating{font-size:23px}\n.positive{color:var(--pc-positive)}.negative{color:var(--pc-danger)}.neutral{color:var(--pc-muted)}\n.finish-status,.finish-error{min-height:20px;margin:14px 36px;font-size:17px;color:var(--pc-muted)}.finish-error:empty{display:none}.finish-error{color:var(--pc-danger)}\n.match-finish footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:12px;padding:20px 32px;border-top:2px solid var(--pc-canvas)}\n.match-finish button{min-height:48px;border:0;padding:12px 22px;background:var(--pc-action);color:#fff;font:italic 400 20px ForcedSquare,Arial,sans-serif;cursor:pointer;clip-path:var(--cut);font-synthesis:style}\n.match-finish button.primary{background:var(--gold);color:var(--pc-canvas);font-weight:700;font-synthesis:weight style}\n.match-finish button:hover{filter:brightness(1.1)}.match-finish button:focus-visible{outline:none;box-shadow:inset 0 -3px currentColor;text-decoration:underline;text-underline-offset:4px}.match-finish button:disabled{opacity:.6;cursor:wait}\n@media(max-width:600px),(max-height:500px){.match-finish{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);font-size:18px}.match-finish header{padding:16px 18px}.match-finish h1{font-size:30px}.finish-board{padding:12px 8px 0}.finish-columns,.finish-row{grid-template-columns:36px minmax(0,1fr) 70px 70px;gap:8px;padding:12px 8px}.finish-columns{font-size:16px}.finish-rating,.finish-change{font-size:18px}.match-finish footer{padding:14px;gap:8px}.finish-status,.finish-error{margin:12px 16px}.match-finish button{font-size:17px;padding-inline:14px}}\n.finish-player{flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px}\n.finish-departure{color:var(--pc-danger);font-size:18px;white-space:nowrap}\n.finish-rating{display:flex;justify-content:flex-end}\n.finish-rating .ranked-rating-badge{width:110px;height:34px}\n.finish-rating .ranked-rating-value{font-size:28px}\n.finish-rating .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:17px}\n.finish-rating .ranked-rating-value small{font-size:14px}\n.finish-player .player-portrait{width:36px;height:36px;flex-basis:36px}\n.finish-player .player-portrait img{object-fit:cover;width:100%;height:100%}\n@media(max-width:600px){.finish-columns,.finish-row{grid-template-columns:30px minmax(0,1fr) 82px 58px;gap:6px}.finish-rating .ranked-rating-badge{width:82px;height:26px}.finish-rating .ranked-rating-value{font-size:21px}.finish-rating .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:13px}.finish-rating .ranked-rating-value small{font-size:11px}.finish-player .player-portrait{width:28px;height:28px;flex-basis:28px}.finish-departure{font-size:16px}}\n.finish-status:empty{display:none}\n.match-finish.is-casual .finish-columns,.match-finish.is-casual .finish-row{grid-template-columns:56px minmax(0,1fr) 110px}\n.match-finish.is-casual .finish-columns>:last-child,.match-finish.is-casual .finish-change{display:none}\n@media(max-width:600px){.match-finish.is-casual .finish-columns,.match-finish.is-casual .finish-row{grid-template-columns:30px minmax(0,1fr) 70px}}\n.match-finish[open]{display:flex;flex-direction:column;overflow:hidden}.match-finish>header,.match-finish>footer{flex:none}.finish-board{min-height:0;overflow:auto}.finish-status,.finish-error{flex:none}\n@media(max-width:500px){\n .match-finish{width:calc(100vw - 12px);max-height:calc(100dvh - 12px)}\n .match-finish header{padding:16px}.match-finish h1{font-size:29px}\n .finish-columns{grid-template-columns:32px minmax(0,1fr);padding:8px}.finish-columns>:nth-child(n+3){display:none}\n .finish-row{grid-template-columns:32px minmax(0,1fr) 88px;gap:8px 10px;padding:14px 8px}\n .finish-place{grid-column:1;grid-row:1/3;align-self:center}\n .finish-player{grid-column:2/-1;grid-row:1;gap:8px;font-size:18px}\n .finish-rating{grid-column:2;grid-row:2;justify-content:flex-start;padding-left:37px}\n .finish-change{grid-column:3;grid-row:2;font-size:22px}\n .finish-rating .ranked-rating-badge{width:110px;height:34px}.finish-rating .ranked-rating-value{font-size:28px}.finish-rating .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:17px}.finish-rating .ranked-rating-value small{font-size:14px}\n .match-finish.is-casual .finish-row{grid-template-columns:32px minmax(0,1fr) 58px}.is-casual .finish-player{grid-column:2;grid-row:1}.is-casual .finish-rating{grid-column:3;grid-row:1;padding:0;justify-content:flex-end}.is-casual .finish-place{grid-row:1}\n .match-finish footer{padding:12px;gap:8px}.match-finish footer button{flex:1;min-height:48px}\n}\n/* Results and conversation each keep the full dialog width. */\n.match-finish:not(.is-casual) :is(.finish-columns,.finish-row){grid-template-columns:48px minmax(0,1fr) 110px 130px 100px;column-gap:24px}\n.match-finish:not(.is-casual) .finish-columns>:nth-child(n+3),.match-finish:not(.is-casual) .finish-time,.match-finish:not(.is-casual) .finish-change{text-align:center}\n.match-finish:not(.is-casual) .finish-rating{justify-content:center}\n.finish-time{text-align:center;justify-content:center;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}\n.finish-xp{margin:12px 0 0;color:var(--pc-positive);font-size:20px}\n@media(max-width:750px){.match-finish:not(.is-casual) :is(.finish-columns,.finish-row){grid-template-columns:28px minmax(0,1fr) 80px 82px 66px;gap:10px}.finish-time{font-size:17px}}\n@media(max-width:500px){\n .match-finish:not(.is-casual) .finish-columns{grid-template-columns:32px minmax(0,1fr)}\n .match-finish:not(.is-casual) .finish-row{grid-template-columns:32px minmax(0,1fr) 88px;gap:6px 10px}\n .match-finish:not(.is-casual) .finish-time{grid-column:2/-1;grid-row:2;text-align:left;justify-content:start;justify-items:start;padding-left:37px}\n .match-finish:not(.is-casual) .finish-rating{grid-row:3;justify-content:flex-start}.match-finish:not(.is-casual) .finish-change{grid-row:3;text-align:right}\n .match-finish:not(.is-casual) .finish-place{grid-row:1/4}\n}\n.finish-content{display:flex;flex-direction:column;min-height:0;overflow:auto}\n.finish-content:focus-visible{outline:none;box-shadow:inset 3px 0 var(--pc-control-edge)}\n.match-finish.with-chat{width:min(1040px,calc(100vw - 32px))}\n.with-chat .finish-board{flex:none;overflow:visible;padding-bottom:18px}\n.with-chat .finish-content>.shared-chat{border-top:2px solid var(--pc-canvas);min-height:240px;height:280px;flex:1 1 240px}\n.match-finish .finish-chat-toggle{display:none}\n.match-finish .shared-chat h2{padding:14px 24px;background:none}\n.match-finish .shared-chat-log{min-height:0}\n.match-finish footer{align-items:center}\n.match-finish footer>.finish-status{margin:0 8px 0 0;min-height:0;flex:0 1 auto}\n@media(max-width:950px),(max-height:500px){\n .with-chat .finish-content>.shared-chat{display:none;height:320px;min-height:270px}\n .with-chat.chat-expanded .finish-content>.shared-chat{display:flex}\n .match-finish.with-chat .finish-chat-toggle{display:block;flex:none;margin:6px 16px 12px;min-height:44px;text-align:left;color:var(--pc-gold)}\n}\n@media(max-width:500px){\n .match-finish.with-chat{width:calc(100vw - 12px)}\n .with-chat .finish-content>.shared-chat{height:350px}\n .match-finish footer{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}\n .match-finish footer>.finish-status{grid-column:1/-1;margin:0}\n .match-finish footer>button{min-width:0;white-space:nowrap}\n .match-finish footer:has([data-cancel-queue])>.finish-status{grid-column:auto}\n}\n\n.finish-change{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.finish-streak-bonus{font:400 14px/1.2 ForcedSquare,Arial,sans-serif;color:var(--pc-positive);white-space:nowrap}.finish-streak-ended{color:var(--pc-muted);font-size:16px;margin:10px 0 0}\n\n.finish-title-line{display:flex;align-items:center;flex-wrap:wrap;gap:12px 18px}\n.finish-title-line .win-streak{font-size:36px;font-weight:700;gap:7px}\n.finish-title-line .win-streak img{width:32px;height:39px}\n.finish-xp-progress{margin-top:18px;max-width:530px}\n.finish-xp-labels{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:17px;color:var(--pc-muted)}\n.finish-xp-labels>.finish-xp{margin:0;font-size:18px}\n.finish-xp-labels>:first-child{color:var(--pc-text)}\n.finish-xp-amount{margin-left:auto;font-variant-numeric:tabular-nums}\n.finish-xp-track{height:9px;margin-top:8px;background:var(--pc-canvas);overflow:hidden}\n.finish-xp-track>span{height:100%;display:block;background:var(--pc-positive)}\n.finish-xp-progress.is-level-up .finish-xp-track>span{background:var(--pc-gold)}\n.finish-xp-progress.is-level-up .finish-xp{color:var(--pc-gold)}\n@media(max-width:600px),(max-height:500px){.finish-title-line{gap:8px 12px}.finish-title-line .win-streak{font-size:28px}.finish-title-line .win-streak img{width:25px;height:31px}.finish-xp-progress{margin-top:12px}.finish-xp-labels{font-size:15px;gap:6px 10px}.finish-xp-labels>.finish-xp{font-size:16px}}\n\n.reward-reveal[hidden]{display:none}\n.reward-reveal{position:absolute;inset:0;z-index:4;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:36px;background:radial-gradient(ellipse at 50% 35%,#2b3560,#10192f 75%);overflow:auto;text-align:center}\n.reward-reveal>h2{margin:0;color:var(--pc-gold);font:italic 700 36px/1.2 ForcedSquare,Arial,sans-serif}\n.reward-reveal-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:22px;max-height:55dvh;overflow:auto;width:100%;box-sizing:border-box;padding:12px}\n.reward-reveal-card{--reward-color:#ffdb72;flex:1 1 180px;max-width:290px;min-width:0}\n.reward-reveal-art{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;min-height:180px;padding:12px;box-sizing:border-box}\n.reward-reveal-art:before{content:'';position:absolute;z-index:-1;inset:0;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--reward-color) 42%,transparent) 0%,color-mix(in srgb,var(--reward-color) 20%,transparent) 28%,transparent 72%)}\n.reward-reveal-art>img{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 8px 15px #0008);animation:reward-arrive .65s ease-out both}\n.reward-reveal-card.is-banner .reward-reveal-art>img{width:100%;height:110px;object-fit:contain}\n.reward-reveal-title{font:italic 700 29px/1.2 ForcedSquare,Arial,sans-serif;overflow-wrap:anywhere;animation:reward-arrive .65s ease-out both}\n.reward-reveal-kind{font-size:15px;color:var(--pc-muted);margin:8px 0 5px}.reward-reveal-rarity{font-size:16px;line-height:1.3;color:var(--reward-color);margin:0 0 6px}\n.reward-reveal-card h3{font-size:22px;margin:0;color:var(--reward-color)}\n.match-finish .reward-reveal-close{position:absolute;right:12px;top:10px;min-width:44px;padding:8px;background:transparent;font-style:normal;font-size:28px}\n.reward-reveal>button.primary{min-width:160px;flex:none}\n@keyframes reward-arrive{from{transform:translateY(14px) scale(.8);opacity:0}to{transform:none;opacity:1}}\n@media(prefers-reduced-motion:reduce){.reward-reveal-art>img,.reward-reveal-title{animation:none}}\n@media(max-width:600px),(max-height:500px){.reward-reveal{padding:22px 16px;gap:16px;justify-content:flex-start}.reward-reveal>h2{font-size:28px;margin:12px 25px 0}.reward-reveal-grid{max-height:52dvh;gap:16px}.reward-reveal-card{flex-basis:135px}.reward-reveal-art{min-height:135px}.reward-reveal-art>img{width:90px;height:90px}.reward-reveal-card h3{font-size:19px}}\n\n/* Result identities use the same medal size regardless of placement. */\n.finish-row .player-title{font-size:17px}\n.finish-row .player-achievements{--medal-size:var(--plate-medal-s)}\n@container player-identity (min-width:280px){\n .finish-row .player-achievements{--medal-size:var(--plate-medal-m)}\n\n}\n.finish-row.is-winner,.finish-row.is-winner.is-you{box-shadow:none}\n\n/* Short landscape results prioritize the scoreboard over repeated heading space. */\n@media(max-height:500px) and (min-width:601px){\n .match-finish header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;padding:10px 16px}\n .match-finish .finish-mode{grid-column:1;margin:0;font-size:15px}\n .match-finish .finish-title-line{grid-column:1;grid-row:2}\n .match-finish h1{font-size:28px}\n .match-finish .finish-subtitle{grid-column:2;grid-row:1/3;align-self:center;max-width:230px;margin:0;font-size:17px}\n .match-finish .finish-xp-progress{grid-column:1/-1;margin-top:6px}\n .match-finish .finish-streak-ended{grid-column:1/-1;margin:4px 0 0}\n .match-finish .finish-board{padding-top:6px}\n .match-finish .finish-board>.team-scores{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:8px;margin:0;padding:4px 0 8px}\n .match-finish .team-score{padding:6px 10px;min-height:36px}\n .match-finish .team-round-outcome{grid-column:auto;margin:0}\n .match-finish .finish-columns{padding-block:4px 8px}\n .match-finish .finish-row{min-height:48px;padding-block:8px}\n .match-finish footer{padding:10px 14px}\n .match-finish footer button{min-height:44px;padding-block:10px}\n}\n\n/* Track identity stays readable; its related action docks into the scoreboard edge. */\n.match-finish header{padding-bottom:0}\n.finish-track-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;min-height:42px}\n.finish-track-row .finish-subtitle{display:flex;align-items:center;gap:10px;margin:0;padding-bottom:10px;min-width:0}\n.finish-track-art{display:grid;place-items:center;flex:none;width:48px;height:34px;background:none}\n.finish-track-art img{display:block;width:auto;height:auto;max-width:48px;max-height:34px;object-fit:contain;image-rendering:pixelated}\n.match-finish header .finish-track-records{flex:none;align-self:stretch;min-height:40px;margin:0;padding:10px 18px;background:var(--pc-panel);border-top:3px solid var(--pc-gold);color:var(--pc-gold);font:italic 400 18px/1.2 ForcedSquare,Arial,sans-serif;clip-path:var(--cut)}\n.finish-board{padding-top:10px}\n@media(max-height:500px) and (min-width:601px){.match-finish header .finish-track-row{grid-column:1/-1;grid-row:auto;margin-top:4px}.match-finish .finish-track-row .finish-subtitle{grid-column:auto;grid-row:auto;padding-bottom:8px;text-align:left;max-width:none}.match-finish header .finish-track-records{font-size:16px;min-height:36px;padding:8px 14px}}\n@media(max-width:500px){.finish-track-row{gap:8px}.match-finish header .finish-track-records{font-size:16px;padding-inline:14px}.finish-track-row .finish-subtitle{font-size:17px}}\n";
   }
 });
 
@@ -10390,7 +10530,7 @@ var init_match_finish_ui = __esm({
     init_dom();
     init_clickable_row();
     init_ranked_format();
-    init_time();
+    init_official_position();
     init_match_finish();
     init_interface_theme();
     init_shared_chat_ui();
@@ -10644,11 +10784,7 @@ var init_match_finish_ui = __esm({
           item.append(element("span", row.dnf ? "\u2014" : placing(row.place), "finish-place"), name);
           if (view.ranked)
             item.append(
-              element(
-                "span",
-                typeof row.time_ms === "number" && row.time_ms > 0 ? formatTime(row.time_ms) : row.dnf ? "DNF" : "\u2013",
-                "finish-time"
-              )
+              officialLapTime(view.trackId, row.time_ms, row.dnf ? "DNF" : "\u2013", "finish-time")
             );
           item.append(rating, delta);
           if (view.ranked) {
@@ -11284,6 +11420,11 @@ var init_polytrack_0_6_3 = __esm({
 });
 
 // src/track-records-ui.ts
+function lapTimeCell(track, frames) {
+  const cell = element("td");
+  cell.append(officialLapTime(track, frames));
+  return cell;
+}
 var trackNames, PAGE, TrackRecordsUI;
 var init_track_records_ui = __esm({
   "src/track-records-ui.ts"() {
@@ -11292,6 +11433,7 @@ var init_track_records_ui = __esm({
     init_dom();
     init_clickable_row();
     init_time();
+    init_official_position();
     init_profile_picture();
     init_player_looks2();
     trackNames = new Map(tracks.map((t) => [t.id, t.name]));
@@ -11564,7 +11706,7 @@ var init_track_records_ui = __esm({
             row.append(
               cell,
               element("td", String(t.players)),
-              element("td", t.own_time == null ? "\u2014" : formatTime(t.own_time)),
+              lapTimeCell(t.track_id, t.own_time),
               element("td", t.own_position == null ? "\u2014" : String(t.own_position))
             );
             body.append(row);
@@ -11617,7 +11759,7 @@ var init_track_records_ui = __esm({
           row.append(
             element("td", String(r.position)),
             name,
-            element("td", formatTime(r.time_ms)),
+            lapTimeCell(this.#track, r.time_ms),
             element(
               "td",
               r.time_ms === board.best_time ? "\u2014" : formatGap(r.time_ms - (board.best_time ?? r.time_ms))
@@ -13437,8 +13579,8 @@ var init_chat_ui = __esm({
         this.#hidePersonMenu();
         this.#expanded = false;
         this.#ui.c.setChatTyping(false);
-        const active = this.#shadow.activeElement;
-        if (active && this.#panel.contains(active)) active.blur();
+        const active2 = this.#shadow.activeElement;
+        if (active2 && this.#panel.contains(active2)) active2.blur();
         this.render();
       }
       async send() {
@@ -14899,7 +15041,7 @@ var init_ranked_notifications = __esm({
 var ranked_history_default;
 var init_ranked_history = __esm({
   "src/ranked-history.css"() {
-    ranked_history_default = '.ranked-history {\n  box-sizing: border-box;\n  width: min(640px, calc(100vw - 24px));\n  height: min(620px, calc(100dvh - 32px));\n  padding: 0;\n  border: 0;\n  background: var(--pc-panel);\n  color: var(--pc-text);\n  font: 400 18px ForcedSquare, Arial, sans-serif;\n  box-shadow: 0 18px 60px #0007;\n}\n.ranked-history[open] { display: flex; flex-direction: column; }\n.history-scope-tabs{display:flex;flex:none;gap:8px;padding:0 20px;border-bottom:1px solid var(--pc-line)}\n.ranked-history .history-scope-tabs button{flex:none;width:auto;min-width:100px;margin:0;padding:12px 18px;background:none;clip-path:none;border:0;border-bottom:2px solid transparent;color:var(--pc-muted)}\n.ranked-history .history-scope-tabs button[aria-pressed=true]{border-bottom-color:var(--gold);color:var(--gold)}\n.casual-history-columns,.casual-history-row{display:grid;grid-template-columns:100px minmax(0,1fr) 80px 70px;gap:12px;align-items:center}\n.casual-history-columns{padding:12px 8px;color:var(--pc-muted)}\n.ranked-history .casual-history-row{box-sizing:border-box;width:100%;margin:0;padding:12px 8px;border:0;border-bottom:1px solid var(--pc-line);background:none;clip-path:none;--focus-cut:0px;text-align:left;color:inherit}\n.casual-history-name{display:flex;flex-direction:column;gap:5px;min-width:0}.casual-history-name strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.casual-history-name time{font-size:15px;color:var(--pc-muted)}\n.casual-result-columns,.casual-result-row{display:grid;grid-template-columns:70px minmax(0,1fr) 90px;gap:12px;align-items:center;padding:12px 8px;border-bottom:1px solid var(--pc-line)}\n.casual-result-columns{color:var(--pc-muted)}.casual-result-row.is-you{background:var(--pc-raised)}\n.casual-result-row .player-with-portrait{display:flex;align-items:center;gap:10px;background:none;border:0;clip-path:none;--focus-cut:0px;text-align:left;min-width:0;color:inherit}\n.casual-result-row[data-team=blue]{color:#91ceff}.casual-result-row[data-team=red]{color:#ff9a9f}\n@media(max-width:620px){.casual-history-columns,.casual-history-row{grid-template-columns:66px minmax(0,1fr) 50px 48px;gap:6px;font-size:16px}.casual-result-columns,.casual-result-row{grid-template-columns:45px minmax(0,1fr) 55px;gap:8px}}\n.ranked-history::backdrop { background: #090e2080; }\n.ranked-history header {\n  display: flex; align-items: flex-start; justify-content: space-between;\n  gap: 16px; padding: 18px 20px; background: var(--pc-header);\n}\n.ranked-history h2 { font: italic 400 var(--pc-section)/1.2 ForcedSquare,Arial,sans-serif; margin: 0 0 4px; }\n.ranked-history-name { color: #b8cbe3; overflow-wrap: anywhere; }\n.ranked-history[data-owner=other] .ranked-history-name{display:flex;align-items:center;gap:12px;margin-top:8px;color:var(--pc-text);font-size:20px;line-height:1.3}\n.ranked-history-name>.player-portrait{flex:0 0 40px;width:40px;height:40px}\n.ranked-history header > div { min-width: 0; }\n.ranked-history button {\n  font: inherit; font-weight: 400; color: inherit; background: var(--pc-action);\n  border: 0; padding: 10px 18px; min-height:44px; font-style:italic; cursor: pointer;\n}\n.ranked-history button:hover { background: var(--pc-action-hover); }\n.ranked-history button:focus-visible { outline:none; outline-offset: -2px; }\n.ranked-history button:disabled { opacity: .4; cursor: default; }\n.ranked-history-body { min-height: 0; flex: 1; overflow: auto; padding: 12px 18px; scrollbar-width: thin; scrollbar-color: #566586 transparent; }\n.ranked-history-body::-webkit-scrollbar { width: 4px; }\n.ranked-history-body::-webkit-scrollbar-thumb { background: #566586; border-radius: 3px; }\n.ranked-history-body::-webkit-scrollbar-button { display: none; }\n.ranked-history-body::-webkit-scrollbar-track { background: transparent; }\n.ranked-history-columns, .ranked-history .ranked-history-row {\n  display: grid; grid-template-columns: 82px minmax(0,1fr) 1fr 1.2fr;\n  align-items: center; gap: 10px; width: 100%; box-sizing: border-box;\n  padding: 12px 8px; text-align: left;\n}\n.ranked-history-columns { color: var(--pc-muted); padding-top: 4px; font-size: 16px; }\n.ranked-history-entry { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; border-bottom: 1px solid var(--pc-line); }\n.ranked-history-columns { width: calc(100% - 32px); }\n.ranked-history .ranked-history-row { background: transparent; }\n.ranked-history .ranked-history-row:hover { background: var(--pc-raised); }\n.ranked-history-row > :nth-child(n+3), .ranked-history-columns > :nth-child(n+3) { text-align: right; }\n.ranked-history-row>.ranked-history-place,.ranked-history-columns>:first-child{justify-self:center;text-align:center}\n.ranked-history-place{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}\n.ranked-history-place strong{font-size:24px;font-weight:400;line-height:1.1}\n.ranked-history-place small{font-size:15px;color:var(--pc-muted)}\n.ranked-history-change { color: var(--pc-muted); }\n.ranked-history-change.positive { color: var(--pc-positive); }\n.ranked-history-change.negative { color: var(--pc-danger); }\n.ranked-history-note { color: var(--pc-muted); margin: 8px 0 20px; }\n.ranked-result-columns,.ranked-result-row { display: grid; grid-template-columns: 40px minmax(0,1fr) 100px 100px 95px; align-items: center; gap: 10px; padding: 14px 8px; border-bottom: 1px solid var(--pc-line); }\n.ranked-result-columns {color:var(--pc-muted);font-size:16px;border:0;padding-block:4px 12px;}\n.ranked-result-row { padding-block:6px; }\n.ranked-result-columns > :nth-child(n+3){text-align:right}\n.ranked-result-row.is-you { background: var(--pc-raised); box-shadow: inset 3px 0 var(--pc-gold); }\n.ranked-result-player { overflow-wrap: anywhere; }\n.ranked-result-row > :nth-child(n+3) { text-align: right; }\n.ranked-history footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--pc-line); color: var(--pc-muted); }\n.history-review-warning { display: inline-flex; flex: none; vertical-align: middle; }\n.ranked-history .history-review-trigger {\n  display: inline-flex; align-items: center; justify-content: center;\n  width: 32px; height: 32px; padding: 6px; color: var(--pc-gold);\n  background: transparent; clip-path: none; --focus-cut:0px; transform: none;\n}\n.history-review-trigger svg { width: 20px; height: 20px; }\n.history-review-trigger::after { display: none; }\n.history-review-tooltip {\n  position: fixed; inset: auto; margin: 0; box-sizing: border-box;\n  width: min(340px, calc(100vw - 16px)); max-height: min(360px, 60dvh); overflow: auto;\n  padding: 14px 16px; border: 1px solid #62708c; border-top: 2px solid var(--pc-gold);\n  background: #202b4b; color: #c6d4e9; box-shadow: 0 8px 24px #0006;\n  font: 400 16px/1.5 ForcedSquare, Arial, sans-serif; text-align: left;\n  white-space: normal; overflow-wrap: anywhere;\n}\n.history-review-tooltip:popover-open { display: flex; flex-direction: column; gap: 6px; }\n.history-review-tooltip * { font-style: normal; }\n.history-review-tooltip strong { color: var(--pc-gold); font-weight: 400; }\n.history-review-tooltip span { display: block; }\n.history-review-finding { padding-top: 8px; border-top: 1px solid #435375; }\n.history-review-finding b { color: var(--pc-text); font-weight: 400; }\n@media (max-width: 460px) {\n  .ranked-history { font-size: 16px; }\n  .ranked-history-body { padding: 10px 8px; }\n  .ranked-result-columns,.ranked-result-row { grid-template-columns: 28px minmax(150px,1fr) 76px 82px 70px; gap: 6px; }\n  .ranked-history .ranked-history-row, .ranked-history-columns { gap: 5px; padding-inline: 4px; }\n}\n\n.ranked-result-row>button.ranked-result-player{padding:0;margin:0;background:transparent;color:inherit;text-align:left;font:inherit;clip-path:none}.ranked-result-row>button.ranked-result-player:hover{color:#ffd76b}\n\n.ranked-history-feedback{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:8px 20px;border-top:1px solid var(--pc-line);color:var(--pc-muted);font-size:16px}\n.ranked-history-feedback[hidden]{display:none}\n.ranked-history .ranked-history-feedback button{flex:none;width:auto;margin:0;padding:8px 14px}\n\n.ranked-history-feedback{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:8px 20px;border-top:1px solid var(--pc-line);color:var(--pc-muted);font-size:16px}\n.ranked-history-feedback[hidden]{display:none}\n.ranked-history .ranked-history-feedback button{flex:none;width:auto;margin:0;padding:8px 14px}\n\n/* Lead with placement, followed by track, opponents, rank badge and change. */\n.ranked-history-body.is-rich :is(.ranked-history-columns,.ranked-history-row){grid-template-columns:72px minmax(0,1.8fr) 110px 90px 100px 64px;gap:12px}\n.ranked-history-body.is-rich .ranked-history-columns>:nth-child(n+3),.ranked-history-body.is-rich .ranked-history-row>:nth-child(n+3){justify-self:center;text-align:center}\n\n.ranked-history-row.is-win .ranked-history-place{color:var(--pc-gold)}\n.ranked-history-track{display:flex;align-items:center;gap:12px;min-width:0}\n/* Native map art varies from tiny pixel icons to tall/wide silhouettes. Reserve\n   one aligned slot, but never enlarge or crop the artwork to fill it. */\n.ranked-history-track-art{display:grid;place-items:center;flex:none;width:64px;height:44px}\n.ranked-history-track-art img{display:block;width:auto;height:auto;min-width:0;min-height:0;max-width:64px;max-height:44px;object-fit:contain;image-rendering:pixelated}\n.ranked-history-track>span:last-child{display:flex;flex-direction:column;min-width:0;gap:2px}\n.ranked-history-track strong{font-weight:400;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.ranked-history-track time{font-size:15px;color:var(--pc-muted);font-style:normal}\n.ranked-history-racers{display:flex;align-items:center;gap:4px;min-width:0}\n.ranked-history-racers>.player-portrait{flex:0 0 28px;width:28px;height:28px}.ranked-history-more{margin-left:2px}\n.ranked-history-more{font-size:15px;color:var(--pc-muted);font-style:normal}\n.ranked-history-row .ranked-rating-badge{width:96px;height:29px}.ranked-history-row .ranked-rating-value{font-size:25px}\n.ranked-history-row .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:15px}\n@media(max-width:600px){\n .ranked-history-body.is-rich .ranked-history-columns{display:none}\n .ranked-history-body.is-rich .ranked-history-row{grid-template-columns:52px minmax(0,1fr) auto;grid-template-areas:"place track change" "place time rank" "place racers racers";gap:8px 6px}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-track{grid-area:track;gap:8px}\n .ranked-history-body.is-rich .ranked-history-track-art{width:32px;height:36px}\n .ranked-history-body.is-rich .ranked-history-track-art img{max-width:32px;max-height:36px}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-racers{grid-area:racers}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-place{grid-area:place}\n .ranked-history-body.is-rich .ranked-history-row>:nth-child(5){grid-area:rank}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-change{grid-area:change;justify-self:end}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-racers{justify-self:start}\n}\n/* Placement text identifies wins; row separators remain uniform and unambiguous. */\n.ranked-history-body.is-rich .ranked-history-row{position:relative}\n.ranked-history-replay{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-top:18px;padding:0 8px 8px}\n.ranked-history-replay select{font:inherit;color:var(--pc-text);background:var(--pc-action);border:1px solid var(--pc-line);padding:8px 12px;min-height:44px}\n\n.ranked-history[data-view=match] .ranked-history-name{display:none}\n.ranked-history:not([data-view=match]) .history-match-track{display:none}\n.history-match-track{margin-top:10px}\n.history-match-track .ranked-history-track{display:flex;gap:12px;align-items:center}\n.history-match-track .ranked-history-track-art{width:54px;height:42px;display:grid;place-items:center;flex:none;background:none}\n.history-match-track img{display:block;max-width:54px;max-height:42px;object-fit:contain;image-rendering:pixelated}\n.history-match-track strong{font:400 20px/1.2 ForcedSquare,Arial,sans-serif}\n.history-match-track .ranked-history-track>span:last-child>span:empty{display:none}\n.ranked-history .match-result-metadata{margin:18px 8px 0;font-size:16px;color:var(--pc-muted)}\n\n/* Match kind is a history-list filter, not a second navigation row in a result. */\n.ranked-history[data-view=match]>.history-scope-tabs{display:none}\n.ranked-result-time,.ranked-history-time{font-variant-numeric:tabular-nums;white-space:nowrap}\n@media(max-width:600px){.ranked-history-body.is-rich .ranked-history-time{grid-area:time;justify-self:start!important}}\n@media(max-width:460px){.ranked-history[data-view=match] :is(.ranked-result-columns,.ranked-result-row){min-width:455px;box-sizing:border-box}}\n\n.ranked-result-columns>:is(:nth-child(3),:nth-child(4)),.ranked-result-row>.ranked-result-time{text-align:center}\n.ranked-result-rating{display:flex;justify-content:center}\n.ranked-result-rating .ranked-rating-badge{width:96px;height:29px}\n.ranked-result-rating .ranked-rating-value{font-size:25px}\n@media(max-width:600px){.ranked-result-rating .ranked-rating-badge{width:82px;height:26px}.ranked-result-rating .ranked-rating-value{font-size:21px}}\n\n.history-scope-tabs>select{margin-left:auto;align-self:center;max-width:190px;min-width:0;box-sizing:border-box;min-height:36px;height:36px;padding:8px 36px 8px 12px;border:0;border-bottom:1px solid var(--pc-line);border-radius:0;background-color:#13214a;color:#a6b9d3;font:400 18px/1 ForcedSquare,Arial,sans-serif;--focus-cut:8px;clip-path:var(--cut)}\n@media(max-width:620px){.history-scope-tabs>select{font-size:16px}}\n@media(max-height:500px){.history-scope-tabs>select{min-height:32px;height:32px;padding-block:4px;font-size:16px}}\n';
+    ranked_history_default = '.ranked-history {\n  box-sizing: border-box;\n  width: min(640px, calc(100vw - 24px));\n  height: min(620px, calc(100dvh - 32px));\n  padding: 0;\n  border: 0;\n  background: var(--pc-panel);\n  color: var(--pc-text);\n  font: 400 18px ForcedSquare, Arial, sans-serif;\n  box-shadow: 0 18px 60px #0007;\n}\n.ranked-history[open] { display: flex; flex-direction: column; }\n.history-scope-tabs{display:flex;flex:none;gap:8px;padding:0 20px;border-bottom:1px solid var(--pc-line)}\n.ranked-history .history-scope-tabs button{flex:none;width:auto;min-width:100px;margin:0;padding:12px 18px;background:none;clip-path:none;border:0;border-bottom:2px solid transparent;color:var(--pc-muted)}\n.ranked-history .history-scope-tabs button[aria-pressed=true]{border-bottom-color:var(--gold);color:var(--gold)}\n.casual-history-columns,.casual-history-row{display:grid;grid-template-columns:100px minmax(0,1fr) 80px 70px;gap:12px;align-items:center}\n.casual-history-columns{padding:12px 8px;color:var(--pc-muted)}\n.ranked-history .casual-history-row{box-sizing:border-box;width:100%;margin:0;padding:12px 8px;border:0;border-bottom:1px solid var(--pc-line);background:none;clip-path:none;--focus-cut:0px;text-align:left;color:inherit}\n.casual-history-name{display:flex;flex-direction:column;gap:5px;min-width:0}.casual-history-name strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.casual-history-name time{font-size:15px;color:var(--pc-muted)}\n.casual-result-columns,.casual-result-row{display:grid;grid-template-columns:70px minmax(0,1fr) 90px;gap:12px;align-items:center;padding:12px 8px;border-bottom:1px solid var(--pc-line)}\n.casual-result-columns{color:var(--pc-muted)}.casual-result-row.is-you{background:var(--pc-raised)}\n.casual-result-row .player-with-portrait{display:flex;align-items:center;gap:10px;background:none;border:0;clip-path:none;--focus-cut:0px;text-align:left;min-width:0;color:inherit}\n.casual-result-row[data-team=blue]{color:#91ceff}.casual-result-row[data-team=red]{color:#ff9a9f}\n@media(max-width:620px){.casual-history-columns,.casual-history-row{grid-template-columns:66px minmax(0,1fr) 50px 48px;gap:6px;font-size:16px}.casual-result-columns,.casual-result-row{grid-template-columns:45px minmax(0,1fr) 55px;gap:8px}}\n.ranked-history::backdrop { background: #090e2080; }\n.ranked-history header {\n  display: flex; align-items: flex-start; justify-content: space-between;\n  gap: 16px; padding: 18px 20px; background: var(--pc-header);\n}\n.ranked-history h2 { font: italic 400 var(--pc-section)/1.2 ForcedSquare,Arial,sans-serif; margin: 0 0 4px; }\n.ranked-history-name { color: #b8cbe3; overflow-wrap: anywhere; }\n.ranked-history[data-owner=other] .ranked-history-name{display:flex;align-items:center;gap:12px;margin-top:8px;color:var(--pc-text);font-size:20px;line-height:1.3}\n.ranked-history-name>.player-portrait{flex:0 0 40px;width:40px;height:40px}\n.ranked-history header > div { min-width: 0; }\n.ranked-history button {\n  font: inherit; font-weight: 400; color: inherit; background: var(--pc-action);\n  border: 0; padding: 10px 18px; min-height:44px; font-style:italic; cursor: pointer;\n}\n.ranked-history button:hover { background: var(--pc-action-hover); }\n.ranked-history button:focus-visible { outline:none; outline-offset: -2px; }\n.ranked-history button:disabled { opacity: .4; cursor: default; }\n.ranked-history-body { min-height: 0; flex: 1; overflow: auto; padding: 12px 18px; scrollbar-width: thin; scrollbar-color: #566586 transparent; }\n.ranked-history-body::-webkit-scrollbar { width: 4px; }\n.ranked-history-body::-webkit-scrollbar-thumb { background: #566586; border-radius: 3px; }\n.ranked-history-body::-webkit-scrollbar-button { display: none; }\n.ranked-history-body::-webkit-scrollbar-track { background: transparent; }\n.ranked-history-columns, .ranked-history .ranked-history-row {\n  display: grid; grid-template-columns: 82px minmax(0,1fr) 1fr 1.2fr;\n  align-items: center; gap: 10px; width: 100%; box-sizing: border-box;\n  padding: 12px 8px; text-align: left;\n}\n.ranked-history-columns { color: var(--pc-muted); padding-top: 4px; font-size: 16px; }\n.ranked-history-entry { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; border-bottom: 1px solid var(--pc-line); }\n.ranked-history-columns { width: calc(100% - 32px); }\n.ranked-history .ranked-history-row { background: transparent; }\n.ranked-history .ranked-history-row:hover { background: var(--pc-raised); }\n.ranked-history-row > :nth-child(n+3), .ranked-history-columns > :nth-child(n+3) { text-align: right; }\n.ranked-history-row>.ranked-history-place,.ranked-history-columns>:first-child{justify-self:center;text-align:center}\n.ranked-history-place{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}\n.ranked-history-place strong{font-size:24px;font-weight:400;line-height:1.1}\n.ranked-history-place small{font-size:15px;color:var(--pc-muted)}\n.ranked-history-change { color: var(--pc-muted); }\n.ranked-history-change.positive { color: var(--pc-positive); }\n.ranked-history-change.negative { color: var(--pc-danger); }\n.ranked-history-note { color: var(--pc-muted); margin: 8px 0 20px; }\n.ranked-result-columns,.ranked-result-row { display: grid; grid-template-columns: 40px minmax(0,1fr) 100px 100px 95px; align-items: center; gap: 10px; padding: 14px 8px; border-bottom: 1px solid var(--pc-line); }\n.ranked-result-columns {color:var(--pc-muted);font-size:16px;border:0;padding-block:4px 12px;}\n.ranked-result-row { padding-block:6px; }\n.ranked-result-columns > :nth-child(n+3){text-align:right}\n.ranked-result-row.is-you { background: var(--pc-raised); box-shadow: inset 3px 0 var(--pc-gold); }\n.ranked-result-player { overflow-wrap: anywhere; }\n.ranked-result-row > :nth-child(n+3) { text-align: right; }\n.ranked-history footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--pc-line); color: var(--pc-muted); }\n.history-review-warning { display: inline-flex; flex: none; vertical-align: middle; }\n.ranked-history .history-review-trigger {\n  display: inline-flex; align-items: center; justify-content: center;\n  width: 32px; height: 32px; padding: 6px; color: var(--pc-gold);\n  background: transparent; clip-path: none; --focus-cut:0px; transform: none;\n}\n.history-review-trigger svg { width: 20px; height: 20px; }\n.history-review-trigger::after { display: none; }\n.history-review-tooltip {\n  position: fixed; inset: auto; margin: 0; box-sizing: border-box;\n  width: min(340px, calc(100vw - 16px)); max-height: min(360px, 60dvh); overflow: auto;\n  padding: 14px 16px; border: 1px solid #62708c; border-top: 2px solid var(--pc-gold);\n  background: #202b4b; color: #c6d4e9; box-shadow: 0 8px 24px #0006;\n  font: 400 16px/1.5 ForcedSquare, Arial, sans-serif; text-align: left;\n  white-space: normal; overflow-wrap: anywhere;\n}\n.history-review-tooltip:popover-open { display: flex; flex-direction: column; gap: 6px; }\n.history-review-tooltip * { font-style: normal; }\n.history-review-tooltip strong { color: var(--pc-gold); font-weight: 400; }\n.history-review-tooltip span { display: block; }\n.history-review-finding { padding-top: 8px; border-top: 1px solid #435375; }\n.history-review-finding b { color: var(--pc-text); font-weight: 400; }\n@media (max-width: 460px) {\n  .ranked-history { font-size: 16px; }\n  .ranked-history-body { padding: 10px 8px; }\n  .ranked-result-columns,.ranked-result-row { grid-template-columns: 28px minmax(150px,1fr) 76px 82px 70px; gap: 6px; }\n  .ranked-history .ranked-history-row, .ranked-history-columns { gap: 5px; padding-inline: 4px; }\n}\n\n.ranked-result-row>button.ranked-result-player{padding:0;margin:0;background:transparent;color:inherit;text-align:left;font:inherit;clip-path:none}.ranked-result-row>button.ranked-result-player:hover{color:#ffd76b}\n\n.ranked-history-feedback{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:8px 20px;border-top:1px solid var(--pc-line);color:var(--pc-muted);font-size:16px}\n.ranked-history-feedback[hidden]{display:none}\n.ranked-history .ranked-history-feedback button{flex:none;width:auto;margin:0;padding:8px 14px}\n\n.ranked-history-feedback{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:8px 20px;border-top:1px solid var(--pc-line);color:var(--pc-muted);font-size:16px}\n.ranked-history-feedback[hidden]{display:none}\n.ranked-history .ranked-history-feedback button{flex:none;width:auto;margin:0;padding:8px 14px}\n\n/* Lead with placement, followed by track, opponents, rank badge and change. */\n.ranked-history-body.is-rich :is(.ranked-history-columns,.ranked-history-row){grid-template-columns:72px minmax(0,1.8fr) 110px 100px 100px 64px;gap:12px}\n.ranked-history-body.is-rich .ranked-history-columns>:nth-child(n+3),.ranked-history-body.is-rich .ranked-history-row>:nth-child(n+3){justify-self:center;text-align:center}\n\n.ranked-history-row.is-win .ranked-history-place{color:var(--pc-gold)}\n.ranked-history-track{display:flex;align-items:center;gap:12px;min-width:0}\n/* Native map art varies from tiny pixel icons to tall/wide silhouettes. Reserve\n   one aligned slot, but never enlarge or crop the artwork to fill it. */\n.ranked-history-track-art{display:grid;place-items:center;flex:none;width:64px;height:44px}\n.ranked-history-track-art img{display:block;width:auto;height:auto;min-width:0;min-height:0;max-width:64px;max-height:44px;object-fit:contain;image-rendering:pixelated}\n.ranked-history-track>span:last-child{display:flex;flex-direction:column;min-width:0;gap:2px}\n.ranked-history-track strong{font-weight:400;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.ranked-history-track time{font-size:15px;color:var(--pc-muted);font-style:normal}\n.ranked-history-racers{display:flex;align-items:center;gap:4px;min-width:0}\n.ranked-history-racers>.player-portrait{flex:0 0 28px;width:28px;height:28px}.ranked-history-more{margin-left:2px}\n.ranked-history-more{font-size:15px;color:var(--pc-muted);font-style:normal}\n.ranked-history-row .ranked-rating-badge{width:96px;height:29px}.ranked-history-row .ranked-rating-value{font-size:25px}\n.ranked-history-row .ranked-rating-badge.is-grandmaster .ranked-rating-value{font-size:15px}\n@media(max-width:600px){\n .ranked-history-body.is-rich .ranked-history-columns{display:none}\n .ranked-history-body.is-rich .ranked-history-row{grid-template-columns:52px minmax(0,1fr) auto;grid-template-areas:"place track change" "place time rank" "place racers racers";gap:8px 6px}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-track{grid-area:track;gap:8px}\n .ranked-history-body.is-rich .ranked-history-track-art{width:32px;height:36px}\n .ranked-history-body.is-rich .ranked-history-track-art img{max-width:32px;max-height:36px}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-racers{grid-area:racers}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-place{grid-area:place}\n .ranked-history-body.is-rich .ranked-history-row>:nth-child(5){grid-area:rank}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-change{grid-area:change;justify-self:end}\n .ranked-history-body.is-rich .ranked-history-row>.ranked-history-racers{justify-self:start}\n}\n/* Placement text identifies wins; row separators remain uniform and unambiguous. */\n.ranked-history-body.is-rich .ranked-history-row{position:relative}\n.ranked-history-replay{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-top:18px;padding:0 8px 8px}\n.ranked-history-replay select{font:inherit;color:var(--pc-text);background:var(--pc-action);border:1px solid var(--pc-line);padding:8px 12px;min-height:44px}\n\n.ranked-history[data-view=match] .ranked-history-name{display:none}\n.ranked-history:not([data-view=match]) .history-match-track{display:none}\n.history-match-track{margin-top:10px}\n.history-match-track .ranked-history-track{display:flex;gap:12px;align-items:center}\n.history-match-track .ranked-history-track-art{width:54px;height:42px;display:grid;place-items:center;flex:none;background:none}\n.history-match-track img{display:block;max-width:54px;max-height:42px;object-fit:contain;image-rendering:pixelated}\n.history-match-track strong{font:400 20px/1.2 ForcedSquare,Arial,sans-serif}\n.history-match-track .ranked-history-track>span:last-child>span:empty{display:none}\n.ranked-history .match-result-metadata{margin:18px 8px 0;font-size:16px;color:var(--pc-muted)}\n\n/* Match kind is a history-list filter, not a second navigation row in a result. */\n.ranked-history[data-view=match]>.history-scope-tabs{display:none}\n.ranked-result-time,.ranked-history-time{font-variant-numeric:tabular-nums;white-space:nowrap}\n.ranked-result-time.pc-official-time,.ranked-history-time.pc-official-time{justify-content:center}\n@media(max-width:600px){.ranked-history-body.is-rich .ranked-history-time{grid-area:time;justify-self:start!important}}\n@media(max-width:460px){.ranked-history[data-view=match] :is(.ranked-result-columns,.ranked-result-row){min-width:455px;box-sizing:border-box}}\n\n.ranked-result-columns>:is(:nth-child(3),:nth-child(4)),.ranked-result-row>.ranked-result-time{text-align:center}\n.ranked-result-rating{display:flex;justify-content:center}\n.ranked-result-rating .ranked-rating-badge{width:96px;height:29px}\n.ranked-result-rating .ranked-rating-value{font-size:25px}\n@media(max-width:600px){.ranked-result-rating .ranked-rating-badge{width:82px;height:26px}.ranked-result-rating .ranked-rating-value{font-size:21px}}\n\n.history-scope-tabs>select{margin-left:auto;align-self:center;max-width:190px;min-width:0;box-sizing:border-box;min-height:36px;height:36px;padding:8px 36px 8px 12px;border:0;border-bottom:1px solid var(--pc-line);border-radius:0;background-color:#13214a;color:#a6b9d3;font:400 18px/1 ForcedSquare,Arial,sans-serif;--focus-cut:8px;clip-path:var(--cut)}\n@media(max-width:620px){.history-scope-tabs>select{font-size:16px}}\n@media(max-height:500px){.history-scope-tabs>select{min-height:32px;height:32px;padding-block:4px;font-size:16px}}\n';
   }
 });
 
@@ -15234,7 +15376,7 @@ var init_ranked_history_ui = __esm({
     init_history_review_warning();
     init_profile_picture();
     init_ranked_format();
-    init_time();
+    init_official_position();
     init_match_replay();
     init_ranked_format();
     trackNames2 = new Map(tracks.map((track) => [track.id, track.name]));
@@ -15510,11 +15652,7 @@ var init_ranked_history_ui = __esm({
                 place,
                 this.#track(row, time2, artwork),
                 this.#racers(row),
-                element(
-                  "span",
-                  typeof row.time_ms === "number" && row.time_ms > 0 ? formatTime(row.time_ms) : "\u2014",
-                  "ranked-history-time"
-                ),
+                officialLapTime(row.track_id, row.time_ms, "\u2014", "ranked-history-time"),
                 row.tier ? rankBadge({
                   tier: row.tier,
                   rating: row.rating_after,
@@ -15818,11 +15956,7 @@ var init_ranked_history_ui = __esm({
           row.append(
             position,
             playerName2,
-            element(
-              "span",
-              typeof player2.time_ms === "number" && player2.time_ms > 0 ? formatTime(player2.time_ms) : player2.dnf ? "DNF" : "\u2014",
-              "ranked-result-time"
-            ),
+            officialLapTime(result.track_id, player2.time_ms, player2.dnf ? "DNF" : "\u2014", "ranked-result-time"),
             rating,
             change2
           );
@@ -16503,11 +16637,11 @@ var init_waiting_room = __esm({
         this.#lastOK = Date.now();
         this.#error = "";
         for (const result of value.results) {
-          const pending2 = this.#pending.get(result.request);
-          if (pending2) {
+          const pending3 = this.#pending.get(result.request);
+          if (pending3) {
             this.#pending.delete(result.request);
-            if (result.error) pending2.reject(new Error(result.error));
-            else pending2.resolve();
+            if (result.error) pending3.reject(new Error(result.error));
+            else pending3.resolve();
           }
         }
         if (this.#client) this.refreshRanks(this.#client, this.#instance);
@@ -16589,7 +16723,7 @@ var init_waiting_room = __esm({
         this.#changed();
       }
       #rejectPending(message) {
-        for (const pending2 of this.#pending.values()) pending2.reject(new Error(message));
+        for (const pending3 of this.#pending.values()) pending3.reject(new Error(message));
         this.#pending.clear();
         for (const update of this.#updates.splice(0)) update.reject(new Error(message));
       }
@@ -16740,10 +16874,10 @@ var init_waiting_room = __esm({
               for (const update of updates) update.resolve();
             }
           }
-          for (const [id, pending2] of this.#pending)
-            if (Date.now() - pending2.at > 2e4) {
+          for (const [id, pending3] of this.#pending)
+            if (Date.now() - pending3.at > 2e4) {
               this.#pending.delete(id);
-              pending2.reject(
+              pending3.reject(
                 new Error(
                   "The host has not acknowledged this action yet. It may still apply when they reconnect."
                 )
@@ -17692,8 +17826,8 @@ var init_ranked_queue_ui = __esm({
     init_rank_badge();
     init_ranked_queue();
     RankedQueueUI = class {
-      constructor(shadow, queue, canJoin, openMatch, openLeaderboard, openGuide) {
-        this.queue = queue;
+      constructor(shadow, queue2, canJoin, openMatch, openLeaderboard, openGuide) {
+        this.queue = queue2;
         this.canJoin = canJoin;
         this.openMatch = openMatch;
         this.openLeaderboard = openLeaderboard;
@@ -17705,7 +17839,7 @@ var init_ranked_queue_ui = __esm({
         this.#dialog.setAttribute("aria-label", "Ranked match");
         this.element.setAttribute("aria-label", "Ranked queue");
         this.#dialog.addEventListener("cancel", (e) => e.preventDefault());
-        queue.subscribe(() => this.render());
+        queue2.subscribe(() => this.render());
         this.render();
       }
       #element = element("section", void 0, "ranked-queue-bar");
@@ -17933,15 +18067,15 @@ var init_ranked_reconnect_ui = __esm({
     init_dom();
     init_dismissible_errors2();
     RankedReconnectUI = class {
-      constructor(shadow, queue, visible, reconnect) {
-        this.queue = queue;
+      constructor(shadow, queue2, visible, reconnect) {
+        this.queue = queue2;
         this.visible = visible;
         this.reconnect = reconnect;
         this.#dialog.setAttribute("aria-label", "Return to ranked Cup");
         this.#dialog.addEventListener("cancel", (event) => event.preventDefault());
         shadow.append(this.#dialog);
         installErrorDismissal(shadow);
-        queue.subscribe(() => this.render());
+        queue2.subscribe(() => this.render());
       }
       #dialog = element("dialog", void 0, "ranked-match-dialog ranked-reconnect-dialog polycup-surface");
       #match = "";
@@ -17992,9 +18126,9 @@ var init_ranked_reconnect_ui = __esm({
           this.#confirm = false;
         }
         if (match.host_disconnected && !match.is_host) this.#confirm = false;
-        const active = this.#dialog.getRootNode().activeElement;
-        const restoreFocus = !this.#dialog.open || this.#dialog.contains(active);
-        const focus = active instanceof HTMLButtonElement ? active.textContent : null;
+        const active2 = this.#dialog.getRootNode().activeElement;
+        const restoreFocus = !this.#dialog.open || this.#dialog.contains(active2);
+        const focus = active2 instanceof HTMLButtonElement ? active2.textContent : null;
         const header = element("header"), body = element("div", void 0, "ranked-match-body"), footer = element("footer");
         header.append(
           element("h2", this.#confirm ? "Abandon ranked Cup?" : "Your ranked Cup is still active")
@@ -18280,7 +18414,7 @@ var init_release_notes = __esm({
           "Season 1: fresh placements and revised ratings that separate skill estimates from visible progression, making isolated losses less punishing without penalizing repeat opponents. DNFs cannot gain rating.",
           "A community-voted 30-track ranked pool: 15 Fullspeed and 15 Tech tracks, with 20 seconds to finish after the first racer.",
           "Season 0 remains viewable through season selectors, with permanent rank badges revealed on your next hub visit. XP and existing unlocks carry over.",
-          "Expanded profile statistics and smoother chat, connections, retirement/spectating and casual/friendly match transitions."
+          "Expanded profile statistics, official verified PolyTrack placement comparisons beside ranked times, and smoother chat, connections, retirement/spectating and casual/friendly match transitions."
         ],
         notes: []
       },
@@ -18407,10 +18541,14 @@ var init_season_countdown = __esm({
     init_dom();
     SEASON_ZERO_END = Date.parse("2026-11-14T00:00:00+02:00");
     SeasonCountdown = class {
+      #element = element("aside", void 0, "hub-season-countdown");
+      get element() {
+        return this.#element;
+      }
+      #value = element("span", void 0, "hub-season-clock");
+      #label = element("span", "Season 0 ends in", "hub-season-label");
+      #timer;
       constructor() {
-        this.element = element("aside", void 0, "hub-season-countdown");
-        this.#value = element("span", void 0, "hub-season-clock");
-        this.#label = element("span", "Season 0 ends in", "hub-season-label");
         const heading = element("div", void 0, "hub-season-heading");
         heading.append(element("strong", "Season 1"), this.#label);
         this.#value.setAttribute("role", "timer");
@@ -18418,9 +18556,6 @@ var init_season_countdown = __esm({
         this.element.append(heading, this.#value);
         this.update();
       }
-      #value;
-      #label;
-      #timer;
       update(now = Date.now()) {
         const state = seasonCountdown(now);
         this.#label.textContent = state.ended ? "Season 0 has ended" : "Season 0 ends in";
@@ -18470,9 +18605,9 @@ var init_season_rewards = __esm({
         this.#last = user;
         this.#at = Date.now();
         try {
-          const pending2 = await api.seasonRewards();
+          const pending3 = await api.seasonRewards();
           if (!this.safe() || this.#last !== user || this.user() !== user) return;
-          const reward = pending2[0];
+          const reward = pending3[0];
           if (!reward) return;
           const shown = this.#reveal.show("season:" + user + ":" + reward.season, reward.rewards, () => {
             this.#dialog.close();
@@ -18872,14 +19007,14 @@ var init_cup_hub2 = __esm({
           options.rankedActivity.classList.add("hub-standalone-ranked");
           activities.append(options.rankedActivity);
         } else if (account.account) {
-          const queue = account.account.queue;
+          const queue2 = account.account.queue;
           const queueUI = new RankedQueueUI(
             shadow,
-            queue,
+            queue2,
             () => controller.connection ? "Leave your multiplayer game before joining ranked." : this.#room?.snapshot ? "Leave your current lobby before joining ranked." : null,
             () => {
               if (this.#room?.ranked && this.#room.snapshot && !this.#room.disconnected) this.#enter();
-              else if (queue.snapshot?.match) void this.#enterRanked(queue.snapshot.match.id);
+              else if (queue2.snapshot?.match) void this.#enterRanked(queue2.snapshot.match.id);
             },
             () => this.#leaderboard?.open(),
             () => this.#guide.ranks()
@@ -18887,22 +19022,22 @@ var init_cup_hub2 = __esm({
           activities.append(queueUI.element);
           this.#reconnectUI = new RankedReconnectUI(
             shadow,
-            queue,
+            queue2,
             () => this.#dialog.open && !this.#rankedOpening && (!this.#room?.snapshot || !!this.#room.disconnected),
             () => {
-              const match = queue.snapshot?.match;
+              const match = queue2.snapshot?.match;
               if (match) void this.#enterRanked(match.id);
             }
           );
-          queue.subscribe(() => {
-            const match = queue.snapshot?.match;
-            if (match && !match.left && !match.abandoned && match.status === "drafting" && !queue.confirmingAcceptance && this.#rankedEntered !== match.id && !this.#rankedOpening)
+          queue2.subscribe(() => {
+            const match = queue2.snapshot?.match;
+            if (match && !match.left && !match.abandoned && match.status === "drafting" && !queue2.confirmingAcceptance && this.#rankedEntered !== match.id && !this.#rankedOpening)
               void this.#enterRanked(match.id);
             if (!match) this.#rankedEntered = "";
             for (const button of this.#dialog.querySelectorAll(
               "[data-cup-admission]"
             ))
-              button.disabled = queue.active || this.#busy || button.dataset.incompatible === "true";
+              button.disabled = queue2.active || this.#busy || button.dataset.incompatible === "true";
           });
         }
         content.append(this.#social, main);
@@ -19195,13 +19330,13 @@ var init_cup_hub2 = __esm({
         this.#busy = true;
         this.#error.hidden = true;
         const labels = /* @__PURE__ */ new Map();
-        const active = this.#dialog.getRootNode().activeElement;
+        const active2 = this.#dialog.getRootNode().activeElement;
         for (const button of this.#dialog.querySelectorAll(
           ".hub-list-header button, .hub-host button, .hub-room button"
         )) {
           labels.set(button, button.textContent ?? "");
           button.disabled = true;
-          if ((activity === "join" || button === active) && button.textContent === "Join")
+          if ((activity === "join" || button === active2) && button.textContent === "Join")
             button.textContent = "Joining\u2026";
           else if (activity === "create" && button.textContent === "Host lobby")
             button.textContent = "Creating\u2026";
@@ -19781,11 +19916,11 @@ function lobbyPanel(ui) {
     const steps = element("ol", void 0, "draft-steps");
     steps.setAttribute("aria-label", "Lobby progress");
     const stages = ["Setup", ...rules.bansPerRacer ? ["Bans"] : [], "Picks", "Race"];
-    const active = stages.indexOf(view.stage === "bans" ? "Bans" : "Picks");
+    const active2 = stages.indexOf(view.stage === "bans" ? "Bans" : "Picks");
     stages.forEach((name, i) => {
       const step = element("li", name);
-      if (i === active) step.setAttribute("aria-current", "step");
-      else if (i < active) step.classList.add("is-done");
+      if (i === active2) step.setAttribute("aria-current", "step");
+      else if (i < active2) step.classList.add("is-done");
       steps.append(step);
     });
     const headline = element("div", void 0, "draft-heading");
@@ -20670,7 +20805,7 @@ function playerReport(root, name, send) {
   const title = element("h2", "Report player"), close = element("button", "\xD7", "social-close");
   const target = element("p", name, "report-target"), error = element("p", "", "social-error");
   const actions = element("footer"), cancel = element("button", "Cancel", "quiet"), submit = element("button", "Send report", "primary");
-  let busy = false, disposed = false, pending2;
+  let busy = false, disposed = false, pending3;
   close.type = cancel.type = "button";
   close.setAttribute("aria-label", "Close report");
   const dispose = () => {
@@ -20706,14 +20841,14 @@ function playerReport(root, name, send) {
     event.preventDefault();
     if (busy) return;
     const note2 = details.value.trim();
-    if (!pending2 || pending2.reason !== reason.value || pending2.details !== note2)
-      pending2 = { reason: reason.value, details: note2, nonce: crypto.randomUUID() };
+    if (!pending3 || pending3.reason !== reason.value || pending3.details !== note2)
+      pending3 = { reason: reason.value, details: note2, nonce: crypto.randomUUID() };
     busy = true;
     error.textContent = "";
     submit.textContent = "Sending\u2026";
     for (const control of [submit, cancel, close, reason, details]) control.disabled = true;
     try {
-      await send(pending2.reason, pending2.details, pending2.nonce);
+      await send(pending3.reason, pending3.details, pending3.nonce);
       if (disposed) return;
       const done = element("button", "Done", "primary");
       done.type = "button";
@@ -21405,10 +21540,10 @@ var init_typing = __esm({
         }, 500);
         void this.#read();
       }
-      input(active) {
+      input(active2) {
         clearTimeout(this.#idle);
         if (!this.#timer || this.identity() !== this.#owner) return;
-        if (active && !document.hidden) {
+        if (active2 && !document.hidden) {
           if (!this.#sending || Date.now() - this.#last >= 2500) {
             this.#sending = true;
             this.#last = Date.now();
@@ -21420,12 +21555,12 @@ var init_typing = __esm({
           this.#write(false);
         }
       }
-      #write(active) {
+      #write(active2) {
         const owner = this.#owner;
         this.#writes = this.#writes.catch(() => {
         }).then(async () => {
           if (this.identity() !== owner) return;
-          await this.client.rpc("polycup_typing_touch", { channel_key: this.scope, active }).abortSignal(AbortSignal.timeout(5e3));
+          await this.client.rpc("polycup_typing_touch", { channel_key: this.scope, active: active2 }).abortSignal(AbortSignal.timeout(5e3));
         });
       }
       #invalidate() {
@@ -22518,8 +22653,8 @@ function profileDataView(options) {
     { key: "last_played", label: "Last played", render: (r) => date(r.last_played) }
   ];
   const renderHeader = () => {
-    const active = root.getRootNode().activeElement;
-    const focusedSort = active && thead.contains(active) ? active.dataset.sortStat : void 0;
+    const active2 = root.getRootNode().activeElement;
+    const focusedSort = active2 && thead.contains(active2) ? active2.dataset.sortStat : void 0;
     title.textContent = query.kind === "tracks" ? "Track performance" : "Played with";
     root.dataset.kind = query.kind;
     root.dataset.columns = columnMode;
@@ -22614,6 +22749,8 @@ function profileDataView(options) {
           else action.disabled = true;
           td.append(action);
           if (!action.disabled) clickableRow(row, action);
+        } else if (col.key === "best_time") {
+          td.append(officialLapTime(entry.track_id, entry.best_time, "\u2013"));
         } else {
           td.textContent = col.render ? col.render(entry) : number2(entry[col.key]);
           if (col.key === "rating_change")
@@ -22697,6 +22834,7 @@ var init_profile_data_ui = __esm({
     init_clickable_row();
     init_profile_picture();
     init_time();
+    init_official_position();
     init_profile_data();
     profileDataCSS = profile_data_default;
     number2 = (n) => typeof n === "number" ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "\u2013";
@@ -23894,8 +24032,8 @@ var init_social_ui = __esm({
           this.#avatarPopup.cancel();
           return;
         }
-        const active = this.#profile.getRootNode().activeElement;
-        if (this.#messages.open && active === this.#input && event.key === "Escape" && this.#reply.value) {
+        const active2 = this.#profile.getRootNode().activeElement;
+        if (this.#messages.open && active2 === this.#input && event.key === "Escape" && this.#reply.value) {
           event.preventDefault();
           this.#reply.value = void 0;
           this.#replyDrafts.delete(this.#peer);
@@ -23903,8 +24041,8 @@ var init_social_ui = __esm({
           this.#log.querySelectorAll(".is-replying").forEach((e) => e.classList.remove("is-replying"));
           return;
         }
-        if (this.#profile.open && active?.matches(".profile-chart,.avatar-crop-preview,[data-avatar-edit]"))
-          active.onkeydown?.call(active, event);
+        if (this.#profile.open && active2?.matches(".profile-chart,.avatar-crop-preview,[data-avatar-edit]"))
+          active2.onkeydown?.call(active2, event);
         if (event.code === "F8") {
           event.preventDefault();
           this.close();
@@ -24742,7 +24880,7 @@ var init_social_ui = __esm({
         this.#profile.querySelectorAll(".profile-chart").forEach((chart) => chart.dispatchEvent(new Event("polycup-chart-dismiss")));
         const body = this.#profile.querySelector(".profile-content");
         const scroll = body?.scrollTop ?? 0;
-        const active = this.#profile.getRootNode().activeElement;
+        const active2 = this.#profile.getRootNode().activeElement;
         const view = profileDataView({
           profile: p,
           kind,
@@ -24768,7 +24906,7 @@ var init_social_ui = __esm({
           this.#profile.classList.remove("profile-data-open");
           this.#profile.replaceChildren(...retained);
           if (body) body.scrollTop = scroll;
-          if (this.#profile.open && active?.isConnected) active.focus({ preventScroll: true });
+          if (this.#profile.open && active2?.isConnected) active2.focus({ preventScroll: true });
         };
         view.element.querySelector("button")?.focus();
       }
@@ -25033,18 +25171,18 @@ var init_social_ui = __esm({
               card.append(
                 element("span", invite.friendly ? "Friendly 1v1" : "Lobby invitation", "dm-invite-kind")
               );
-            const active = invite.active && !!invite.expires_at && Date.parse(invite.expires_at) > Date.now();
+            const active2 = invite.active && !!invite.expires_at && Date.parse(invite.expires_at) > Date.now();
             const own = row.sender_id === this.api.user;
             const join = this.#button(
-              active ? own ? "Invitation sent" : "Join" : "Invitation unavailable",
+              active2 ? own ? "Invitation sent" : "Join" : "Invitation unavailable",
               async () => {
                 if (!invite.code || !this.joinInvite) throw Error("Open the lobby browser to join.");
                 await this.joinInvite(invite.code);
                 this.close();
               },
-              active && !own
+              active2 && !own
             );
-            join.disabled = !active || own || !this.joinInvite;
+            join.disabled = !active2 || own || !this.joinInvite;
             card.append(join);
             message.append(card);
           } else message.append(element("p", filterChat(row.body)));
@@ -25081,14 +25219,14 @@ var init_social_ui = __esm({
         if (this.#sending || !this.#peer) return;
         this.#typingSignal?.input(false);
         const peer = this.#peer, body = this.#input.value, owner = this.api.user;
-        const pending2 = this.#pending?.peer === peer && this.#pending.body === body && this.#pending.reply === this.#reply.value?.id ? this.#pending : { peer, body, nonce: crypto.randomUUID(), reply: this.#reply.value?.id };
-        this.#pending = pending2;
+        const pending3 = this.#pending?.peer === peer && this.#pending.body === body && this.#pending.reply === this.#reply.value?.id ? this.#pending : { peer, body, nonce: crypto.randomUUID(), reply: this.#reply.value?.id };
+        this.#pending = pending3;
         this.#sending = true;
         this.#input.disabled = true;
         this.#updateSend();
         this.#error.textContent = "";
         try {
-          const row = await this.api.send(peer, body, pending2.nonce, pending2.reply);
+          const row = await this.api.send(peer, body, pending3.nonce, pending3.reply);
           if (owner !== this.api.user) return;
           this.#pending = void 0;
           this.#drafts.delete(peer);
@@ -40275,9 +40413,9 @@ var init_GoTrueClient = __esm({
           return await this._initialize();
         })();
         const result = await this.initializePromise;
-        const queue = (_a = this._pendingInitNotifications) !== null && _a !== void 0 ? _a : [];
+        const queue2 = (_a = this._pendingInitNotifications) !== null && _a !== void 0 ? _a : [];
         this._pendingInitNotifications = null;
-        for (const n of queue) {
+        for (const n of queue2) {
           await this._notifyAllSubscribers(n.event, n.session, n.broadcast);
         }
         return result;
@@ -45447,8 +45585,8 @@ function parseTraceParent(traceparent) {
     isSampled: (parseInt(traceFlags, 16) & 1) === 1
   };
 }
-function shouldPropagateToTarget(targetUrl, targets) {
-  if (!targetUrl || !targets || targets.length === 0) return false;
+function shouldPropagateToTarget(targetUrl, targets2) {
+  if (!targetUrl || !targets2 || targets2.length === 0) return false;
   let url;
   if (targetUrl instanceof URL) url = targetUrl;
   else try {
@@ -45456,7 +45594,7 @@ function shouldPropagateToTarget(targetUrl, targets) {
   } catch (error) {
     return false;
   }
-  for (const target of targets) try {
+  for (const target of targets2) try {
     if (typeof target === "string") {
       if (matchStringTarget(url.hostname, target)) return true;
     } else if (target instanceof RegExp) {
@@ -45480,15 +45618,15 @@ function matchStringTarget(hostname, target) {
   return false;
 }
 function getDefaultPropagationTargets(supabaseUrl) {
-  const targets = [];
+  const targets2 = [];
   try {
     const url = new URL(supabaseUrl);
-    targets.push(url.hostname);
+    targets2.push(url.hostname);
   } catch (error) {
   }
-  targets.push("*.supabase.co", "*.supabase.in");
-  targets.push("localhost", "127.0.0.1", "[::1]");
-  return targets;
+  targets2.push("*.supabase.co", "*.supabase.in");
+  targets2.push("localhost", "127.0.0.1", "[::1]");
+  return targets2;
 }
 function _typeof3(o) {
   "@babel/helpers - typeof";
@@ -45541,7 +45679,7 @@ function _objectSpread23(e) {
   }
   return e;
 }
-function getTraceHeaders(input, targets, respectSampling) {
+function getTraceHeaders(input, targets2, respectSampling) {
   const extractTraceContext = getTraceContextExtractor();
   if (!extractTraceContext) {
     if (!warnedMissingTracingRuntime) {
@@ -45550,7 +45688,7 @@ function getTraceHeaders(input, targets, respectSampling) {
     }
     return null;
   }
-  if (!shouldPropagateToTarget(typeof input === "string" ? input : input instanceof URL ? input : input.url, targets)) return null;
+  if (!shouldPropagateToTarget(typeof input === "string" ? input : input instanceof URL ? input : input.url, targets2)) return null;
   const traceContext = extractTraceContext();
   if (!traceContext || !traceContext.traceparent) {
     var _traceContext$carrier;
@@ -46714,11 +46852,11 @@ var init_activity = __esm({
     ActivityTracker = class {
       constructor(read = () => ({ kind: "menu" })) {
         this.read = read;
-        const active = () => {
+        const active2 = () => {
           this.#lastInput = Date.now();
         };
         for (const event of ["pointerdown", "pointermove", "keydown", "touchstart", "focus"])
-          if (typeof window !== "undefined") window.addEventListener(event, active, { passive: true });
+          if (typeof window !== "undefined") window.addEventListener(event, active2, { passive: true });
       }
       #lastInput = Date.now();
       sample() {
@@ -47672,13 +47810,13 @@ var init_account = __esm({
           this.#changed();
         }
       }
-      #releaseReturn(pending2 = this.#pending) {
+      #releaseReturn(pending3 = this.#pending) {
         window.clearTimeout(this.#returnTimer);
-        if (pending2?.relayRead)
+        if (pending3?.relayRead)
           void this.#client.rpc("polycup_signin_return", {
             action: "cancel",
-            attempt_key: pending2.attempt,
-            secret: pending2.relayRead
+            attempt_key: pending3.attempt,
+            secret: pending3.relayRead
           }).then(
             () => {
             },
@@ -47688,12 +47826,12 @@ var init_account = __esm({
       }
       #watchReturn() {
         window.clearTimeout(this.#returnTimer);
-        const pending2 = this.#pending;
-        if (!pending2?.relayRead) return;
+        const pending3 = this.#pending;
+        if (!pending3?.relayRead) return;
         const poll = async () => {
-          if (this.#pending !== pending2) return;
-          if (Date.now() >= pending2.expires) {
-            this.#releaseReturn(pending2);
+          if (this.#pending !== pending3) return;
+          if (Date.now() >= pending3.expires) {
+            this.#releaseReturn(pending3);
             clearPending(this.#tab);
             this.#pending = null;
             this.#signInError = "Sign-in expired. Start again with Discord.";
@@ -47704,10 +47842,10 @@ var init_account = __esm({
             try {
               const { data, error } = await this.#client.rpc("polycup_signin_return", {
                 action: "get",
-                attempt_key: pending2.attempt,
-                secret: pending2.relayRead
+                attempt_key: pending3.attempt,
+                secret: pending3.relayRead
               }).abortSignal(AbortSignal.timeout(8e3));
-              if (!error && this.#pending === pending2 && typeof data?.code === "string") {
+              if (!error && this.#pending === pending3 && typeof data?.code === "string") {
                 try {
                   await this.complete(data.code);
                 } catch (error2) {
@@ -47718,10 +47856,10 @@ var init_account = __esm({
             } catch {
             }
           }
-          if (this.#pending === pending2)
+          if (this.#pending === pending3)
             this.#returnTimer = window.setTimeout(
               poll,
-              Date.now() > pending2.expires - LOGIN_LIFETIME + 3e4 ? 5e3 : 2e3
+              Date.now() > pending3.expires - LOGIN_LIFETIME + 3e4 ? 5e3 : 2e3
             );
         };
         this.#returnTimer = window.setTimeout(poll, 2e3);
@@ -47824,8 +47962,8 @@ var init_account = __esm({
       }
       async complete(value) {
         if (this.#busy) return false;
-        const pending2 = this.#pending;
-        const code = parseReturnCode(value, pending2);
+        const pending3 = this.#pending;
+        const code = parseReturnCode(value, pending3);
         this.#busy = true;
         this.#changed();
         try {
@@ -47838,7 +47976,7 @@ var init_account = __esm({
           discardProviderTokens(data.session);
           this.#user = data.session.user;
           this.#friends.start(this.#user.id);
-          this.#releaseReturn(pending2);
+          this.#releaseReturn(pending3);
           clearPending(this.#tab);
           this.#pending = null;
           this.#popup?.postMessage(
@@ -47848,7 +47986,7 @@ var init_account = __esm({
           await this.#loadProfile(++this.#revision);
           return true;
         } catch (error) {
-          this.#releaseReturn(pending2);
+          this.#releaseReturn(pending3);
           clearPending(this.#tab);
           this.#pending = null;
           throw error;
@@ -49948,10 +50086,10 @@ var init_ui = __esm({
           localPreview: hubOptions.localPreview,
           trackArt: () => this.#c.availableTracks(),
           activity: () => {
-            const c = this.#c, s = c.state, w2 = window, queue = w2.polycupPrototype?.queueState;
-            const queued = queue?.state === "queued";
+            const c = this.#c, s = c.state, w2 = window, queue2 = w2.polycupPrototype?.queueState;
+            const queued = queue2?.state === "queued";
             const track = s?.tracks.find((t) => t.id === s.runtime?.trackId)?.name ?? c.info?.metadata?.name ?? "";
-            if (queue?.match?.status === "reserved") return { kind: "accepting" };
+            if (queue2?.match?.status === "reserved") return { kind: "accepting" };
             if (s && s.phase !== "registration")
               return {
                 kind: s.phase === "complete" ? "results" : s.phase === "loading" ? c.ranked ? "ranked_loading" : "casual_loading" : c.info?.spectator.isEnabled ? "spectating" : c.ranked ? "ranked" : "casual",
@@ -49966,8 +50104,8 @@ var init_ui = __esm({
             if (document.body.dataset.polycupPractice)
               return { kind: "practice", track: w2.polycupPrototype?.practiceTrack?.() ?? "", queued };
             if (queued) return { kind: "queue" };
-            if (queue?.state && queue.state !== "idle")
-              return { kind: queue.match?.status === "review" ? "results" : "ranked_loading" };
+            if (queue2?.state && queue2.state !== "idle")
+              return { kind: queue2.match?.status === "review" ? "results" : "ranked_loading" };
             return { kind: "menu" };
           }
         });
@@ -50129,10 +50267,10 @@ var init_ui = __esm({
           window.addEventListener(
             type,
             (e) => {
-              const active = this.#shadow.activeElement;
-              if (type === "keydown" && active?.dataset.presetField === "name")
+              const active2 = this.#shadow.activeElement;
+              if (type === "keydown" && active2?.dataset.presetField === "name")
                 this.#presetEditor.nameKey(e);
-              if ((!this.#panel.hidden || this.#povHud.contains(active) || this.#practiceHud.contains(active) || this.#finishCue.contains(active)) && (["INPUT", "TEXTAREA", "SELECT"].includes(active?.tagName ?? "") || active?.tagName === "BUTTON" && ["Space", "Enter"].includes(e.code)))
+              if ((!this.#panel.hidden || this.#povHud.contains(active2) || this.#practiceHud.contains(active2) || this.#finishCue.contains(active2)) && (["INPUT", "TEXTAREA", "SELECT"].includes(active2?.tagName ?? "") || active2?.tagName === "BUTTON" && ["Space", "Enter"].includes(e.code)))
                 e.stopImmediatePropagation();
             },
             { capture: true }
@@ -52016,7 +52154,7 @@ var init_ranked_loading = __esm({
 });
 
 // prototype/standalone/client-updates.ts
-function installClientUpdates(root, local, active, reload = () => location.reload()) {
+function installClientUpdates(root, local, active2, reload = () => location.reload()) {
   const banner = document.createElement("aside");
   banner.className = "polycup-update";
   banner.setAttribute("popover", "manual");
@@ -52074,7 +52212,7 @@ function installClientUpdates(root, local, active, reload = () => location.reloa
   const style = document.createElement("style");
   style.textContent = ".polycup-update{position:fixed;inset:auto 16px 16px auto;box-sizing:border-box;margin:0;width:300px;max-width:calc(100vw - 24px);padding:12px 16px;border:1px solid #485d7f;border-top:3px solid #ffd76b;background:#192042;color:#fff;box-shadow:0 8px 24px #0c142766;font:400 17px/1.4 ForcedSquare,Arial,sans-serif}.polycup-update[hidden],.polycup-update [hidden]{display:none}.polycup-update-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.polycup-update-heading strong{font:inherit;color:#ffd76b}.polycup-update button{width:auto;min-height:44px;margin:0;font:italic 400 18px ForcedSquare,Arial,sans-serif;background:#112052;color:#fff;cursor:pointer}.polycup-update .polycup-update-toggle{width:44px;height:44px;padding:0;clip-path:none;font-style:normal;font-size:24px;background:transparent}.polycup-update-content{display:flex;flex-direction:column;gap:12px;padding-top:4px}.polycup-update-content button{align-self:flex-end;padding:8px 16px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}.polycup-update button:focus-visible{outline:2px solid #ffd76b;outline-offset:-3px}.polycup-update button:disabled{opacity:.45;cursor:default}@media(max-width:900px){.polycup-update{right:12px;bottom:92px;width:280px;max-height:calc(100dvh - 108px);overflow:auto}}";
   root.append(style);
-  let current, pending2;
+  let current, pending3;
   let serviceNotice = "";
   const position = () => {
     if (banner.hidden || !banner.matches(":popover-open")) return;
@@ -52092,7 +52230,7 @@ function installClientUpdates(root, local, active, reload = () => location.reloa
       (dialog2) => dialog2 !== hub && dialog2.matches(":modal")
     );
     const updateAvailable = available();
-    const showUpdate = updateAvailable && !active();
+    const showUpdate = updateAvailable && !active2();
     updateTitle.textContent = required() ? "Update required" : "Update available";
     if (showUpdate) {
       if (update.open && prioritize) update.close();
@@ -52101,7 +52239,7 @@ function installClientUpdates(root, local, active, reload = () => location.reloa
     banner.hidden = updateAvailable || !serviceNotice || !!root.closest("[hidden]") || hub !== null && !hub.open || otherModal;
     if (!banner.hidden && !banner.matches(":popover-open")) banner.showPopover();
     else if (banner.hidden && banner.matches(":popover-open")) banner.hidePopover();
-    button.disabled = active();
+    button.disabled = active2();
     button.hidden = true;
     title.textContent = "Server status";
     text.textContent = serviceNotice;
@@ -52128,8 +52266,8 @@ function installClientUpdates(root, local, active, reload = () => location.reloa
   const resize = () => render();
   window.addEventListener("resize", resize);
   async function check() {
-    if (pending2) return pending2;
-    pending2 = (async () => {
+    if (pending3) return pending3;
+    pending3 = (async () => {
       const r = await fetch("/release", { cache: "no-store", signal: AbortSignal.timeout(5e3) });
       if (!r.ok) throw Error("Could not check the current PolyCup version. Try again.");
       const b = await r.json();
@@ -52138,12 +52276,12 @@ function installClientUpdates(root, local, active, reload = () => location.reloa
       current = b;
       render();
     })().finally(() => {
-      pending2 = void 0;
+      pending3 = void 0;
     });
-    return pending2;
+    return pending3;
   }
   updateButton.onclick = () => {
-    if (!active()) reload();
+    if (!active2()) reload();
   };
   const timer = setInterval(() => {
     render();
@@ -52205,8 +52343,8 @@ var init_poll_retry = __esm({
         this.failures = 0;
         this.until = 0;
       }
-      failed(now, active, random = Math.random()) {
-        const ceiling = active ? 8e3 : 3e4;
+      failed(now, active2, random = Math.random()) {
+        const ceiling = active2 ? 8e3 : 3e4;
         const delay = Math.min(ceiling, 2e3 * 2 ** Math.min(this.failures++, 4));
         this.until = now + Math.round(delay * (0.8 + 0.2 * random));
         return this.until;
@@ -52405,7 +52543,7 @@ function nativeInstanceRecovery({
 }) {
   let valid = () => true, restore = () => {
   }, conflicts = 0;
-  let pending2;
+  let pending3;
   let blockedDialog;
   const dialogs = /* @__PURE__ */ new WeakSet();
   channel.addEventListener("message", (event) => {
@@ -52441,8 +52579,8 @@ function nativeInstanceRecovery({
     },
     check() {
       if (valid()) return Promise.resolve(true);
-      if (pending2) return pending2;
-      pending2 = (async () => {
+      if (pending3) return pending3;
+      pending3 = (async () => {
         const recovered = await lock(async () => {
           if (valid()) return true;
           const before = conflicts;
@@ -52464,9 +52602,9 @@ function nativeInstanceRecovery({
         report2("native_instance_probe_failed");
         return valid();
       }).finally(() => {
-        pending2 = void 0;
+        pending3 = void 0;
       });
-      return pending2;
+      return pending3;
     },
     dispose() {
       channel.close();
@@ -52518,6 +52656,7 @@ var init_native_instance = __esm({
 
 // prototype/standalone/ranked-panel.ts
 function installRankedPanel(proto, panel, report2, live = false, inHub = false, platform2 = standalonePlatform(location.origin)) {
+  configureOfficialPositions(platform2);
   const tokenKey = "polycup.prototype.account";
   const loading = new RankedLoading();
   const finish = new MatchFinishUI();
@@ -52534,14 +52673,14 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     }
     if (snapshot.busy || snapshot.done || Date.now() < snapshot.next) return;
     snapshot.busy = true;
-    const pending2 = snapshot;
-    void proto.ui.account.ranked.saveGarageSnapshot(match, instance, pending2.profile).then((saved) => {
-      pending2.done = saved;
+    const pending3 = snapshot;
+    void proto.ui.account.ranked.saveGarageSnapshot(match, instance, pending3.profile).then((saved) => {
+      pending3.done = saved;
     }).catch(() => {
       report2("client_error", { message: "Garage replay snapshot will retry." });
     }).finally(() => {
-      pending2.busy = false;
-      pending2.next = Date.now() + 5e3;
+      pending3.busy = false;
+      pending3.next = Date.now() + 5e3;
     });
   }
   let postgameQueued = false;
@@ -52572,16 +52711,16 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     connectionNotice.hidden = true;
   });
   function endLostConnection() {
-    if (!active || resultOpen || finish.isOpen || !proto.rankedMatch) return;
+    if (!active2 || resultOpen || finish.isOpen || !proto.rankedMatch) return;
     connectionNotice.hidden = true;
-    report2("stage", { phase: "ranked_connection_ended", match: active });
+    report2("stage", { phase: "ranked_connection_ended", match: active2 });
     proto.controller.captureReplayRun(true);
     pendingFinish("Connection lost. Your race has stopped; waiting for the server result.");
     proto.controller.connection?.dispose();
     window.dispatchEvent(new Event("polycup-return-menu"));
   }
   window.addEventListener("polycup-ranked-transport", ((event) => {
-    if (!active || resultOpen || finish.isOpen || !proto.rankedMatch) return;
+    if (!active2 || resultOpen || finish.isOpen || !proto.rankedMatch) return;
     if (event.detail.phase === "rtc_recovering") {
       connectionNotice.textContent = "Connection interrupted \xB7 Reconnecting\u2026";
       connectionNotice.hidden = false;
@@ -52600,7 +52739,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
   });
   let token = localStorage.getItem(tokenKey) || "", player2 = "", instance = sessionStorage.getItem("polycup.prototype.instance") || crypto.randomUUID();
   sessionStorage.setItem("polycup.prototype.instance", instance);
-  let active = "", connecting = false, joined = "", busy = false, polling = false, resultOpen = false;
+  let active2 = "", connecting = false, joined = "", busy = false, polling = false, resultOpen = false;
   let revision = 0, nextIdlePoll = 0;
   let pollError = "";
   let deniedResultAdmission = "";
@@ -52843,7 +52982,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       // retain the original lease stored with their pending recording.
       submitInputRun: (match, recordedInstance, run) => request("input", {
         match,
-        instance: active === match ? instance : recordedInstance,
+        instance: active2 === match ? instance : recordedInstance,
         run
       })
     },
@@ -52853,14 +52992,14 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
   const replayOutbox = new RankedInputOutbox(
     {
       inputReviewEnabled: async () => true,
-      submitInputRun: (match, recordedInstance, run) => live ? proto.ui.account.ranked.submitReplayRun(match, active === match ? instance : recordedInstance, run) : request("replay-input", { match, instance: active === match ? instance : recordedInstance, run })
+      submitInputRun: (match, recordedInstance, run) => live ? proto.ui.account.ranked.submitReplayRun(match, active2 === match ? instance : recordedInstance, run) : request("replay-input", { match, instance: active2 === match ? instance : recordedInstance, run })
     },
     inputUser,
     localStorage,
     "polycup.ranked.replay-outbox.v1",
     5e3,
     (item, state) => {
-      void (live ? proto.ui.account.ranked.reportReplayIssue(item.match, active === item.match ? instance : item.instance, item.run.round, state) : request("replay-issue", { match: item.match, instance: item.instance, round: item.run.round, state })).catch(() => {
+      void (live ? proto.ui.account.ranked.reportReplayIssue(item.match, active2 === item.match ? instance : item.instance, item.run.round, state) : request("replay-issue", { match: item.match, instance: item.instance, round: item.run.round, state })).catch(() => {
       });
     }
   );
@@ -52966,7 +53105,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     else if (q.state === "idle") queueJoinedAt = 0;
     panel.dataset.queueState = q.state;
     if (q.state !== "matched" && previous?.match?.status === "reserved") {
-      active = joined = entered = "";
+      active2 = joined = entered = "";
       dialog.close();
       loading.hide();
       practiceControl("resume");
@@ -53040,13 +53179,13 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       if (dialog.open) dialog.close();
       return;
     }
-    active = q.match.id;
-    if (["drafting", "racing"].includes(q.match.status)) loading.setChat(matchChat(active));
+    active2 = q.match.id;
+    if (["drafting", "racing"].includes(q.match.status)) loading.setChat(matchChat(active2));
     if (q.match.abandoned && !resultOpen && proto.rankedMatch) endLostConnection();
-    if (presentationMatch !== active) {
+    if (presentationMatch !== active2) {
       presentations.clear();
       garageNames.clear();
-      presentationMatch = active;
+      presentationMatch = active2;
     }
     for (const p of q.match.players ?? []) {
       const account = p.account ?? p.id;
@@ -53094,12 +53233,12 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     } else {
       if (dialog.open) dialog.close();
       status.textContent = "Preparing your match\u2026";
-      if (entered !== active) {
+      if (entered !== active2) {
         showMenu(false);
         proto.controller.requestPanel(false);
         if (loading.root.hidden)
           loading.show(
-            active,
+            active2,
             q.match.players.map((p) => ({ account: p.id, name: p.name })),
             ""
           );
@@ -53109,12 +53248,12 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     }
   }
   async function refreshLoading() {
-    if (loadingBusy || !active || entered === active) return;
+    if (loadingBusy || !active2 || entered === active2) return;
     loadingBusy = true;
     try {
-      const expected = active;
+      const expected = active2;
       const a = await request("admission", { match: expected });
-      if (active !== expected || entered === expected) return;
+      if (active2 !== expected || entered === expected) return;
       if (!["drafting", "racing"].includes(a.status)) {
         loading.hide();
         showMenu(true);
@@ -53123,7 +53262,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       const track = proto.controller.availableTracks().find((t) => t.id === a.track);
       for (const p of a.players ?? []) presentations.set(p.account, p);
       loading.show(
-        active,
+        active2,
         a.players.map((p) => ({ ...p, win_streak: a.streaks?.[p.account] ?? 0 })),
         track?.name || (a.track ? "Ranked track" : "Selecting track"),
         a.loading,
@@ -53138,26 +53277,26 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
   }
   setInterval(() => {
     const s = proto.controller.nativeState;
-    if (active && garageSnapshots.has(active)) saveGarageSnapshot(active);
-    if (active)
+    if (active2 && garageSnapshots.has(active2)) saveGarageSnapshot(active2);
+    if (active2)
       for (const racer of proto.controller.lobby) {
         const account = proto.bindings?.get(racer.id);
         if (account) garageNames.set(account, { native: racer.id, name: racer.nickname });
       }
-    if (active && entered !== active && s?.id === active && ["warmup", "countdown", "racing", "complete"].includes(s.phase)) {
-      entered = active;
+    if (active2 && entered !== active2 && s?.id === active2 && ["warmup", "countdown", "racing", "complete"].includes(s.phase)) {
+      entered = active2;
       loading.hide();
       proto.controller.finishWaitingRace();
     }
-    if (active && s?.id === active && s.phase === "complete" && !resultOpen) pendingFinish();
+    if (active2 && s?.id === active2 && s.phase === "complete" && !resultOpen) pendingFinish();
   }, 100);
   async function connect() {
-    if (connecting || joined === active || !active) return;
+    if (connecting || joined === active2 || !active2) return;
     connecting = true;
-    const expected = active;
+    const expected = active2;
     try {
       const admission = await request("admission", { match: expected });
-      if (active !== expected) return;
+      if (active2 !== expected) return;
       for (const p of admission.players ?? []) presentations.set(p.account, p);
       if (!["drafting", "racing"].includes(admission.status)) return;
       saveGarageSnapshot(expected);
@@ -53168,7 +53307,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       status.textContent = "Connecting to race\u2026";
       report2("stage", { phase: "assignment_received" });
       await proto.joinRanked(admission);
-      if (active !== expected) return;
+      if (active2 !== expected) return;
       joined = expected;
       practiceControl("complete");
     } catch (e) {
@@ -53182,7 +53321,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
   }
   const garageRows = () => {
     const state = proto.controller.nativeState;
-    if (!state || state.id !== active || state.phase !== "complete") return [];
+    if (!state || state.id !== active2 || state.phase !== "complete") return [];
     return resultRows(state).map((r) => {
       const account = proto.bindings?.get(r.id) ?? String(r.id);
       garageNames.set(account, { native: r.id, name: r.name });
@@ -53204,15 +53343,15 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
   };
   const backToMenu = () => {
     connectionNotice.hidden = true;
-    if (active) {
-      dismissedPendingResults.add(active);
+    if (active2) {
+      dismissedPendingResults.add(active2);
       if (dismissedPendingResults.size > 32)
         dismissedPendingResults.delete(dismissedPendingResults.values().next().value);
     }
     finish.close();
     resultOpen = false;
     finalView = void 0;
-    active = joined = entered = "";
+    active2 = joined = entered = "";
     revision++;
     proto.controller.connection?.dispose();
     window.dispatchEvent(new Event("polycup-return-menu"));
@@ -53220,23 +53359,24 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     nextIdlePoll = 0;
   };
   function pendingFinish(notice = "") {
-    if (finish.isOpen || !active || dismissedPendingResults.has(active)) return;
+    if (finish.isOpen || !active2 || dismissedPendingResults.has(active2)) return;
     loading.hide();
     showMenu(false);
     proto.controller.requestPanel(false);
     const localRows = garageRows();
-    const localTrack = proto.controller.nativeState?.id === active ? proto.controller.nativeState.tracks?.[0] : void 0;
+    const localTrack = proto.controller.nativeState?.id === active2 ? proto.controller.nativeState.tracks?.[0] : void 0;
     let trackArt;
     try {
       trackArt = proto.controller.availableTracks().find((t) => t.id === localTrack?.id)?.thumbnail;
     } catch {
     }
     finish.show({
-      key: active,
+      key: active2,
       ranked: true,
       title: "Match finished",
       subtitle: "",
       track: localTrack?.name,
+      trackId: localTrack?.id,
       trackArt,
       rows: localRows.length ? localRows : [...presentations].map(([account, p]) => {
         const name = document.createElement("span");
@@ -53247,7 +53387,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       self: player2,
       pending: true,
       notice,
-      chat: matchChat(active),
+      chat: matchChat(active2),
       actions: [{ label: "Back to menu", run: backToMenu }]
     });
   }
@@ -53259,7 +53399,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       return;
     busy = true;
     try {
-      await request("concede", { match: active });
+      await request("concede", { match: active2 });
       pendingFinish();
       proto.controller.connection?.dispose();
       window.dispatchEvent(new Event("polycup-return-menu"));
@@ -53271,18 +53411,18 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
     }
   });
   async function results() {
-    if (resultOpen || !active || dismissedPendingResults.has(active)) return;
-    const expectedRevision = revision, expectedActive = active;
-    const current = () => revision === expectedRevision && active === expectedActive && !resultOpen;
+    if (resultOpen || !active2 || dismissedPendingResults.has(active2)) return;
+    const expectedRevision = revision, expectedActive = active2;
+    const current = () => revision === expectedRevision && active2 === expectedActive && !resultOpen;
     let r = await request("result", { match: expectedActive }), unrated = false;
     if (!current()) return;
-    if (!r && active && deniedResultAdmission !== active) {
-      const expected = active;
+    if (!r && active2 && deniedResultAdmission !== active2) {
+      const expected = active2;
       let terminal;
       try {
         terminal = await request("admission", { match: expected });
       } catch (error) {
-        if (!current() || active !== expected) return;
+        if (!current() || active2 !== expected) return;
         if (/^Ranked admission unavailable\.?$/.test(error?.message ?? "")) {
           deniedResultAdmission = expected;
           endLostConnection();
@@ -53290,7 +53430,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
         }
         throw error;
       }
-      if (!current() || active !== expected) return;
+      if (!current() || active2 !== expected) return;
       if (terminal.status === "cancelled") {
         dialog.close();
         loading.hide();
@@ -53362,7 +53502,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
         return;
       }
       revision++;
-      active = joined = entered = "";
+      active2 = joined = entered = "";
       proto.controller.connection?.dispose();
       window.dispatchEvent(new Event("polycup-return-menu"));
       postgameQueued = true;
@@ -53399,6 +53539,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       title: unrated ? "Match ended" : winner.length > 1 ? "Draw" : name ? name + " wins" : "Match finished",
       subtitle: unrated ? "No rating change" : own?.abandoned ? "You conceded or left the match." : resultTrack ?? "",
       track: resultTrack,
+      trackId: r.track_id ?? nativeTrack?.id,
       trackArt: resultTrackEntry?.thumbnail,
       openTrackRecords: r.track_id || proto.controller.nativeState?.tracks?.[0]?.id ? async () => {
         const track = r.track_id || proto.controller.nativeState?.tracks?.[0]?.id;
@@ -53419,7 +53560,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
   cancel.onclick = () => void action("cancel");
   proto.returnFromHostFailure = (error) => {
     revision++;
-    active = joined = entered = "";
+    active2 = joined = entered = "";
     connecting = false;
     loading.hide();
     dialog.close();
@@ -53459,7 +53600,7 @@ function installRankedPanel(proto, panel, report2, live = false, inHub = false, 
       revision++;
       player2 = "";
       token = "";
-      active = "";
+      active2 = "";
       joined = "";
       entered = "";
       inputPolicy = void 0;
@@ -53558,6 +53699,7 @@ var init_ranked_panel2 = __esm({
     init_queue_controls();
     init_native_instance();
     init_client_platform();
+    init_official_position();
   }
 });
 
@@ -53788,8 +53930,8 @@ var init_startup_requests = __esm({
 });
 
 // prototype/standalone/room-watch.ts
-function rankedRoomIsActive(room, queue, phase) {
-  return !!room && queue?.state === "matched" && queue.match?.id === room && ["drafting", "racing"].includes(queue.match.status) && phase !== "complete";
+function rankedRoomIsActive(room, queue2, phase) {
+  return !!room && queue2?.state === "matched" && queue2.match?.id === room && ["drafting", "racing"].includes(queue2.match.status) && phase !== "complete";
 }
 var init_room_watch = __esm({
   "prototype/standalone/room-watch.ts"() {
@@ -54324,15 +54466,15 @@ async function installCameraIntros(proto) {
     return;
   }
   const c = proto.controller;
-  let runId = "", active = null;
+  let runId = "", active2 = null;
   function release() {
-    if (active) {
-      if (active.renderer.update === active.update) active.renderer.update = active.original;
+    if (active2) {
+      if (active2.renderer.update === active2.update) active2.renderer.update = active2.original;
       try {
-        c.native.release(active.game, active.view);
+        c.native.release(active2.game, active2.view);
       } catch {
       }
-      active = null;
+      active2 = null;
     }
   }
   setInterval(() => {
@@ -54352,7 +54494,7 @@ async function installCameraIntros(proto) {
     if (!path || remaining < 1e3) return;
     const game = c.game, renderer = c.native.renderer(game), original = renderer.update;
     const duration = Math.min(path.frames.at(-1).time, (remaining - 350) / 1e3);
-    active = {
+    active2 = {
       game,
       renderer,
       original,
@@ -54360,10 +54502,10 @@ async function installCameraIntros(proto) {
       began: performance.now(),
       duration
     };
-    const owned = active;
+    const owned = active2;
     renderer.update = function(...args) {
-      if (active !== owned || c.game !== game || c.nativeState?.phase !== "countdown" || c.now() >= run.startsAt - 350) {
-        if (active === owned) release();
+      if (active2 !== owned || c.game !== game || c.nativeState?.phase !== "countdown" || c.now() >= run.startsAt - 350) {
+        if (active2 === owned) release();
         renderer.update = original;
         return original.apply(this, args);
       }
@@ -54392,7 +54534,7 @@ var init_camera_intro = __esm({
 
 // prototype/standalone/entry.ts
 var entry_exports = {};
-var w, externalPml, platform, serviceOrigin, serviceURL, shellMode, useHub, nativeRaf, nativeCancelRaf, parkedFrames, parkedId, roomId, bootAt, diagnosticClient, diagnosticFetch, diagnosticContext, allowDiagnostic, report, stopStartupTiming, startStartupTiming, NativePeer, NativeSocket, nativeFetch, nativeOpen, observedFetch, routeNative, globals, runtime, insert2;
+var w, externalPml, platform, serviceOrigin2, serviceURL, shellMode, useHub, nativeRaf, nativeCancelRaf, parkedFrames, parkedId, roomId, bootAt, diagnosticClient, diagnosticFetch, diagnosticContext, allowDiagnostic, report, stopStartupTiming, startStartupTiming, NativePeer, NativeSocket, nativeFetch, nativeOpen, observedFetch, routeNative, globals, runtime, insert2;
 var init_entry = __esm({
   async "prototype/standalone/entry.ts"() {
     "use strict";
@@ -54425,15 +54567,15 @@ var init_entry = __esm({
     w.polycupBoot?.stage("configuration");
     externalPml = w.polycupPml;
     platform = externalPml ? pmlPlatform(externalPml.environment) : standalonePlatform(location.origin);
-    serviceOrigin = platform.serviceOrigin;
-    serviceURL = (path) => externalPml ? new URL(path, serviceOrigin).href : path;
+    serviceOrigin2 = platform.serviceOrigin;
+    serviceURL = (path) => externalPml ? new URL(path, serviceOrigin2).href : path;
     shellMode = await startupRequest(serviceURL("/mode"), { json: true, timeoutMs: 8e3 });
     if (!shellMode || typeof shellMode.ranked !== "boolean") throw Error("Invalid startup configuration");
     useHub = (externalPml || w.polycupClientShell === "hub") && shellMode.ranked && !new URL(location.href).searchParams.has("host");
     if (useHub && shellMode.account) {
       if (externalPml) {
-        configurePmlAccount(shellMode.account, serviceOrigin);
-        configureClientAssets(serviceOrigin);
+        configurePmlAccount(shellMode.account, serviceOrigin2);
+        configureClientAssets(serviceOrigin2);
       } else configureStandaloneAccount(shellMode.account);
     }
     if (useHub && shellMode.environment === "pilot") {
@@ -54524,19 +54666,19 @@ var init_entry = __esm({
     NativeSocket = w.WebSocket;
     nativeFetch = w.fetch.bind(w);
     nativeOpen = w.XMLHttpRequest.prototype.open;
-    observedFetch = observeFetch(nativeFetch, report, { origin: serviceOrigin, room: () => roomId });
+    observedFetch = observeFetch(nativeFetch, report, { origin: serviceOrigin2, room: () => roomId });
     routeNative = (raw) => {
       const url = new URL(raw, document.baseURI);
       if (externalPml) {
         const owns = !!w.polycupPrototype?.controller?.room || !!w.polycupPrototype?.rankedMatch;
         if (owns && url.origin === "https://vps.kodub.com" && (/^\/v6\/multiplayer\//.test(url.pathname) || url.pathname === "/v6/iceServers")) {
-          const target = new URL(serviceOrigin);
+          const target = new URL(serviceOrigin2);
           url.host = target.host;
           url.protocol = target.protocol;
         }
         return url.href;
       }
-      return nativeRoute(url.href, serviceOrigin, shellMode.nativeOrigin, !!w.polycupCasual && !w.polycupCasualNetwork);
+      return nativeRoute(url.href, serviceOrigin2, shellMode.nativeOrigin, !!w.polycupCasual && !w.polycupCasualNetwork);
     };
     w.fetch = (input, init) => {
       const original = input instanceof Request ? input.url : String(input);
@@ -54556,15 +54698,15 @@ var init_entry = __esm({
           externalPml ? (() => {
             const u = new URL(String(args[0]));
             if ((!!w.polycupPrototype?.controller?.room || !!w.polycupPrototype?.rankedMatch) && u.host === "vps.kodub.com" && /^\/v6\/multiplayer\/(host|join)$/.test(u.pathname)) {
-              const target = new URL(serviceOrigin);
+              const target = new URL(serviceOrigin2);
               u.host = target.host;
               u.protocol = "wss:";
             }
             return u.href;
-          })() : casualSocket(String(args[0]), serviceOrigin, shellMode.nativeOrigin, !!w.polycupCasual && !w.polycupCasualNetwork)
+          })() : casualSocket(String(args[0]), serviceOrigin2, shellMode.nativeOrigin, !!w.polycupCasual && !w.polycupCasualNetwork)
         );
         args[0] = url.href;
-        if (url.host === new URL(serviceOrigin).host && /\/multiplayer\/(host|join)$/.test(url.pathname) && w.polycupNetwork?.token) {
+        if (url.host === new URL(serviceOrigin2).host && /\/multiplayer\/(host|join)$/.test(url.pathname) && w.polycupNetwork?.token) {
           url.searchParams.set("ticket", w.polycupNetwork.token);
           args[0] = url.href;
         }

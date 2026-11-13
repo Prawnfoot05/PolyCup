@@ -5,7 +5,7 @@
 - Season 1: fresh placements and revised ratings that separate skill estimates from visible progression, making isolated losses less punishing without penalizing repeat opponents. DNFs cannot gain rating.
 - A community-voted 30-track ranked pool: 15 Fullspeed and 15 Tech tracks, with 20 seconds to finish after the first racer.
 - Season 0 remains viewable through season selectors, with permanent rank badges revealed on your next hub visit. XP and existing unlocks carry over.
-- Expanded profile statistics and smoother chat, connections, retirement/spectating and casual/friendly match transitions.
+- Expanded profile statistics, official verified PolyTrack placement comparisons beside ranked times, and smoother chat, connections, retirement/spectating and casual/friendly match transitions.
 
 ## 0.6.4 - 2026-11-13
 
