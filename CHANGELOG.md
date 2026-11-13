@@ -1,5 +1,13 @@
 # PolyCup releases
 
+## 0.6.6 - 2026-11-14
+
+- Season 1 launch polish: remove the expired Season 0 countdown panel from the hub.
+- Restore the Mythic achievement tiers in the release reward catalogue.
+- Season reward badges show the player's final seasonal leaderboard position.
+- More reliable official PolyTrack placements, including million-entry leaderboards and automatic retries after temporary lookup failures.
+- Keep leaderboard row highlights contained on Safari.
+
 ## 0.6.5 - 2026-11-14
 
 - Season 1: fresh placements and revised ratings that separate skill estimates from visible progression, making isolated losses less punishing without penalizing repeat opponents. DNFs cannot gain rating.
