@@ -1,9 +1,27 @@
 # PolyCup releases
 
+## 0.6.5 - 2026-11-14
+
+- Strengthened shared chat filtering across community, private messages and match chat, including obfuscated slurs.
+- Prepared Season 1 end-of-season rank reward artwork.
+
+- Season 1 preparation: revised ranked progression, the community-voted 30-track pool and season selectors for archived competitive statistics. Season 1 launches after the scheduled Season 0 drain.
+
+- Full profile track-performance and opponent lists, with searchable, sortable ranked statistics and recorded times.
+- Ranked connection recovery tolerates brief interruptions, reports reconnection clearly, and stops local driving when the connection has ended. Delayed finish delivery retains the original valid finish-time cutoff.
+- Browser context menus no longer interrupt gameplay when using the Context Menu key as a driving control.
+- Community mentions, clearer message replies and match chat during loading, with improved postgame typing and gameplay-message avatars.
+- More reliable casual and friendly starts and round changes, with synchronized readiness and recovery from failed loading.
+- Consistent full-row interactions and result alignment, reply notifications, and better replay retention for disconnected racers.
+
 ## 0.6.4 - 2026-11-13
 
 - Added a Season 1 countdown to the Browser hub.
 - Added Mythic achievement badges for long-term ranked wins, Fullspeed/Tech wins and win streaks.
+
+### 0.6.3 server hotfix - 2026-11-11
+
+- Fixed ranked result delivery getting stuck on older unread matches. Ratings continue to settle normally; confirmation now follows the current match, including for older clients.
 
 ## 0.6.3 - 2026-11-10
 

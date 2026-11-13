@@ -1,6 +1,6 @@
 # PolyCup for PolyModLoader
 
-PolyCup 0.6.4, by Kiki. Ranked and casual multiplayer for PolyTrack 0.6.3, built with PolyModLoader.
+PolyCup 0.6.5, by Kiki. Ranked and casual multiplayer for PolyTrack 0.6.3, built with PolyModLoader.
 
 One-round ranked races, casual FFA and teams, practice while queued, match replays, track leaderboards, and player profiles with social features and unlockable rewards.
 
@@ -16,7 +16,7 @@ Use PML's Mod Library, or import this URL through Mods → Add:
 https://cdn.polymodloader.com/gh/Prawnfoot05/PolyCup/main/dist
 ```
 
-Apply/reload after installation. The current package is **0.6.4** for PolyTrack **0.6.3**; [the distribution manifest](dist/manifest.json) identifies the latest release if the library/CDN is still showing a cached version. Older release files are retained for existing installations.
+Apply/reload after installation. The current package is **0.6.5** for PolyTrack **0.6.3**; [the distribution manifest](dist/manifest.json) identifies the latest release if the library/CDN is still showing a cached version. Older release files are retained for existing installations.
 
 [Standalone client source and build instructions](https://github.com/Prawnfoot05/polycup-client). This repository distributes the PML package.
 

@@ -11,6 +11,7 @@
     "0.6.1": "- Current PolyCup client, sharing accounts, ranked matchmaking, casual lobbies, profiles and replays with polycup.online.\n- Native PML menus and practice are preserved.",
     "0.6.2": "- Finish times in ranked match histories, including your time in the list and every racer's time in individual results.\n- Separate page arrows and previous/next-track navigation on track leaderboards.\n- Consistent rectangular track controls, square player avatars and a cleaner individual match header.\n- The PolyCup boot P is now the site's favicon, with SVG and PNG support.\n- Compatibility fallback for older browser engines missing `checkVisibility`, fixing repeated menu and queue-control errors.\n- Bounded error reporting, graphics-context failure/restoration diagnostics and active-match frame timing for investigating crashes and slow gameplay.",
     "0.6.3": "- Replies in DMs and community chat, plus in-game chat carried into postgame.\n- New level-reward profile banners and a top-three track record showcase.\n- Cleaner, more consistent profiles, leaderboards and player presentation.\n- More reliable match transitions and result delivery, with a 45-second loading timeout.\n- In-game patch notes with release history, available from the hub.",
-    "0.6.4": "Season 1 countdown and Mythic achievement badges for long-term ranked progression."
+    "0.6.4": "Season 1 countdown and Mythic achievement badges for long-term ranked progression.",
+    "0.6.5": "Season 1 preparation, expanded profile statistics, improved chat, and more reliable match transitions."
   }
 }

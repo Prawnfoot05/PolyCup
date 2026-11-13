@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "Season 1 countdown and Mythic achievement badges for long-term ranked progression."
+  "changelog": "Season 1 preparation, expanded profile statistics, improved chat, and more reliable match transitions."
 }
