@@ -6867,7 +6867,8 @@ var init_reward_rarity = __esm({
       uncommon: { name: "Uncommon", color: "#85e0bc" },
       rare: { name: "Rare", color: "#8ecbff" },
       epic: { name: "Epic", color: "#c6adff" },
-      legendary: { name: "Legendary", color: "#ffd76b" }
+      legendary: { name: "Legendary", color: "#ffd76b" },
+      mythic: { name: "Mythic", color: "#ff414c" }
     };
   }
 });
@@ -7803,6 +7804,54 @@ var init_cosmetic_catalog = __esm({
         rarity: "common",
         art: null,
         enabled: true
+      },
+      {
+        id: "fullspeed-6",
+        kind: "achievement",
+        name: "Fullspeed 6",
+        family: "Fullspeed",
+        metric: "fullspeed_wins",
+        target: 750,
+        color: "#ff414c",
+        art: "achievements/fullspeed-6.png",
+        enabled: true,
+        rarity: "mythic"
+      },
+      {
+        id: "tech-6",
+        kind: "achievement",
+        name: "Tech 6",
+        family: "Tech",
+        metric: "tech_wins",
+        target: 750,
+        color: "#ff414c",
+        art: "achievements/tech-6.png",
+        enabled: true,
+        rarity: "mythic"
+      },
+      {
+        id: "wins-1000",
+        kind: "achievement",
+        name: "1,000 wins",
+        family: "Wins",
+        metric: "wins",
+        target: 1e3,
+        color: "#ff414c",
+        art: "achievements/wins-1000.png",
+        enabled: true,
+        rarity: "mythic"
+      },
+      {
+        id: "streak-25",
+        kind: "achievement",
+        name: "25-win streak",
+        family: "Win streaks",
+        metric: "best_streak",
+        target: 25,
+        color: "#ff414c",
+        art: "achievements/streak-25.png",
+        enabled: true,
+        rarity: "mythic"
       }
     ];
   }
@@ -20276,7 +20325,7 @@ var init_reward_editor = __esm({
 .reward-family-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}\r
 .reward-family-heading strong{font-size:18px;font-weight:400}\r
 .reward-family-goal{font-size:15px;color:var(--pc-muted);white-space:nowrap}\r
-.reward-family-medals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}\r
+.reward-family-medals{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}\r
 .player-profile .reward-family-medal{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:72px;width:100%;margin:0;padding:4px;background:transparent;clip-path:none;--focus-cut:0px;color:var(--pc-text);border:0;outline-offset:-2px}\r
 .player-profile .reward-family-medal[aria-pressed=true]{outline:2px solid var(--profile-accent);background:var(--pc-raised)}\r
 .player-profile .reward-family-medal:hover,.player-profile .reward-family-medal:focus-visible{background:var(--pc-panel)}\r

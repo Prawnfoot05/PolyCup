@@ -3,6 +3,7 @@
 ## 0.6.4 - 2026-11-13
 
 - Added a Season 1 countdown to the Browser hub.
+- Added Mythic achievement badges for long-term ranked wins, Fullspeed/Tech wins and win streaks.
 
 ## 0.6.3 - 2026-11-10
 
