@@ -78,11 +78,12 @@ function rankedEndpoint(platform2, action) {
     throw Error("Untrusted PolyCup service origin");
   return platform2.serviceOrigin + "/ranked/" + action;
 }
-var RANKED_CLIENT_PROTOCOL, SERVICE_ORIGINS, RANKED_ACTIONS;
+var RANKED_CLIENT_PROTOCOL, CUP_WIRE_VERSION, SERVICE_ORIGINS, RANKED_ACTIONS;
 var init_client_platform = __esm({
   "src/client-platform.ts"() {
     "use strict";
     RANKED_CLIENT_PROTOCOL = 2;
+    CUP_WIRE_VERSION = "0.6.3";
     SERVICE_ORIGINS = Object.freeze({
       production: "https://polycup.online",
       pilot: "https://pilot.polycup.online"
@@ -920,6 +921,7 @@ var init_draft = __esm({
 // src/cup.ts
 var cup_exports = {};
 __export(cup_exports, {
+  APPLICATION_VERSION: () => APPLICATION_VERSION,
   RULES: () => RULES,
   VERSION: () => VERSION,
   activeIds: () => activeIds,
@@ -1685,15 +1687,17 @@ function publicState(state) {
   const { history, ...rest } = state;
   return copy(rest);
 }
-var VERSION, RULES, copy, safeName;
+var APPLICATION_VERSION, VERSION, RULES, copy, safeName;
 var init_cup = __esm({
   "src/cup.ts"() {
     "use strict";
+    init_client_platform();
     init_teams();
     init_record_awards();
     init_draft();
     init_presets();
-    VERSION = true ? "0.6.4" : LEGACY_VERSION;
+    APPLICATION_VERSION = true ? "0.6.4" : LEGACY_VERSION;
+    VERSION = ["0.6.3", "0.6.4", "0.6.5"].includes(APPLICATION_VERSION) ? CUP_WIRE_VERSION : APPLICATION_VERSION;
     RULES = Object.freeze({
       points: [10, 8, 6, 5, 4, 3, 2, 1],
       target: 140,
@@ -48853,7 +48857,7 @@ var init_ui = __esm({
         this.#playerMenu = new PlayerMenu(this, this.#shadow);
         this.#viewerBadge.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span></span>';
         this.#viewerBadge.hidden = true;
-        const menuVersion = element("div", `PolyCup ${VERSION}`, "menu-version");
+        const menuVersion = element("div", `PolyCup ${APPLICATION_VERSION}`, "menu-version");
         this.#panel = element("section", void 0, "panel polycup-surface");
         this.#panel.setAttribute("aria-label", "PolyCup lobby");
         this.#loadingOverlay.setAttribute("role", "status");
@@ -53997,6 +54001,7 @@ var PolyCup = class _PolyCup extends PolyMod {
     for (const hook of ["preInit", "init", "postInit", "onGameLoad"]) Object.defineProperty(this, hook, { value: _PolyCup.prototype[hook].bind(this), writable: false, configurable: false });
   }
   async preInit(loader) {
+    this.modVersion = CUP_WIRE_VERSION;
     if (loader.polyVersion !== "0.6.3") throw Error("PolyCup requires PolyTrack 0.6.3");
     if (window.polycupPml) throw Error("PolyCup is already loaded");
     this.#physics.install(loader);
