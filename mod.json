@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Season 1 launch polish: remove the expired Season 0 countdown panel from the hub.\n- Restore the Mythic achievement tiers in the release reward catalogue.\n- Season reward badges show the player's final seasonal leaderboard position.\n- More reliable official PolyTrack placements, including million-entry leaderboards and automatic retries after temporary lookup failures.\n- Keep leaderboard row highlights contained on Safari."
+  "changelog": "- Restore ranked multiplayer compatibility across patch releases and prevent cancelled loading attempts from reopening."
 }

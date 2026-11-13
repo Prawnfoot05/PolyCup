@@ -1,5 +1,9 @@
 # PolyCup releases
 
+## 0.6.7 - 2026-11-14
+
+- Restore ranked multiplayer compatibility across patch releases and prevent cancelled loading attempts from reopening.
+
 ## 0.6.6 - 2026-11-14
 
 - Season 1 launch polish: remove the expired Season 0 countdown panel from the hub.
