@@ -2,6 +2,9 @@
 
 ## 0.6.8 - 2026-11-15
 
+- Improve phone keyboard activation in postgame chat with a direct request during a trusted tap.
+- Keep chat editable during slow sends and preserve newer drafts when a send completes.
+
 - Faster official PolyTrack placement comparisons with shared caching and a top-10,000 cutoff; ties retain their exact placement.
 - Restore loading-screen match chat and recover from temporary chat access failures, with improved mobile composer gestures.
 - Stabilize fitted profile titles during refreshes and resizing.

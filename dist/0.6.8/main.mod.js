@@ -10104,17 +10104,38 @@ var init_message_reply2 = __esm({
 });
 
 // src/touch-ui.ts
+function enableTouchKeyboard(input) {
+  if (keyboardTargets.has(input)) return;
+  keyboardTargets.add(input);
+  input.inputMode = "text";
+  let touchEndedAt = -Infinity;
+  input.addEventListener("touchend", (event) => {
+    if (event.isTrusted) touchEndedAt = performance.now();
+  }, { passive: true });
+  input.addEventListener("click", (event) => {
+    const tap = event;
+    const fromTouch = tap.pointerType === "touch" || tap.sourceCapabilities?.firesTouchEvents || performance.now() - touchEndedAt < 500;
+    touchEndedAt = -Infinity;
+    if (!event.isTrusted || input.disabled || input.readOnly || !fromTouch) return;
+    input.focus({ preventScroll: true });
+    try {
+      navigator.virtualKeyboard?.show();
+    } catch {
+    }
+  });
+}
 function protectUITouches(root) {
   if (boundaries.has(root)) return;
   boundaries.add(root);
   for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"])
     root.addEventListener(type, (event) => event.stopPropagation(), { passive: true });
 }
-var boundaries;
+var boundaries, keyboardTargets;
 var init_touch_ui = __esm({
   "src/touch-ui.ts"() {
     "use strict";
     boundaries = /* @__PURE__ */ new WeakSet();
+    keyboardTargets = /* @__PURE__ */ new WeakSet();
   }
 });
 
@@ -10241,6 +10262,7 @@ var init_shared_chat_ui = __esm({
         this.#input.maxLength = 400;
         this.#input.placeholder = "Write a message\u2026";
         this.#input.setAttribute("aria-label", title + " message");
+        enableTouchKeyboard(this.#input);
         this.#input.addEventListener(
           "focus",
           () => window.dispatchEvent(new Event("polycup-social-open"))
@@ -10366,7 +10388,9 @@ var init_shared_chat_ui = __esm({
         if (this.#send.disabled) return;
         this.#feed.typing?.input(false);
         retryDismissedErrors(this.#element);
-        let body = this.#input.value.trim();
+        const draft = this.#input.value;
+        const reply = this.#reply.value;
+        let body = draft.trim();
         for (const [name, id] of [...this.#chosenMentions].sort((a, b) => b[0].length - a[0].length)) {
           const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           body = body.replace(
@@ -10376,20 +10400,22 @@ var init_shared_chat_ui = __esm({
         }
         const generation = this.#generation;
         this.#nonce ||= crypto.randomUUID();
+        const nonce = this.#nonce;
         this.#sending = true;
-        this.#input.readOnly = true;
         this.#updateSend();
         this.#status.textContent = "Sending\u2026";
         this.#status.setAttribute("role", "status");
         try {
-          await this.#feed.send(body, this.#nonce, this.#reply.value?.id);
+          await this.#feed.send(body, nonce, reply?.id);
           if (generation !== this.#generation) return;
-          this.#input.value = "";
-          this.#chosenMentions.clear();
-          this.#mentions.hidden = true;
-          this.#mentionRange = void 0;
-          this.#reply.value = void 0;
-          this.#nonce = "";
+          if (this.#input.value === draft && this.#nonce === nonce) {
+            this.#input.value = "";
+            this.#chosenMentions.clear();
+            this.#mentions.hidden = true;
+            this.#mentionRange = void 0;
+          }
+          if (this.#reply.value === reply) this.#reply.value = void 0;
+          if (this.#nonce === nonce) this.#nonce = "";
           this.#status.textContent = "";
           this.#bottom = true;
           this.render();
@@ -18596,7 +18622,8 @@ var init_release_notes = __esm({
         date: "2026-11-15",
         entries: [
           "Faster official PolyTrack placements with shared caching and a top-10,000 cutoff, including exact placements for ties at the cutoff.",
-          "Restore loading-screen match chat, recover from temporary chat access failures, and improve mobile typing and send gestures.",
+          "Restore loading-screen match chat, recover from temporary chat access failures, and improve mobile keyboard activation and send gestures.",
+          "Keep typing during slow message sends and preserve newer drafts when a send completes.",
           "Keep fitted profile titles stable during refreshes and resizing.",
           "Improve mobile race transitions and starts: clear stale race overlays and garage editors, preserve held controls at GO, and keep native drawing running if a PolyCup frame hook fails.",
           "Show finish times and gaps in friendly 1v1 results."
