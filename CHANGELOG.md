@@ -1,5 +1,13 @@
 # PolyCup releases
 
+## 0.6.8 - 2026-11-15
+
+- Faster official PolyTrack placement comparisons with shared caching and a top-10,000 cutoff; ties retain their exact placement.
+- Restore loading-screen match chat and recover from temporary chat access failures, with improved mobile composer gestures.
+- Stabilize fitted profile titles during refreshes and resizing.
+- Improve mobile race transitions and starts: clear stale race overlays and garage editors, release held controls at GO, and preserve native drawing if a PolyCup frame hook fails.
+- Show finish times and gaps in friendly 1v1 results so close races can be compared after the finish.
+
 ## 0.6.7 - 2026-11-14
 
 - Restore ranked multiplayer compatibility across patch releases and prevent cancelled loading attempts from reopening.

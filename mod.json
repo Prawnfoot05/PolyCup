@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Restore ranked multiplayer compatibility across patch releases and prevent cancelled loading attempts from reopening."
+  "changelog": "- Faster official PolyTrack placements with shared caching and a top-10,000 cutoff, preserving exact ties.\n- Restore loading chat and improve mobile postgame typing.\n- Stabilize fitted profile titles and improve mobile race starts, cleanup and rendering safeguards.\n- Show friendly 1v1 finish times and gaps."
 }
