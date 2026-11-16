@@ -1,5 +1,15 @@
 # PolyCup releases
 
+## 0.7.0 - 2026-11-16
+
+- Flying checkpoint respawns in solo Practice on official, community and imported tracks: tap once for flying recovery, twice for a standing reset.
+- Run estimate shows your surviving run time and checkpoint splits against the selected record, with a rear camera and translucent car during recovery.
+- Full local replays retain failed attempts and both respawn types; native Watch, save and load are supported.
+- Clean practice runs keep normal PolyTrack leaderboard submission. Attempts using a respawn stay local and cannot replace native personal bests.
+
+- Vote between three random ranked tracks after everyone accepts. Each vote is one lottery ticket; account portraits show votes, and split votes reveal the chosen track with an animated highlight and check stamp.
+- Live race standings show each racer's checkpoint progress alongside their name.
+
 ## 0.6.10 - 2026-11-16
 
 - Bigger rewards for genuine ranked upsets, with an underdog payout multiplier up to 2.5x. The favourite's loss formula and existing rating caps stay unchanged.

@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.10",
+  "version": "0.7.0",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Bigger rewards for genuine ranked upsets, with an underdog payout multiplier up to 2.5x. The favourite's loss formula and existing rating caps stay unchanged.\n- Withdrawal wins preserve existing win streaks; verified finished wins still extend them, including against opponents who DNF or leave.\n- Wait for a recent clock-sync reply and rendered game frames before race readiness, reducing unfair late starts.\n- Recover delayed ranked finishes through the authenticated HTTP path, prioritise current finish uploads, and seal input evidence at the finish crossing.\n- Keep the driving-time cutoff fixed while allowing a bounded confirmation phase for delayed finish delivery."
+  "changelog": "- Flying checkpoint respawns in solo Practice on official, community and imported tracks: tap once for flying recovery, twice for a standing reset.\n- Run estimate shows your surviving run time and checkpoint splits against the selected record, with a rear camera and translucent car during recovery.\n- Full local replays retain failed attempts and both respawn types; native Watch, save and load are supported.\n- Clean practice runs keep normal PolyTrack leaderboard submission. Attempts using a respawn stay local and cannot replace native personal bests.\n- Vote between three random ranked tracks after everyone accepts. Each vote is one lottery ticket; account portraits show votes, and split votes reveal the chosen track with an animated highlight and check stamp.\n- Live race standings show each racer's checkpoint progress alongside their name."
 }
