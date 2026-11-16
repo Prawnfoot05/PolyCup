@@ -1,5 +1,9 @@
 # PolyCup releases
 
+## 0.6.9 - 2026-11-16
+
+- Ranked personal bests now save and submit through the native PolyTrack leaderboard path, with official replay validation and no delay to match results.
+
 ## 0.6.8 - 2026-11-15
 
 - Improve phone keyboard activation in postgame chat with a direct request during a trusted tap.

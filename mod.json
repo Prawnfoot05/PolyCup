@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Improve phone keyboard activation in postgame chat with a direct request during a trusted tap.\n- Keep chat editable during slow sends and preserve newer drafts when a send completes.\n\n- Faster official PolyTrack placement comparisons with shared caching and a top-10,000 cutoff; ties retain their exact placement.\n- Restore loading-screen match chat and recover from temporary chat access failures, with improved mobile composer gestures.\n- Stabilize fitted profile titles during refreshes and resizing.\n- Improve mobile race transitions and starts: clear stale race overlays and garage editors, release held controls at GO, and preserve native drawing if a PolyCup frame hook fails.\n- Show finish times and gaps in friendly 1v1 results so close races can be compared after the finish."
+  "changelog": "- Ranked personal bests now save and submit through the native PolyTrack leaderboard path, with official replay validation and no delay to match results."
 }
