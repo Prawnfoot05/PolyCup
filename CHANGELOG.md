@@ -1,5 +1,13 @@
 # PolyCup releases
 
+## 0.6.10 - 2026-11-16
+
+- Bigger rewards for genuine ranked upsets, with an underdog payout multiplier up to 2.5x. The favourite's loss formula and existing rating caps stay unchanged.
+- Withdrawal wins preserve existing win streaks; verified finished wins still extend them, including against opponents who DNF or leave.
+- Wait for a recent clock-sync reply and rendered game frames before race readiness, reducing unfair late starts.
+- Recover delayed ranked finishes through the authenticated HTTP path, prioritise current finish uploads, and seal input evidence at the finish crossing.
+- Keep the driving-time cutoff fixed while allowing a bounded confirmation phase for delayed finish delivery.
+
 ## 0.6.9 - 2026-11-16
 
 - Ranked personal bests now save and submit through the native PolyTrack leaderboard path, with official replay validation and no delay to match results.

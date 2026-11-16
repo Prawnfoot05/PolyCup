@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Ranked personal bests now save and submit through the native PolyTrack leaderboard path, with official replay validation and no delay to match results."
+  "changelog": "- Bigger rewards for genuine ranked upsets, with an underdog payout multiplier up to 2.5x. The favourite's loss formula and existing rating caps stay unchanged.\n- Withdrawal wins preserve existing win streaks; verified finished wins still extend them, including against opponents who DNF or leave.\n- Wait for a recent clock-sync reply and rendered game frames before race readiness, reducing unfair late starts.\n- Recover delayed ranked finishes through the authenticated HTTP path, prioritise current finish uploads, and seal input evidence at the finish crossing.\n- Keep the driving-time cutoff fixed while allowing a bounded confirmation phase for delayed finish delivery."
 }
