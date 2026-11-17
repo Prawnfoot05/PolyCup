@@ -1,5 +1,12 @@
 # PolyCup releases
 
+## 0.7.1 - 2026-11-17
+
+- Flying and double-tap standing respawns now work in ranked and casual races as well as solo Practice. Use R or your checkpoint-reset binding.
+- Clean runs keep native personal bests and official leaderboard uploads; using a respawn disables them for that attempt, and a fresh run restores eligibility.
+- Ranked replays preserve the complete elapsed run, failed attempts and both respawn types while retaining older replay support.
+- Reset the chase camera after start-line recovery and preserve cockpit view and car visibility after respawns.
+
 ## 0.7.0 - 2026-11-16
 
 - Flying checkpoint respawns in solo Practice on official, community and imported tracks: tap once for flying recovery, twice for a standing reset.
