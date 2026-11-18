@@ -2,12 +2,12 @@
   "name": "PolyCup",
   "id": "polytrack-world-cup",
   "author": "Kiki",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "gameVersion": "0.6.3",
   "tags": [
     "Gameplay",
     "UI"
   ],
   "description": "Ranked and casual multiplayer, profiles, progression and replays. Cross-play with polycup.online.",
-  "changelog": "- Flying and double-tap standing respawns now work in ranked and casual races as well as solo Practice. Use R or your checkpoint-reset binding.\n- Clean runs keep native personal bests and official leaderboard uploads; using a respawn disables them for that attempt, and a fresh run restores eligibility.\n- Ranked replays preserve the complete elapsed run, failed attempts and both respawn types while retaining older replay support.\n- Reset the chase camera after start-line recovery and preserve cockpit view and car visibility after respawns."
+  "changelog": "- Ranked Practice runs an unrated solo rotation with one attempt per track and keeps matchmaking active. Clean personal bests can submit to the official PolyTrack leaderboards.\n- Practice the active ranked pool from the new Ranked tracks tab, grouped into Fullspeed and Tech.\n- Show the ranked season countdown above matchmaking.\n- The Hall of Fame shows champions and cumulative records across all completed seasons. The boards update when a season closes.\n- Held keyboard and touch inputs carry through track changes, and releasing during the countdown clears them before GO.\n- Close Garage, Profile and other open menus when a match starts loading and hands off to the race."
 }

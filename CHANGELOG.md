@@ -1,5 +1,14 @@
 # PolyCup releases
 
+## 0.7.2 - 2026-11-18
+
+- Ranked Practice runs an unrated solo rotation with one attempt per track and keeps matchmaking active. Clean personal bests can submit to the official PolyTrack leaderboards.
+- Practice the active ranked pool from the new Ranked tracks tab, grouped into Fullspeed and Tech.
+- Show the ranked season countdown above matchmaking.
+- The Hall of Fame shows champions and cumulative records across all completed seasons. The boards update when a season closes.
+- Held keyboard and touch inputs carry through track changes, and releasing during the countdown clears them before GO.
+- Close Garage, Profile and other open menus when a match starts loading and hands off to the race.
+
 ## 0.7.1 - 2026-11-17
 
 - Flying and double-tap standing respawns now work in ranked and casual races as well as solo Practice. Use R or your checkpoint-reset binding.
