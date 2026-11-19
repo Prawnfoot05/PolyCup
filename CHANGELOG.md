@@ -1,5 +1,10 @@
 # PolyCup releases
 
+## 0.7.3 - 2026-11-19
+
+- The Hall of Fame has an Overall view and a season selector. The current season updates while you browse.
+- Ranked results recover when a late loading response interrupts the match handoff. The ranked controls return when you reopen the hub.
+
 ## 0.7.2 - 2026-11-18
 
 - Ranked Practice runs an unrated solo rotation with one attempt per track and keeps matchmaking active. Clean personal bests can submit to the official PolyTrack leaderboards.
